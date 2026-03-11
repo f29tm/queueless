@@ -35,10 +35,9 @@ class EmailSender {
       ..html = messageBody;
 
     try {
-      final sendReport = await send(message, smtpServer);
-      print('Message sent: \${sendReport.toString()}');
+      await send(message, smtpServer);
     } catch (e) {
-      print('Message not sent. \\n\${e.toString()}');
+      // Intentionally handling error without printing in production
     }
   }
 }

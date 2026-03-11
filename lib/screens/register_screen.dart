@@ -113,6 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     // Check unique
     final emailQuery = await db.collection("users").where("email", isEqualTo: emailController.text).get();
+    if (!mounted) return;
     if (emailQuery.docs.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Email already exists")));
       return;

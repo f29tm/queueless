@@ -39,7 +39,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  String maskEmail(String email) {
+  String maskEmail(String? email) {
+    if (email == null || email.isEmpty) return "No email linked";
     if (!email.contains('@')) return email;
     int index = email.indexOf("@");
     if (index <= 2) {
@@ -130,14 +131,21 @@ class _LoginScreenState extends State<LoginScreen> {
       String otp = (Random().nextInt(900000) + 100000).toString();
       int expireTime = DateTime.now().millisecondsSinceEpoch + 120000;
 
-      String emailToSend = isEmailMode ? userInput : doc["email"];
+      String? emailToSend = isEmailMode ? userInput : data["email"];
       String masked = maskEmail(emailToSend);
 
-      EmailSender.sendEmail(
-        toEmail: emailToSend,
-        subject: "Your Login Verification Code",
-        otp: "Your OTP is: $otp",
-      );
+      if (emailToSend != null && emailToSend.isNotEmpty) {
+        EmailSender.sendEmail(
+          toEmail: emailToSend,
+          subject: "Your Login Verification Code",
+          otp: "Your OTP is: $otp",
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No email linked to send OTP.")),
+        );
+        return; // Alternatively, implement SMS OTP here
+      }
 
       if (!mounted) return;
 
