@@ -55,41 +55,72 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = passwordController.text.trim();
 
     if (isEmailMode) {
-      if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$").hasMatch(userInput)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid email address')));
+      if (!RegExp(
+        r"^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+      ).hasMatch(userInput)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid email address')));
         return;
       }
     } else {
       if (!RegExp(r"^\d{10,15}\$").hasMatch(userInput)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid phone number')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid phone number')),
+        );
         return;
       }
     }
 
     if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password cannot be empty')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Password cannot be empty')));
       return;
     }
 
     String searchField = isEmailMode ? "email" : "phone";
 
     try {
-      final query = await db.collection("users").where(searchField, isEqualTo: userInput).get();
+      final query = await db
+          .collection("users")
+          .where(searchField, isEqualTo: userInput)
+          .get();
 
       if (query.docs.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isEmailMode ? "No account found with this email" : "No account found with this phone number"))
+          SnackBar(
+            content: Text(
+              isEmailMode
+                  ? "No account found with this email"
+                  : "No account found with this phone number",
+            ),
+          ),
         );
         return;
       }
 
       final doc = query.docs.first;
-      final savedPassword = doc["password"];
-      final role = doc["role"];
-      final firstName = doc["firstName"];
+      final data = doc.data(); // Get the Map
+      
+      final savedPassword = data["password"];
+      final role = data["role"];
+      final firstName = data["firstName"];
+      final emailVerified = data.containsKey("emailVerified") ? data["emailVerified"] : false;
+
+      if (!emailVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please verify your email before logging in"),
+          ),
+        );
+        return;
+      }
 
       if (password != savedPassword) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Incorrect password")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Incorrect password")));
         return;
       }
 
@@ -124,9 +155,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
-
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login failed: \${e.toString()}")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login failed: ${e.toString()}")));
     }
   }
 
@@ -142,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () {
               // Language toggle logic can go here
             },
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -151,7 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Text(
               'Sign In',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
             ),
             const SizedBox(height: 20),
             Row(
@@ -161,14 +197,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: setEmailMode,
                   child: Text(
                     'Use Email',
-                    style: TextStyle(color: isEmailMode ? Colors.blue : Colors.grey),
+                    style: TextStyle(
+                      color: isEmailMode ? Colors.blue : Colors.grey,
+                    ),
                   ),
                 ),
                 TextButton(
                   onPressed: setPhoneMode,
                   child: Text(
                     'Use Phone',
-                    style: TextStyle(color: !isEmailMode ? Colors.blue : Colors.grey),
+                    style: TextStyle(
+                      color: !isEmailMode ? Colors.blue : Colors.grey,
+                    ),
                   ),
                 ),
               ],
@@ -176,7 +216,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
             TextField(
               controller: userController,
-              keyboardType: isEmailMode ? TextInputType.emailAddress : TextInputType.phone,
+              keyboardType: isEmailMode
+                  ? TextInputType.emailAddress
+                  : TextInputType.phone,
               decoration: InputDecoration(
                 labelText: isEmailMode ? 'Email Address' : 'Phone Number',
                 border: const OutlineInputBorder(),
@@ -194,7 +236,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: validateLogin,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+              ),
               child: const Text('Login'),
             ),
             const SizedBox(height: 16),
@@ -202,25 +246,47 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResetPasswordScreen())),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ResetPasswordScreen(),
+                    ),
+                  ),
                   child: const Text('Forgot Password?'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  ),
                   child: const Text('Create Account'),
                 ),
               ],
             ),
             const Divider(),
             ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitorHomeScreen())),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.grey[200], foregroundColor: Colors.black),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VisitorHomeScreen()),
+              ),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.grey[200],
+                foregroundColor: Colors.black,
+              ),
               child: const Text('Continue as Visitor'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffLoginScreen())),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.grey[200], foregroundColor: Colors.black),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StaffLoginScreen()),
+              ),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.grey[200],
+                foregroundColor: Colors.black,
+              ),
               child: const Text('Staff Login'),
             ),
           ],

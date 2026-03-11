@@ -72,6 +72,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void validateAllFields() async {
+    // Sanitize inputs
+    String nationalId = nationalIdController.text.replaceAll(RegExp(r'\s|-'), '');
+    String phone = phoneController.text.replaceAll(RegExp(r'\s|-'), '');
+    
     if (firstNameController.text.isEmpty ||
         middleNameController.text.isEmpty ||
         lastNameController.text.isEmpty ||
@@ -82,17 +86,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!RegExp(r"^\d{15}\$").hasMatch(nationalIdController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("National ID must be 15 digits")));
+    if (!RegExp(r"^\d{15}$").hasMatch(nationalId)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("National ID must be exactly 15 digits")));
       return;
     }
 
-    if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$").hasMatch(emailController.text)) {
+    if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(emailController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid email")));
       return;
     }
 
-    if (!RegExp(r"^05\d{8}\$").hasMatch(phoneController.text)) {
+    if (!RegExp(r"^05\d{8}$").hasMatch(phone)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Enter a valid UAE number (e.g., 0501234567)")));
       return;
     }
@@ -126,10 +130,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    saveUserToDatabase(const Uuid().v4());
+    saveUserToDatabase(const Uuid().v4(), nationalId, phone);
   }
 
-  void saveUserToDatabase(String uid) {
+  void saveUserToDatabase(String uid, String sanitizedNationalId, String sanitizedPhone) {
     String email = emailController.text;
     String masked = maskEmail(email);
     String otp = (Random().nextInt(900000) + 100000).toString();
@@ -137,12 +141,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     int expireTime = otpCreatedAt + 120000;
 
     Map<String, dynamic> user = {
-      "nationalID": nationalIdController.text,
+      "nationalID": sanitizedNationalId,
       "firstName": firstNameController.text,
       "middleName": middleNameController.text,
       "lastName": lastNameController.text,
       "email": email,
-      "phone": phoneController.text,
+      "phone": sanitizedPhone,
       "dob": dobController.text,
       "gender": selectedGender,
       "nationality": selectedNationality,
