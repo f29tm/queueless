@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:queueless/screens/register_screen.dart';
-import 'package:queueless/screens/verification_screen.dart';
 import 'package:queueless/screens/visitor_home_screen.dart';
 import 'package:queueless/screens/staff/staff_login_screen.dart';
 import 'package:queueless/screens/reset_password_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/email_sender.dart';
-import 'dart:math';
+import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,7 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   bool isEmailMode = true;
-  final FirebaseFirestore db = FirebaseFirestore.instance;
 
   void setEmailMode() {
     setState(() {
@@ -39,130 +35,35 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  String maskEmail(String? email) {
-    if (email == null || email.isEmpty) return "No email linked";
-    if (!email.contains('@')) return email;
-    int index = email.indexOf("@");
-    if (index <= 2) {
-      return "\${email[0]}***\${email.substring(index)}";
-    }
-    String visible = email.substring(0, 2);
-    String domain = email.substring(index);
-    return "$visible***$domain";
-  }
-
   void validateLogin() async {
     final userInput = userController.text.trim();
     final password = passwordController.text.trim();
 
-    if (isEmailMode) {
-      if (!RegExp(
-        r"^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-      ).hasMatch(userInput)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invalid email address')));
-        return;
-      }
-    } else {
-      if (!RegExp(r"^\d{10,15}\$").hasMatch(userInput)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid phone number')),
-        );
-        return;
-      }
-    }
-
-    if (password.isEmpty) {
+    if (userInput.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Password cannot be empty')));
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
-    String searchField = isEmailMode ? "email" : "phone";
-
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final query = await db
-          .collection("users")
-          .where(searchField, isEqualTo: userInput)
-          .get();
+      await authProvider.signIn(email: userInput, password: password);
 
-      if (query.docs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEmailMode
-                  ? "No account found with this email"
-                  : "No account found with this phone number",
-            ),
-          ),
-        );
-        return;
-      }
-
-      final doc = query.docs.first;
-      final data = doc.data(); // Get the Map
-      
-      final savedPassword = data["password"];
-      final role = data["role"];
-      final firstName = data["firstName"];
-      final emailVerified = data.containsKey("emailVerified") ? data["emailVerified"] : false;
-
-      if (!emailVerified) {
+      // Check if email is verified
+      bool isVerified = await authProvider.isEmailVerified();
+      if (!isVerified) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Please verify your email before logging in"),
           ),
         );
+        await authProvider.signOut(); // Sign out if not verified
         return;
-      }
-
-      if (password != savedPassword) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Incorrect password")));
-        return;
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("patient_name", firstName ?? "");
-
-      String otp = (Random().nextInt(900000) + 100000).toString();
-      int expireTime = DateTime.now().millisecondsSinceEpoch + 120000;
-
-      String? emailToSend = isEmailMode ? userInput : data["email"];
-      String masked = maskEmail(emailToSend);
-
-      if (emailToSend != null && emailToSend.isNotEmpty) {
-        EmailSender.sendEmail(
-          toEmail: emailToSend,
-          subject: "Your Login Verification Code",
-          otp: "Your OTP is: $otp",
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No email linked to send OTP.")),
-        );
-        return; // Alternatively, implement SMS OTP here
       }
 
       if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VerificationScreen(
-            otp: otp,
-            maskedEmail: masked,
-            email: emailToSend,
-            method: isEmailMode ? "email" : "phone",
-            role: role,
-            expireTime: expireTime,
-            isReset: false,
-          ),
-        ),
-      );
+      // Navigation will be handled by AuthWrapper in main.dart
     } catch (e) {
       ScaffoldMessenger.of(
         context,
