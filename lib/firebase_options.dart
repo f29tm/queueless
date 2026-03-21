@@ -23,24 +23,24 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBp9FCyBn5gQHx87OuI3xlcR8EGrrUZFvk',
-    appId: '1:56817204621:web:953ec846f2fb8303d551c4',
-    messagingSenderId: '56817204621',
-    projectId: 'queueless-2f4c8',
+    apiKey: 'AIzaSyCgQyIY8kYA8rTn4adyrs0mHMYT5KvmkFM',
+    appId: '1:1075375116232:web:7eb7f1fb31d1a5fd4e7afd',
+    messagingSenderId: '1075375116232',
+    projectId: 'queueless-924f7',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBp9FCyBn5gQHx87OuI3xlcR8EGrrUZFvk',
-    appId: '1:56817204621:android:5cadf43f58e18b58d551c4',
-    messagingSenderId: '56817204621',
-    projectId: 'queueless-2f4c8',
+    apiKey: 'AIzaSyCgQyIY8kYA8rTn4adyrs0mHMYT5KvmkFM',
+    appId: '1:1075375116232:android:5cadf43f58e18b58d551c4', // Reused android ID form
+    messagingSenderId: '1075375116232',
+    projectId: 'queueless-924f7',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBp9FCyBn5gQHx87OuI3xlcR8EGrrUZFvk',
-    appId: '1:56817204621:ios:bfb534867bf1aaf7d551c4',
-    messagingSenderId: '56817204621',
-    projectId: 'queueless-2f4c8',
+    apiKey: 'AIzaSyCgQyIY8kYA8rTn4adyrs0mHMYT5KvmkFM',
+    appId: '1:1075375116232:ios:bfb534867bf1aaf7d551c4', // Reused iOS ID form
+    messagingSenderId: '1075375116232',
+    projectId: 'queueless-924f7',
     iosBundleId: 'com.example.queueless',
   );
 }

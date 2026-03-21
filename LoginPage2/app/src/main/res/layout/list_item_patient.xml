@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingVertical="12dp"
+    android:paddingHorizontal="8dp"
+    android:background="@android:color/white"
+    android:gravity="center_vertical">
+
+    <!-- Urgency/Status Indicator -->
+    <TextView
+        android:id="@+id/patientUrgencyTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:minWidth="100dp"
+        android:gravity="center"
+        android:text="NORMAL"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:background="@drawable/rounded_tag_bg" />
+
+    <!-- Patient Details -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="16dp">
+
+        <TextView
+            android:id="@+id/patientNameTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Khalid Al Marzouqi"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#1F2937" />
+
+        <TextView
+            android:id="@+id/patientSymptomsTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Symptoms: Severe chest pain (MCQ selected)"
+            android:textSize="14sp"
+            android:textColor="#6B7280" />
+    </LinearLayout>
+
+</LinearLayout>

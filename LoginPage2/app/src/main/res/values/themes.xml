@@ -1,0 +1,25 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- BASE APP THEME -->
+    <style name="Base.Theme.LoginPage" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize theme here if needed -->
+    </style>
+
+    <style name="Theme.LoginPage" parent="Base.Theme.LoginPage" />
+
+    <!-- OTP BOX STYLE -->
+    <style name="OtpBox">
+        <item name="android:layout_width">55dp</item>
+        <item name="android:layout_height">65dp</item>
+        <item name="android:background">@drawable/otp_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:inputType">number</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:maxLength">1</item>
+
+        <!-- Silence warnings -->
+        <item name="android:importantForAutofill">noExcludeDescendants</item>
+    </style>
+
+</resources>

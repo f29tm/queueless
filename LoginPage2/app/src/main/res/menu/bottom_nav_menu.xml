@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Item 1: Home/Dashboard -->
+    <item
+        android:id="@+id/nav_home"
+        android:icon="@drawable/baseline_home_24"
+        android:title="Home" />
+
+    <!-- Item 2: Chatbot (Triage/Support) -->
+    <item
+        android:id="@+id/nav_chatbot"
+        android:icon="@drawable/baseline_chat_24"
+        android:title="Chatbot" />
+
+    <!-- Item 3: Records/History -->
+    <item
+        android:id="@+id/nav_records"
+        android:icon="@drawable/outline_add_chart_24"
+        android:title="Records" />
+
+    <!-- Item 4: Profile/Settings -->
+    <item
+        android:id="@+id/nav_profile"
+        android:icon="@drawable/baseline_account_circle_24"
+        android:title="Profile" />
+
+</menu>

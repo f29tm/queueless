@@ -1,0 +1,132 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:fillViewport="true">
+
+
+<LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Title -->
+        <TextView
+            android:text="@string/otp_title"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#1A73E8"
+            android:layout_marginTop="24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/otp_title" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:text="@string/otp_subtitle"
+            android:textSize="15sp"
+            android:textColor="#444"
+            android:layout_marginTop="20dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/otp_subtitle" />
+
+        <!-- Email (masked) -->
+        <TextView
+            android:id="@+id/tvUserInfo"
+            android:text="@string/otp_email_placeholder"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="#000"
+            android:layout_marginTop="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/otp_email_placeholder" />
+
+        <!-- OTP BOXES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_marginTop="28dp">
+
+            <EditText
+                android:id="@+id/otp1"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+            <EditText
+                android:id="@+id/otp2"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+            <EditText
+                android:id="@+id/otp3"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+            <EditText
+                android:id="@+id/otp4"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+            <EditText
+                android:id="@+id/otp5"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+            <EditText
+                android:id="@+id/otp6"
+                style="@style/OtpBox"
+                android:hint="•"
+                tools:ignore="LabelFor,Autofill" />
+
+
+
+        </LinearLayout>
+
+        <!-- Countdown Timer -->
+        <TextView
+            android:id="@+id/tvTimer"
+            android:text="@string/otp_timer"
+            android:textSize="18sp"
+            android:textColor="#1A73E8"
+            android:layout_marginTop="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/otp_timer" />
+
+        <!-- VERIFY BUTTON -->
+        <Button
+            android:id="@+id/btnVerify"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="@string/otp_verify"
+            android:textSize="18sp"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#1A73E8"
+            android:layout_marginTop="28dp"
+            android:gravity="center"
+            android:contentDescription="@string/otp_verify" />
+
+        <!-- RESEND CODE -->
+        <TextView
+            android:id="@+id/tvResend"
+            android:text="@string/otp_resend"
+            android:textSize="16sp"
+            android:textColor="#1A73E8"
+            android:layout_marginTop="16dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/otp_resend" />
+
+    </LinearLayout>
+</ScrollView>

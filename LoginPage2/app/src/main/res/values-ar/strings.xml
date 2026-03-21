@@ -1,0 +1,76 @@
+<resources>
+
+    <!-- LOGIN PAGE -->
+    <string name="app_name">كيوليس</string>
+    <string name="login_email">تسجيل الدخول بالبريد الإلكتروني</string>
+    <string name="login_phone">تسجيل الدخول برقم الجوال</string>
+    <string name="email_hint">البريد الإلكتروني</string>
+    <string name="phone_hint">رقم الجوال</string>
+    <string name="password">كلمة المرور</string>
+    <string name="forgot_password">هل نسيت كلمة المرور؟</string>
+    <string name="login">تسجيل الدخول</string>
+    <string name="visitor_access">دخول الزائر</string>
+    <string name="staff_login">تسجيل دخول الموظفين</string>
+    <string name="create_account">ليس لديك حساب؟ أنشئ حسابًا جديدًا</string>
+
+    <!-- VERIFICATION PAGE -->
+    <string name="otp_title">التحقق</string>
+    <string name="otp_subtitle">تم إرسال رمز التحقق إلى:</string>
+    <string name="otp_verify">تحقق</string>
+    <string name="otp_resend">إعادة إرسال الرمز</string>
+    <string name="otp_timer">02:00</string>
+
+    <string name="otp_email_placeholder">email@example.com</string>
+
+    <string name="otp_digit_1">الرقم 1</string>
+    <string name="otp_digit_2">الرقم 2</string>
+    <string name="otp_digit_3">الرقم 3</string>
+    <string name="otp_digit_4">الرقم 4</string>
+    <string name="otp_digit_5">الرقم 5</string>
+    <string name="otp_digit_6">الرقم 6</string>
+
+    <!-- SIGNUP PAGE -->
+    <string name="signup_title">أنشئ حساب كيوليس الخاص بك</string>
+    <string name="hint_national_id_iqama">رقم الهوية / الإقامة</string>
+    <string name="hint_passport_number_optional">رقم الجواز (اختياري)</string>
+    <string name="hint_first_name">الاسم الأول</string>
+    <string name="hint_middle_name">اسم الأب</string>
+    <string name="hint_last_name">اسم العائلة</string>
+    <string name="hint_email_address">البريد الإلكتروني</string>
+    <string name="hint_mobile_number">رقم الجوال (+966)</string>
+    <string name="hint_date_of_birth">تاريخ الميلاد</string>
+    <string name="hint_select_nationality">اختر الجنسية</string>
+    <string name="hint_gender">الجنس</string>
+    <string name="hint_marital_status">الحالة الاجتماعية</string>
+    <string name="hint_enter_password">أدخل كلمة المرور</string>
+    <string name="hint_reenter_password">أعد إدخال كلمة المرور</string>
+    <string name="btn_continue">متابعة</string>
+
+    <!-- LANGUAGE MENU -->
+    <string name="change_language">تغيير اللغة</string>
+    <string name="lang_en">الإنجليزية</string>
+    <string name="lang_ar">العربية</string>
+
+    <!-- STAFF DASHBOARD -->
+    <string name="staff_portal">بوابة الموظفين</string>
+    <string name="welcome_visitor">مرحبًا أيها الزائر!</string>
+    <string name="visitor_preview">إليك لمحة عن التطبيق.</string>
+
+    <!-- ERROR MESSAGES -->
+    <string name="error_invalid_email">الرجاء إدخال بريد إلكتروني صحيح</string>
+    <string name="error_no_account_email">لا يوجد حساب مرتبط بهذا البريد الإلكتروني</string>
+    <string name="error_invalid_phone">رقم الجوال يجب أن يكون 10 أرقام</string>
+    <string name="error_no_account_phone">لا يوجد حساب مرتبط بهذا الرقم</string>
+    <string name="error_wrong_password">كلمة المرور غير صحيحة</string>
+
+    <string name="coming_soon">قريبًا!</string>
+    <string name="desc_nationality">اختر الجنسية</string>
+    <string name="desc_gender">اختر الجنس</string>
+
+    <string name="default_web_client_id">
+        142873362817-00fllbg61o1u3toeg4aqeg1k07fo2bri.apps.googleusercontent.com
+    </string>
+
+    <string name="hint_select_gender">اختر الجنس</string>
+
+</resources>

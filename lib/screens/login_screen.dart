@@ -50,18 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await authProvider.signIn(email: userInput, password: password);
 
-      // Check if email is verified
-      bool isVerified = await authProvider.isEmailVerified();
-      if (!isVerified) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please verify your email before logging in"),
-          ),
-        );
-        await authProvider.signOut(); // Sign out if not verified
-        return;
-      }
-
       if (!mounted) return;
       // Navigation will be handled by AuthWrapper in main.dart
     } catch (e) {

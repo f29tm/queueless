@@ -1,0 +1,77 @@
+<resources>
+
+    <!-- LOGIN PAGE -->
+    <string name="app_name">QueueLess</string>
+    <string name="login_email">Login with Email</string>
+    <string name="login_phone">Login with Phone number</string>
+    <string name="email_hint">Email Address</string>
+    <string name="phone_hint">Phone Number</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login">Login</string>
+    <string name="visitor_access">Visitor Access</string>
+    <string name="staff_login">Staff Login</string>
+    <string name="create_account">Don’t have an account? Create one</string>
+
+    <!-- VERIFICATION PAGE -->
+    <string name="otp_title">Verification</string>
+    <string name="otp_subtitle">A verification code was sent to:</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend Code</string>
+    <string name="otp_timer">02:00</string>
+
+    <string name="otp_email_placeholder">email@example.com</string>
+
+    <string name="otp_digit_1">Digit 1</string>
+    <string name="otp_digit_2">Digit 2</string>
+    <string name="otp_digit_3">Digit 3</string>
+    <string name="otp_digit_4">Digit 4</string>
+    <string name="otp_digit_5">Digit 5</string>
+    <string name="otp_digit_6">Digit 6</string>
+
+    <!-- SIGNUP PAGE -->
+    <string name="signup_title">Create Your QueueLess Account</string>
+    <string name="hint_national_id_iqama">National ID / Iqama</string>
+    <string name="hint_passport_number_optional">Passport Number (Optional)</string>
+    <string name="hint_first_name">First name</string>
+    <string name="hint_middle_name">Middle name</string>
+    <string name="hint_last_name">Last name</string>
+    <string name="hint_email_address">Email Address</string>
+    <string name="hint_mobile_number">Mobile Number (+966)</string>
+    <string name="hint_date_of_birth">Date of birth</string>
+    <string name="hint_select_nationality">Select nationality</string>
+    <string name="hint_gender">Gender</string>
+    <string name="hint_marital_status">Marital status</string>
+    <string name="hint_enter_password">Enter your password</string>
+    <string name="hint_reenter_password">Re-enter your password</string>
+    <string name="btn_continue">Continue</string>
+
+    <!-- LANGUAGE MENU -->
+    <string name="change_language">Change Language</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ar">العربية</string>
+
+    <!-- STAFF DASHBOARD -->
+    <string name="staff_portal">Staff Portal</string>
+    <string name="welcome_visitor">Welcome Visitor!</string>
+    <string name="visitor_preview">Here is a preview of the app.</string>
+
+    <!-- ERROR MESSAGES -->
+    <string name="error_invalid_email">Enter a valid email address</string>
+    <string name="error_no_account_email">No account exists with this email</string>
+    <string name="error_invalid_phone">Phone number must be 10 digits</string>
+    <string name="error_no_account_phone">This phone number is not registered</string>
+    <string name="error_wrong_password">Incorrect password</string>
+
+    <string name="coming_soon">Coming soon!</string>
+    <string name="desc_nationality">Select nationality</string>
+    <string name="desc_gender">Select gender</string>
+
+    <string name="default_web_client_id">
+        142873362817-00fllbg61o1u3toeg4aqeg1k07fo2bri.apps.googleusercontent.com
+    </string>
+
+    <!-- FIXED STRING -->
+    <string name="hint_select_gender">Select Gender</string>
+
+</resources>

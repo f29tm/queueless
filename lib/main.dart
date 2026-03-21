@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/patient/patient_hub_screen.dart';
 import 'screens/register_screen.dart';
 import 'providers/auth_provider.dart';
 import 'firebase_options.dart';
@@ -16,6 +17,14 @@ void main() async {
   } catch (e) {
     print("Firebase initialization failed: \$e");
   }
+
+  // Disable ReCAPTCHA for emulator testing
+  try {
+    FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+  } catch (e) {
+    print("Failed to disable app verification: \$e");
+  }
+
   runApp(const QueueLessApp());
 }
 
@@ -37,7 +46,7 @@ class QueueLessApp extends StatelessWidget {
         routes: {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
-          '/home': (context) => const HomeScreen(),
+          '/home': (context) => const PatientHubScreen(),
         },
       ),
     );
@@ -58,7 +67,7 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (authProvider.isAuthenticated) {
-          return const HomeScreen();
+          return const PatientHubScreen();
         } else {
           return const LoginScreen();
         }

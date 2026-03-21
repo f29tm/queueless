@@ -12,19 +12,19 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController nationalIdController = TextEditingController();
-  final TextEditingController firstNameController = TextEditingController();
-  final TextEditingController middleNameController = TextEditingController();
-  final TextEditingController lastNameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController dobController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController nationalIdController = TextEditingController(text: "123456789012345");
+  final TextEditingController firstNameController = TextEditingController(text: "Fatima");
+  final TextEditingController middleNameController = TextEditingController(text: "M");
+  final TextEditingController lastNameController = TextEditingController(text: "Test");
+  final TextEditingController emailController = TextEditingController(text: "ftm3az@gmail.com");
+  final TextEditingController phoneController = TextEditingController(text: "0505166438");
+  final TextEditingController dobController = TextEditingController(text: "01/01/2000");
+  final TextEditingController passwordController = TextEditingController(text: "Strong@Pass1");
   final TextEditingController confirmPasswordController =
-      TextEditingController();
+      TextEditingController(text: "Strong@Pass1");
 
-  String? selectedGender;
-  String? selectedNationality;
+  String? selectedGender = "Female";
+  String? selectedNationality = "Lebanon";
 
   final List<String> genders = ["Male", "Female"];
   final List<String> nationalities = [
@@ -99,7 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!RegExp(r"^\d{15}\$").hasMatch(nationalIdController.text)) {
+    if (!RegExp(r"^\d{15}$").hasMatch(nationalIdController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("National ID must be 15 digits")),
       );
@@ -115,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!RegExp(r"^05\d{8}\$").hasMatch(phoneController.text)) {
+    if (!RegExp(r"^05\d{8}$").hasMatch(phoneController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Enter a valid UAE number (e.g., 0501234567)"),
