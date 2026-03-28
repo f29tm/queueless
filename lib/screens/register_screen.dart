@@ -12,19 +12,32 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController nationalIdController = TextEditingController(text: "123456789012345");
-  final TextEditingController firstNameController = TextEditingController(text: "Fatima");
-  final TextEditingController middleNameController = TextEditingController(text: "M");
-  final TextEditingController lastNameController = TextEditingController(text: "Test");
-  final TextEditingController emailController = TextEditingController(text: "ftm3az@gmail.com");
-  final TextEditingController phoneController = TextEditingController(text: "0505166438");
-  final TextEditingController dobController = TextEditingController(text: "01/01/2000");
-  final TextEditingController passwordController = TextEditingController(text: "Strong@Pass1");
-  final TextEditingController confirmPasswordController =
-      TextEditingController(text: "Strong@Pass1");
+  // Prefilled details for testing:
+  // final TextEditingController nationalIdController = TextEditingController(text: "123456789012345");
+  // final TextEditingController firstNameController = TextEditingController(text: "Fatima");
+  // final TextEditingController middleNameController = TextEditingController(text: "M");
+  // final TextEditingController lastNameController = TextEditingController(text: "Test");
+  // final TextEditingController emailController = TextEditingController(text: "ftm3az@gmail.com");
+  // final TextEditingController phoneController = TextEditingController(text: "0505166438");
+  // final TextEditingController dobController = TextEditingController(text: "01/01/2000");
+  // final TextEditingController passwordController = TextEditingController(text: "Strong@Pass1");
+  // final TextEditingController confirmPasswordController = TextEditingController(text: "Strong@Pass1");
+  // String? selectedGender = "Female";
+  // String? selectedNationality = "Lebanon";
 
-  String? selectedGender = "Female";
-  String? selectedNationality = "Lebanon";
+  final TextEditingController nationalIdController = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController middleNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController dobController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  String? selectedGender;
+  String? selectedNationality;
 
   final List<String> genders = ["Male", "Female"];
   final List<String> nationalities = [

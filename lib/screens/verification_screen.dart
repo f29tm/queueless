@@ -100,33 +100,97 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Verification')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            Text(
-              'Sent to: \${widget.maskedEmail}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: otpController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Enter OTP',
-                border: OutlineInputBorder(),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(''),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 24),
+              const Text(
+                'Enter OTP',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A73E8),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: verifyOtp,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
+              const SizedBox(height: 20),
+              const Text(
+                'Please enter the 6-digit code sent to your email.',
+                style: TextStyle(fontSize: 15, color: Color(0xFF444444)),
+                textAlign: TextAlign.center,
               ),
-              child: const Text('Verify'),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                widget.maskedEmail,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 28),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                maxLength: 6,
+                decoration: InputDecoration(
+                  hintText: '••••••',
+                  counterText: "",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '02:00', // Mock timer, could be implemented correctly later
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Color(0xFF1A73E8),
+                ),
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: verifyOtp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A73E8),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Verify',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  // Resend code logic
+                },
+                child: const Text(
+                  'Resend Code',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF1A73E8),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
