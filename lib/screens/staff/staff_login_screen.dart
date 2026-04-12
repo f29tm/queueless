@@ -1,6 +1,7 @@
+
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'staff_hub_screen.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class StaffLoginScreen extends StatefulWidget {
   const StaffLoginScreen({super.key});
@@ -10,180 +11,191 @@ class StaffLoginScreen extends StatefulWidget {
 }
 
 class _StaffLoginScreenState extends State<StaffLoginScreen> {
-  final TextEditingController userController = TextEditingController();
+  final TextEditingController staffIdController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  bool isEmailMode = true;
-  bool isLoading = false;
-  String? errorMessage;
-
-  void setEmailMode() {
-    setState(() {
-      isEmailMode = true;
-      userController.clear();
-      passwordController.clear();
-      errorMessage = null;
-    });
-  }
-
-  void setStaffIdMode() {
-    setState(() {
-      isEmailMode = false;
-      userController.clear();
-      passwordController.clear();
-      errorMessage = null;
-    });
-  }
-
-  void validateLogin() async {
-    final userInput = userController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (userInput.isEmpty || password.isEmpty) {
-      setState(() => errorMessage = "Please fill all fields");
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final db = FirebaseFirestore.instance;
-      // In a real app we would use FirebaseAuth for staff too. 
-      // But preserving the Android Studio logic where "staff" is a custom collection 
-      // validated directly by querying the Firestore database for mock testing.
-      final querySnapshot = await db
-          .collection('staff')
-          .where(isEmailMode ? 'email' : 'staffId', isEqualTo: userInput)
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isEmpty) {
-        setState(() => errorMessage = "⚠ You are not authorized as hospital staff.");
-        setState(() => isLoading = false);
-        return;
-      }
-
-      final doc = querySnapshot.docs.first;
-      final storedPassword = doc.data()['password'] as String?;
-
-      if (password != storedPassword) {
-        setState(() => errorMessage = "Incorrect password");
-        setState(() => isLoading = false);
-        return;
-      }
-
-      // Password correct -> Proceed to Staff Hub 
-      // (Bypassing OTP for simplicity in this port unless requested)
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const StaffHubScreen()),
-      );
-
-    } catch (e) {
-      setState(() => errorMessage = "Error connecting to Firestore: $e");
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
-  }
+  bool obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Staff Login'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: const Color(0xFFF6F8FB),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Icon(Icons.local_hospital, size: 80, color: Colors.teal),
-            const SizedBox(height: 16),
-            const Text(
-              'Authorized Personnel Only',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: setEmailMode,
-                  child: Text(
-                    'Use Email',
-                    style: TextStyle(
-                      color: isEmailMode ? Colors.teal : Colors.grey,
-                      fontWeight: isEmailMode ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: setStaffIdMode,
-                  child: Text(
-                    'Use Staff ID',
-                    style: TextStyle(
-                      color: !isEmailMode ? Colors.teal : Colors.grey,
-                      fontWeight: !isEmailMode ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (errorMessage != null) ...[
-              Text(
-                errorMessage!,
-                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-            ],
-            TextField(
-              controller: userController,
-              keyboardType: isEmailMode
-                  ? TextInputType.emailAddress
-                  : TextInputType.text,
-              decoration: InputDecoration(
-                labelText: isEmailMode ? 'Email Address' : 'Staff ID (e.g. ST12345)',
-                border: const OutlineInputBorder(),
-                prefixIcon: Icon(isEmailMode ? Icons.email : Icons.badge),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
+            // ✅ HEADER
+            Container(
               width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: isLoading ? null : validateLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
+              height: 260,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF009688), Color(0xFF00796B)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                child: isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Login As Staff', style: TextStyle(fontSize: 16)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF2F2F2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Image.asset(
+                      "assets/images/logo.png",
+                      width: 70,
+                      height: 70,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Staff Portal",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Authorized staff only",
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+
+            // ✅ FORM AREA
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Staff Login",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "Use your Staff ID and password",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+
+                  _input(staffIdController, "Staff ID", Icons.perm_identity),
+                  const SizedBox(height: 16),
+
+                  _passwordField(),
+                  const SizedBox(height: 24),
+
+                  // ✅ LOGIN BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final error = await auth.staffSignIn(
+                          staffId: staffIdController.text.trim(),
+                          password: passwordController.text.trim(),
+                        );
+
+                        if (error != null) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(error)));
+                        } else {
+                          if (!mounted) return;
+                          Navigator.pop(context); // AuthGate handles routing
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF009688),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        "Login",
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Center(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Text(
+                        "← Back to User Login",
+                        style: TextStyle(
+                          color: Color(0xFF009688),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  )
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _input(TextEditingController c, String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F5F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: TextField(
+        controller: c,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: const Color(0xFF009688)),
+          labelText: label,
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F5F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: TextField(
+        controller: passwordController,
+        obscureText: obscurePassword,
+        decoration: InputDecoration(
+          prefixIcon:
+              const Icon(Icons.lock_outline, color: Color(0xFF009688)),
+          labelText: "Password",
+          border: InputBorder.none,
+          suffixIcon: IconButton(
+            icon: Icon(
+                obscurePassword ? Icons.visibility_off : Icons.visibility),
+            onPressed: () {
+              setState(() => obscurePassword = !obscurePassword);
+            },
+          ),
         ),
       ),
     );
