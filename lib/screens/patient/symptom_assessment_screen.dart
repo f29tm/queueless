@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'symptom_result_screen.dart';
 
@@ -11,13 +14,13 @@ class SymptomAssessmentScreen extends StatefulWidget {
 
 class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     with SingleTickerProviderStateMixin {
-
   late TabController tabController;
 
-  // ✅ Store selected symptoms
   final Set<String> selectedSymptoms = {};
+  final TextEditingController descriptionController = TextEditingController();
 
-  // ✅ Full categories + symptoms
+  bool isSaving = false;
+
   final Map<String, List<String>> symptomCategories = {
     "Chest & Heart": [
       "Chest pain",
@@ -71,7 +74,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     ],
   };
 
-  // ✅ Category Icons
   final Map<String, IconData> categoryIcons = {
     "Chest & Heart": Icons.favorite_border,
     "Head & Neurological": Icons.psychology_outlined,
@@ -82,12 +84,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     "Mental Health": Icons.self_improvement,
   };
 
-  final TextEditingController descriptionController = TextEditingController();
-
   @override
   void initState() {
-    tabController = TabController(length: 2, vsync: this);
     super.initState();
+    tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    tabController.dispose();
+    descriptionController.dispose();
+    super.dispose();
   }
 
   void toggleSymptom(String symptom) {
@@ -100,18 +107,202 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     });
   }
 
+  Map<String, String> _generateSimpleTriageResult() {
+    final selected = selectedSymptoms.map((e) => e.toLowerCase()).toList();
+    final description = descriptionController.text.trim().toLowerCase();
+
+    String urgencyLevel = "normal";
+    String priorityColor = "green";
+    String aiReason = "Symptoms appear non-urgent based on current rules.";
+    String recommendedNextStep =
+        "Monitor symptoms and book a regular consultation if needed.";
+
+    final emergencyKeywords = [
+      "chest pain",
+      "shortness of breath",
+      "trouble breathing",
+      "radiating jaw pain",
+      "seizures",
+      "confusion",
+      "weakness",
+      "numbness",
+      "coughing blood",
+      "blood in stool",
+      "persistent vomiting",
+    ];
+
+    final urgentKeywords = [
+      "dizziness",
+      "fever",
+      "abdominal pain",
+      "vomiting",
+      "persistent cough",
+      "vision changes",
+      "heart palpitations",
+      "chest tightness",
+    ];
+
+    final bool isEmergency =
+        selected.any((s) => emergencyKeywords.contains(s)) ||
+            emergencyKeywords.any((k) => description.contains(k));
+
+    final bool isUrgent = selected.any((s) => urgentKeywords.contains(s)) ||
+        urgentKeywords.any((k) => description.contains(k));
+
+    if (isEmergency) {
+      urgencyLevel = "emergency";
+      priorityColor = "red";
+      aiReason =
+          "Reported symptoms may indicate a serious condition requiring immediate attention.";
+      recommendedNextStep =
+          "Proceed immediately to the emergency triage desk.";
+    } else if (isUrgent) {
+      urgencyLevel = "urgent";
+      priorityColor = "orange";
+      aiReason = "Reported symptoms may require prompt medical evaluation.";
+      recommendedNextStep = "Proceed to urgent triage desk for assessment.";
+    }
+
+    return {
+      'urgencyLevel': urgencyLevel,
+      'priorityColor': priorityColor,
+      'aiReason': aiReason,
+      'recommendedNextStep': recommendedNextStep,
+    };
+  }
+
+  Future<void> _saveAssessmentFlowToFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      throw Exception("No logged-in user found.");
+    }
+
+    final firestore = FirebaseFirestore.instance;
+    final uid = user.uid;
+
+    final triageData = _generateSimpleTriageResult();
+
+    // 1) Create check-in
+    final checkInRef = firestore.collection('checkIns').doc();
+
+    await checkInRef.set({
+      'checkInId': checkInRef.id,
+      'patientId': uid,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'queueId': '',
+      'etaMinutes': 0,
+      'arrivalConfirmed': false,
+      'triageResultId': '',
+    });
+
+    // 2) Create symptoms
+    final symptomRef = firestore.collection('symptoms').doc();
+
+    await symptomRef.set({
+      'symptomId': symptomRef.id,
+      'checkInId': checkInRef.id,
+      'patientId': uid,
+      'selectedSymptoms': selectedSymptoms.toList(),
+      'description': descriptionController.text.trim(),
+      'language': 'en',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3) Create triage result
+    final triageRef = firestore.collection('triageResults').doc();
+
+    await triageRef.set({
+      'triageResultId': triageRef.id,
+      'checkInId': checkInRef.id,
+      'patientId': uid,
+      'urgencyLevel': triageData['urgencyLevel'],
+      'priorityColor': triageData['priorityColor'],
+      'aiReason': triageData['aiReason'],
+      'recommendedNextStep': triageData['recommendedNextStep'],
+      'reviewedByStaff': false,
+      'overriddenBy': '',
+      'finalUrgency': triageData['urgencyLevel'],
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // 4) Update check-in with triage result ID
+    await checkInRef.update({
+      'triageResultId': triageRef.id,
+    });
+
+    debugPrint("✅ Full assessment flow saved");
+    debugPrint("👤 UID: $uid");
+    debugPrint("🩺 CheckIn ID: ${checkInRef.id}");
+    debugPrint("📝 Symptom ID: ${symptomRef.id}");
+    debugPrint("🚦 TriageResult ID: ${triageRef.id}");
+  }
+
+  Future<void> _handleGetAssessment() async {
+    if (selectedSymptoms.isEmpty &&
+        descriptionController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select or describe at least one symptom."),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+    });
+
+    try {
+      await _saveAssessmentFlowToFirestore();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Assessment saved successfully")),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SymptomResultScreen(
+            selectedSymptoms: selectedSymptoms.toList(),
+            description: descriptionController.text.trim(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ ERROR: $e")),
+      );
+
+      debugPrint("🔥 Firestore ERROR: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.2,
         centerTitle: true,
         title: const Text(
           "Symptom Assessment",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
         bottom: TabBar(
           controller: tabController,
@@ -124,9 +315,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
           ],
         ),
       ),
-
       bottomNavigationBar: _buildBottomBar(),
-
       body: TabBarView(
         controller: tabController,
         children: [
@@ -137,7 +326,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     );
   }
 
-  // ✅ SELECT TAB
   Widget _buildSelectTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -147,7 +335,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     );
   }
 
-  // ✅ DESCRIBE TAB
   Widget _buildDescribeTab() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -165,7 +352,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     );
   }
 
-  // ✅ CATEGORY EXPANSION TILE (with icons + clean chips)
   Widget _buildCategoryTile(String category, List<String> symptoms) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -184,8 +370,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
         initiallyExpanded: false,
         iconColor: Colors.teal,
         collapsedIconColor: Colors.teal,
-
-        // ✅ Category Title with Icon
         title: Row(
           children: [
             Icon(
@@ -202,7 +386,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
             ),
           ],
         ),
-
         children: [
           Wrap(
             spacing: 8,
@@ -214,21 +397,22 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
                 onTap: () => toggleSymptom(symptom),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? Colors.teal.shade50 : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isSelected
-                          ? Colors.teal
-                          : Colors.grey.shade300,
+                      color: isSelected ? Colors.teal : Colors.grey.shade300,
                       width: 1.2,
                     ),
                   ),
                   child: Text(
                     symptom,
                     style: TextStyle(
-                      color: isSelected ? Colors.teal.shade900 : Colors.black87,
+                      color:
+                          isSelected ? Colors.teal.shade900 : Colors.black87,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
@@ -243,7 +427,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     );
   }
 
-  // ✅ Bottom Bar
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -264,29 +447,30 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
             style: const TextStyle(color: Colors.grey, fontSize: 14),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SymptomResultScreen(
-                    selectedSymptoms: selectedSymptoms.toList(),
-                    description: descriptionController.text,
-                  ),
-                ),
-              );
-            },
+            onPressed: isSaving ? null : _handleGetAssessment,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal,
               padding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 12),
+                horizontal: 20,
+                vertical: 12,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
             ),
-            child: const Text(
-              "Get Assessment →",
-              style: TextStyle(fontSize: 16, color: Colors.white),
-            ),
+            child: isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    "Get Assessment →",
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
           ),
         ],
       ),

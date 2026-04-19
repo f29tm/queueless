@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +6,9 @@ import 'arrival_checkin_screen.dart';
 import 'symptom_assessment_screen.dart';
 import 'medication_tracker_screen.dart';
 import 'profile_screen.dart';
+import 'records_screen.dart';
+import 'book_appointment_screen.dart';
+import 'online_consultation_screen.dart';
 
 class PatientHubScreen extends StatefulWidget {
   const PatientHubScreen({super.key});
@@ -20,23 +22,21 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context); // ✅ REQUIRED
+    final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
-
       body: SafeArea(
         child: IndexedStack(
           index: _selectedIndex,
           children: [
             _buildHome(context, authProvider),
             _buildChatbotPlaceholder(),
-            _buildRecordsPlaceholder(),
+            const RecordsScreen(),
             const ProfileScreen(),
           ],
         ),
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -49,19 +49,23 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
             label: "Home",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
             label: "Chatbot",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.folder),
+            icon: Icon(Icons.folder_outlined),
+            activeIcon: Icon(Icons.folder),
             label: "Records",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
             label: "Profile",
           ),
         ],
@@ -69,7 +73,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     );
   }
 
-  // ✅ CHATBOT PLACEHOLDER
   Widget _buildChatbotPlaceholder() {
     return const Center(
       child: Text(
@@ -79,25 +82,12 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     );
   }
 
-  // ✅ RECORDS PLACEHOLDER
-  Widget _buildRecordsPlaceholder() {
-    return const Center(
-      child: Text(
-        "Records coming soon",
-        style: TextStyle(fontSize: 18, color: Colors.grey),
-      ),
-    );
-  }
-
-  // ✅ HOME CONTENT (with dynamic name)
   Widget _buildHome(BuildContext context, AuthProvider authProvider) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // ✅ HEADER (NOW DYNAMIC)
           Row(
             children: [
               Image.asset(
@@ -106,14 +96,14 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
                 height: 80,
               ),
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Welcome back,", style: TextStyle(color: Colors.grey)),
-
-                    // ✅ THIS IS THE FIX — SHOW NAME FROM FIRESTORE
+                    const Text(
+                      "Welcome back,",
+                      style: TextStyle(color: Colors.grey),
+                    ),
                     Text(
                       authProvider.userName ?? "User",
                       style: const TextStyle(
@@ -124,7 +114,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
                   ],
                 ),
               ),
-
               IconButton(
                 onPressed: () {},
                 icon: const Icon(Icons.notifications_none),
@@ -139,14 +128,11 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 28),
-
           const Text(
             "Quick Actions",
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 16),
 
           _actionRow(
@@ -158,7 +144,9 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SymptomAssessmentScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const SymptomAssessmentScreen(),
+                  ),
                 );
               },
             ),
@@ -170,7 +158,9 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ArrivalCheckInScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ArrivalCheckInScreen(),
+                  ),
                 );
               },
             ),
@@ -185,8 +175,11 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               title: "Book Appointment",
               subtitle: "Schedule a visit",
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Booking coming soon")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BookAppointmentScreen(),
+                  ),
                 );
               },
             ),
@@ -196,8 +189,11 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               title: "Consult Online",
               subtitle: "Talk to a doctor",
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Online consultation coming soon")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const OnlineConsultationScreen(),
+                  ),
                 );
               },
             ),
@@ -214,7 +210,9 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const MedicationTrackerScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const MedicationTrackerScreen(),
+                  ),
                 );
               },
             ),
@@ -237,13 +235,32 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             "How It Works",
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 16),
 
-          _howItWorksItem("1", "Report Symptoms", "Describe how you're feeling", Icons.edit_note),
-          _howItWorksItem("2", "Get Assessed", "Severity assessment", Icons.analytics_outlined),
-          _howItWorksItem("3", "Arrive & Check In", "Skip the queue", Icons.location_on_outlined),
-          _howItWorksItem("4", "Follow Your Path", "Step‑by‑step care", Icons.timeline_outlined),
+          _howItWorksItem(
+            "1",
+            "Report Symptoms",
+            "Describe how you're feeling",
+            Icons.edit_note,
+          ),
+          _howItWorksItem(
+            "2",
+            "Get Assessed",
+            "Severity assessment",
+            Icons.analytics_outlined,
+          ),
+          _howItWorksItem(
+            "3",
+            "Arrive & Check In",
+            "Skip the queue",
+            Icons.location_on_outlined,
+          ),
+          _howItWorksItem(
+            "4",
+            "Follow Your Path",
+            "Step-by-step care",
+            Icons.timeline_outlined,
+          ),
         ],
       ),
     );
@@ -296,9 +313,15 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -308,7 +331,12 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     );
   }
 
-  Widget _howItWorksItem(String number, String title, String subtitle, IconData icon) {
+  Widget _howItWorksItem(
+    String number,
+    String title,
+    String subtitle,
+    IconData icon,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
@@ -334,9 +362,15 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               ],
             ),
           ),
