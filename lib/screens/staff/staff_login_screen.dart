@@ -1,7 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'staff_dashboard_screen.dart';
+import '../doctor/doctor_dashboard_screen.dart';
 
 class StaffLoginScreen extends StatefulWidget {
   const StaffLoginScreen({super.key});
@@ -17,21 +18,69 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   bool obscurePassword = true;
 
   @override
-  Widget build(BuildContext context) {
+  void dispose() {
+    staffIdController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
+    final error = await auth.staffSignIn(
+      staffId: staffIdController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    final role = auth.userRole?.toLowerCase().trim();
+
+    if (role == "doctor") {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const DoctorDashboardScreen(),
+        ),
+        (route) => false,
+      );
+    } else if (role == "staff") {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const StaffDashboardScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Invalid role. Please contact admin."),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ✅ HEADER
             Container(
               width: double.infinity,
               height: 260,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF009688), Color(0xFF00796B)],
+                  colors: [Color(0xFF2446B8), Color(0xFF1C3795)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -42,7 +91,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Color(0xFFF2F2F2),
+                      color: const Color(0xFFF2F2F2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Image.asset(
@@ -69,7 +118,6 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               ),
             ),
 
-            // ✅ FORM AREA
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -100,27 +148,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   _passwordField(),
                   const SizedBox(height: 24),
 
-                  // ✅ LOGIN BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final error = await auth.staffSignIn(
-                          staffId: staffIdController.text.trim(),
-                          password: passwordController.text.trim(),
-                        );
-
-                        if (error != null) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text(error)));
-                        } else {
-                          if (!mounted) return;
-                          Navigator.pop(context); // AuthGate handles routing
-                        }
-                      },
+                      onPressed: _login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF009688),
+                        backgroundColor: const Color(0xFF2446B8),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -141,7 +174,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                       child: const Text(
                         "← Back to User Login",
                         style: TextStyle(
-                          color: Color(0xFF009688),
+                          color: Color(0xFF2446B8),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -166,7 +199,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
       child: TextField(
         controller: c,
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: const Color(0xFF009688)),
+          prefixIcon: Icon(icon, color: const Color(0xFF2446B8)),
           labelText: label,
           border: InputBorder.none,
         ),
@@ -185,15 +218,17 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
         controller: passwordController,
         obscureText: obscurePassword,
         decoration: InputDecoration(
-          prefixIcon:
-              const Icon(Icons.lock_outline, color: Color(0xFF009688)),
+          prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF2446B8)),
           labelText: "Password",
           border: InputBorder.none,
           suffixIcon: IconButton(
             icon: Icon(
-                obscurePassword ? Icons.visibility_off : Icons.visibility),
+              obscurePassword ? Icons.visibility_off : Icons.visibility,
+            ),
             onPressed: () {
-              setState(() => obscurePassword = !obscurePassword);
+              setState(() {
+                obscurePassword = !obscurePassword;
+              });
             },
           ),
         ),

@@ -18,93 +18,26 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   String? selectedHospital;
   String? selectedDepartment;
   String? selectedDoctor;
+  String? selectedDoctorUid;
+  String? selectedDoctorSpecialty;
   String? selectedDate;
   String? selectedTime;
 
   final Map<String, List<String>> hospitals = {
-    "Dubai Hospital": [
+    "NMC Specialty Hospital": [
+      "Emergency Medicine",
       "Cardiology",
       "Dermatology",
-      "Neurology",
-      "Orthopedics",
-      "Pediatrics",
       "ENT",
       "Internal Medicine",
-      "Gynecology",
       "Ophthalmology",
-      "Emergency"
-    ],
-    "Rashid Hospital": [
-      "Cardiology",
-      "Emergency",
-      "General Surgery",
-      "Neurology",
-      "Orthopedics",
-      "Pediatrics",
-      "ENT"
-    ],
-    "Latifa Hospital": [
-      "Gynecology",
-      "Pediatrics",
-      "Internal Medicine",
-      "Dermatology",
-      "Cardiology"
-    ],
-    "Al Baraha Hospital": [
-      "Internal Medicine",
-      "Dermatology",
-      "ENT",
-      "General Medicine"
-    ],
-  };
-
-  final Map<String, List<String>> doctorsByDepartment = {
-    "Cardiology": [
-      "Dr. Ahmed Al Rashid",
-      "Dr. Sarah Ali",
-    ],
-    "Dermatology": [
-      "Dr. Noor Hassan",
-      "Dr. Lina Kareem",
-    ],
-    "Neurology": [
-      "Dr. Omar Saeed",
-      "Dr. Rania Adel",
-    ],
-    "Orthopedics": [
-      "Dr. Khalid Mansoor",
-      "Dr. Yara Nabil",
-    ],
-    "Pediatrics": [
-      "Dr. Huda Salem",
-      "Dr. Faisal Ahmed",
-    ],
-    "ENT": [
-      "Dr. Mariam Yusuf",
-      "Dr. Tareq Hasan",
-    ],
-    "Internal Medicine": [
-      "Dr. Reem Anwar",
-      "Dr. Basel Nader",
-    ],
-    "Gynecology": [
-      "Dr. Haneen Ali",
-      "Dr. Farah Saad",
-    ],
-    "Ophthalmology": [
-      "Dr. Noura Saif",
-      "Dr. Zaid Karim",
-    ],
-    "Emergency": [
-      "Emergency Team",
-    ],
-    "General Surgery": [
-      "Dr. Ahmed Fawzi",
-      "Dr. Sameer Adel",
-    ],
-    "General Medicine": [
-      "Dr. Sarah Ali",
-      "Dr. Mohammed Yusuf",
+      "Gastroenterology",
+      "Neuroscience",
+      "Paediatrics",
+      "Pulmonology",
+      "Dentistry",
+      "Family Medicine",
+      "Orthopaedics",
     ],
   };
 
@@ -130,6 +63,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     super.dispose();
   }
 
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
+
   void nextStep() {
     if (currentStep == 0 && selectedHospital == null) {
       _showSnack("Please select a hospital.");
@@ -141,7 +80,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       return;
     }
 
-    if (currentStep == 2 && selectedDoctor == null) {
+    if (currentStep == 2 && selectedDoctorUid == null) {
       _showSnack("Please select a doctor.");
       return;
     }
@@ -168,14 +107,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
-  }
-
   Future<void> _confirmBooking() async {
     final user = FirebaseAuth.instance.currentUser;
+
     if (user == null) {
       _showSnack("No logged in user found.");
       return;
@@ -183,7 +117,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
     if (selectedHospital == null ||
         selectedDepartment == null ||
-        selectedDoctor == null ||
+        selectedDoctorUid == null ||
         selectedDate == null ||
         selectedTime == null) {
       _showSnack("Please complete all booking steps.");
@@ -204,6 +138,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         'hospital': selectedHospital,
         'department': selectedDepartment,
         'doctorName': selectedDoctor,
+        'doctorUid': selectedDoctorUid,
+        'doctorSpecialty': selectedDoctorSpecialty,
         'date': selectedDate,
         'time': selectedTime,
         'reason': reasonController.text.trim().isEmpty
@@ -237,8 +173,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context); // close dialog
-                    Navigator.pop(context); // back to previous screen
+                    Navigator.pop(context);
+                    Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0F8B8D),
@@ -364,10 +300,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         const SizedBox(height: 6),
         const Text(
           "Choose a hospital near you",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 22),
         ...hospitals.entries.map(
@@ -381,6 +314,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                 selectedHospital = entry.key;
                 selectedDepartment = null;
                 selectedDoctor = null;
+                selectedDoctorUid = null;
+                selectedDoctorSpecialty = null;
               });
             },
           ),
@@ -406,10 +341,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         const SizedBox(height: 6),
         Text(
           "Choose a department in ${selectedHospital ?? ''}",
-          style: const TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 22),
         ...departments.map(
@@ -422,6 +354,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               setState(() {
                 selectedDepartment = dept;
                 selectedDoctor = null;
+                selectedDoctorUid = null;
+                selectedDoctorSpecialty = null;
               });
             },
           ),
@@ -431,42 +365,91 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 
   Widget _buildDoctorStep() {
-    final doctors = doctorsByDepartment[selectedDepartment] ?? [];
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('department', isEqualTo: selectedDepartment)
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              "Error loading doctors: ${snapshot.error}",
+              style: const TextStyle(fontSize: 15, color: Colors.red),
+            ),
+          );
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Select Doctor",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF111827),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          "Available doctors in ${selectedDepartment ?? ''}",
-          style: const TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
-        ),
-        const SizedBox(height: 22),
-        ...doctors.map(
-          (doctor) => _selectCard(
-            title: doctor,
-            subtitle: selectedDepartment ?? "",
-            selected: selectedDoctor == doctor,
-            icon: Icons.person_outline,
-            onTap: () {
-              setState(() {
-                selectedDoctor = doctor;
-              });
-            },
-          ),
-        ),
-      ],
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final Map<String, QueryDocumentSnapshot> uniqueDoctors = {};
+
+        for (final doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          if (data['role'] == 'doctor') {
+            final doctorUid = (data['uid'] ?? doc.id).toString();
+
+            if (doctorUid.isNotEmpty) {
+              uniqueDoctors[doctorUid] = doc;
+            }
+          }
+        }
+
+        final doctors = uniqueDoctors.values.toList();
+
+        if (doctors.isEmpty) {
+          return Center(
+            child: Text(
+              "No doctors found for $selectedDepartment.",
+              style: const TextStyle(fontSize: 16),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Select Doctor",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Available doctors in ${selectedDepartment ?? ''}",
+              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+            ),
+            const SizedBox(height: 22),
+            ...doctors.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+
+              final doctorName = data['name'] ?? 'Doctor';
+              final specialty = data['specialty'] ?? '';
+              final doctorUid = (data['uid'] ?? doc.id).toString();
+
+              return _selectCard(
+                title: doctorName,
+                subtitle: specialty,
+                selected: selectedDoctorUid == doctorUid,
+                icon: Icons.person_outline,
+                onTap: () {
+                  setState(() {
+                    selectedDoctor = doctorName;
+                    selectedDoctorUid = doctorUid;
+                    selectedDoctorSpecialty = specialty;
+                  });
+                },
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 
@@ -485,10 +468,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         const SizedBox(height: 6),
         const Text(
           "Choose your preferred appointment slot",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 22),
         const Text(
@@ -567,10 +547,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         const SizedBox(height: 6),
         const Text(
           "Optional - helps the doctor prepare",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 18),
         Container(
@@ -610,9 +587,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               ),
               const SizedBox(height: 14),
               _summaryItem(Icons.local_hospital, selectedHospital ?? ""),
-              _summaryItem(Icons.medical_services_outlined,
-                  selectedDepartment ?? ""),
+              _summaryItem(
+                Icons.medical_services_outlined,
+                selectedDepartment ?? "",
+              ),
               _summaryItem(Icons.person_outline, selectedDoctor ?? ""),
+              _summaryItem(Icons.badge_outlined, selectedDoctorSpecialty ?? ""),
               _summaryItem(Icons.calendar_today_outlined, selectedDate ?? ""),
               _summaryItem(Icons.access_time_outlined, selectedTime ?? ""),
             ],
@@ -711,10 +691,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF111827),
-              ),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF111827)),
             ),
           ),
         ],

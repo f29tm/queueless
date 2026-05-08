@@ -16,6 +16,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   String? selectedType;
   String? selectedDoctor;
+  String? selectedDoctorUid;
+  String? selectedDoctorDepartment;
+  String? selectedDoctorSpecialty;
   String? selectedDate;
   String? selectedTime;
 
@@ -37,13 +40,6 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
       "subtitle": "Message a doctor in real time",
       "icon": Icons.chat_bubble_outline,
     },
-  ];
-
-  final List<String> availableDoctors = [
-    "Dr. Ahmed Al Rashid",
-    "Dr. Sarah Ali",
-    "Dr. Noor Hassan",
-    "Dr. Omar Saeed",
   ];
 
   final List<String> availableDates = [
@@ -78,7 +74,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
       return;
     }
 
-    if (currentStep == 1 && selectedDoctor == null) {
+    if (currentStep == 1 && selectedDoctorUid == null) {
       _showSnack("Please select a doctor.");
       return;
     }
@@ -114,7 +110,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     }
 
     if (selectedType == null ||
-        selectedDoctor == null ||
+        selectedDoctorUid == null ||
         selectedDate == null ||
         selectedTime == null) {
       _showSnack("Please complete all consultation steps.");
@@ -134,6 +130,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         'patientId': user.uid,
         'consultationType': selectedType,
         'doctorName': selectedDoctor,
+        'doctorUid': selectedDoctorUid,
+        'doctorDepartment': selectedDoctorDepartment,
+        'doctorSpecialty': selectedDoctorSpecialty,
         'date': selectedDate,
         'time': selectedTime,
         'notes': notesController.text.trim().isEmpty
@@ -158,8 +157,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             content: Text(
-              "Your $selectedType with $selectedDoctor on $selectedDate at "
-              "$selectedTime has been confirmed.",
+              "Your $selectedType with $selectedDoctor on $selectedDate at $selectedTime has been confirmed.",
               style: const TextStyle(fontSize: 16, height: 1.4),
             ),
             actions: [
@@ -292,18 +290,12 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 6),
         const Text(
           "Connect with a healthcare professional from anywhere",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 22),
         const Text(
           "Consultation Type",
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         const SizedBox(height: 16),
         ...consultationTypes.map((type) {
@@ -324,40 +316,91 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   }
 
   Widget _buildDoctorStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Select Doctor",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF111827),
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          "Choose a doctor for your consultation",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
-        ),
-        const SizedBox(height: 22),
-        ...availableDoctors.map((doctor) {
-          return _selectCard(
-            title: doctor,
-            subtitle: selectedType ?? "Consultation",
-            icon: Icons.person_outline,
-            selected: selectedDoctor == doctor,
-            onTap: () {
-              setState(() {
-                selectedDoctor = doctor;
-              });
-            },
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'doctor')
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              "Error loading doctors: ${snapshot.error}",
+              style: const TextStyle(fontSize: 15, color: Colors.red),
+            ),
           );
-        }),
-      ],
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final Map<String, QueryDocumentSnapshot> uniqueDoctors = {};
+
+        for (final doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          final doctorUid = (data['uid'] ?? doc.id).toString();
+
+          if (doctorUid.isNotEmpty) {
+            uniqueDoctors[doctorUid] = doc;
+          }
+        }
+
+        final doctors = uniqueDoctors.values.toList();
+
+        if (doctors.isEmpty) {
+          return const Center(
+            child: Text(
+              "No doctors found.",
+              style: TextStyle(fontSize: 16),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Select Doctor",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Choose a doctor for your consultation",
+              style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+            ),
+            const SizedBox(height: 22),
+            ...doctors.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+
+              final doctorName = data['name'] ?? 'Doctor';
+              final specialty = data['specialty'] ?? '';
+              final department = data['department'] ?? '';
+              final doctorUid = (data['uid'] ?? doc.id).toString();
+
+              return _selectCard(
+                title: doctorName,
+                subtitle: "$department • $specialty",
+                icon: Icons.person_outline,
+                selected: selectedDoctorUid == doctorUid,
+                onTap: () {
+                  setState(() {
+                    selectedDoctor = doctorName;
+                    selectedDoctorUid = doctorUid;
+                    selectedDoctorDepartment = department;
+                    selectedDoctorSpecialty = specialty;
+                  });
+                },
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 
@@ -376,10 +419,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 6),
         const Text(
           "Choose your preferred consultation slot",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 22),
         const Text(
@@ -458,10 +498,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 6),
         const Text(
           "Add optional notes for the doctor",
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF6B7280),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
         ),
         const SizedBox(height: 18),
         Container(
@@ -502,6 +539,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
               const SizedBox(height: 14),
               _summaryItem(Icons.chat_bubble_outline, selectedType ?? ""),
               _summaryItem(Icons.person_outline, selectedDoctor ?? ""),
+              _summaryItem(
+                Icons.medical_services_outlined,
+                selectedDoctorDepartment ?? "",
+              ),
+              _summaryItem(Icons.badge_outlined, selectedDoctorSpecialty ?? ""),
               _summaryItem(Icons.calendar_today_outlined, selectedDate ?? ""),
               _summaryItem(Icons.access_time_outlined, selectedTime ?? ""),
             ],
@@ -601,10 +643,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF111827),
-              ),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF111827)),
             ),
           ),
         ],

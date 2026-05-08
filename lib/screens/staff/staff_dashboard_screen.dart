@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class PatientQueueEntry {
   final String name;
@@ -18,10 +20,12 @@ class StaffDashboardScreen extends StatefulWidget {
   const StaffDashboardScreen({super.key});
 
   @override
-  State<StaffDashboardScreen> createState() => _StaffDashboardScreenState();
+  State<StaffDashboardScreen> createState() =>
+      _StaffDashboardScreenState();
 }
 
-class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
+class _StaffDashboardScreenState
+    extends State<StaffDashboardScreen> {
   List<PatientQueueEntry> patientList = [];
 
   @override
@@ -85,9 +89,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       int rank2 = _getUrgencyRank(p2.urgencyLevel);
 
       if (rank1 != rank2) {
-        return rank2.compareTo(rank1); // Descending (highest rank first)
+        return rank2.compareTo(rank1);
       } else {
-        return p1.checkInTime.compareTo(p2.checkInTime); // Ascending time
+        return p1.checkInTime.compareTo(p2.checkInTime);
       }
     });
   }
@@ -95,36 +99,67 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     int total = patientList.length;
-    int emergencies = patientList.where((p) => p.urgencyLevel == "EMERGENCY").length;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Live Queue Dashboard'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey.shade200,
-            width: double.infinity,
-            child: Text(
-              "Total Patients Waiting: $total | Emergencies: $emergencies",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
+    int emergencies = patientList
+        .where((p) => p.urgencyLevel == "EMERGENCY")
+        .length;
+
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+          title: const Text('Live Queue Dashboard'),
+
+          // ✅ LOGOUT BUTTON
+          leading: IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final auth =
+                  Provider.of<AuthProvider>(context, listen: false);
+
+              await auth.signOut();
+
+              if (!mounted) return;
+
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (route) => false,
+              );
+            },
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: patientList.length,
-              itemBuilder: (context, index) {
-                final patient = patientList[index];
-                return _buildPatientCard(patient);
-              },
+        ),
+
+        body: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.grey.shade200,
+              width: double.infinity,
+              child: Text(
+                "Total Patients Waiting: $total | Emergencies: $emergencies",
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-        ],
+
+            Expanded(
+              child: ListView.builder(
+                itemCount: patientList.length,
+                itemBuilder: (context, index) {
+                  final patient = patientList[index];
+                  return _buildPatientCard(patient);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -137,34 +172,49 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       case "EMERGENCY":
         badgeBgColor = Colors.red;
         break;
+
       case "URGENT":
         badgeBgColor = Colors.orange;
         break;
+
       default:
         badgeBgColor = Colors.grey;
         badgeTextColor = Colors.black;
     }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   patient.name,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: badgeBgColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                        BorderRadius.circular(20),
                   ),
                   child: Text(
                     patient.urgencyLevel,
@@ -177,15 +227,25 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 8),
+
             Text(
               "Symptoms: ${patient.symptoms}",
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+              ),
             ),
+
             const SizedBox(height: 8),
+
             Text(
               "Check-In Time: ${patient.checkInTime}",
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),

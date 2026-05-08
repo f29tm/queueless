@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,15 +6,14 @@ class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  User? currentUser;        // Firebase user (patients only)
-  String? userRole;         // "patient" or "staff"
-  String? userName;         // full name for both
+  User? currentUser;
+  String? userRole;
+  String? userName;
 
   AuthProvider() {
     _auth.authStateChanges().listen((user) async {
       currentUser = user;
 
-      // ✅ If Firebase user logged in → load patient data
       if (user != null) {
         await _loadUserData();
       } else {
@@ -27,7 +25,6 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  // ✅ PATIENT SIGN-UP WITH DETAILS
   Future<String?> signUpWithDetails({
     required String name,
     required String email,
@@ -37,15 +34,16 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       UserCredential cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: email.trim(),
+        password: password.trim(),
       );
 
       currentUser = cred.user;
 
       Map<String, dynamic> userData = {
+        "uid": currentUser!.uid,
         "name": name,
-        "email": email,
+        "email": email.trim(),
         "phone": phone,
         "role": "patient",
         "emailVerified": false,
@@ -57,113 +55,138 @@ class AuthProvider with ChangeNotifier {
       await _firestore.collection("users").doc(currentUser!.uid).set(userData);
 
       await currentUser!.sendEmailVerification();
-      await _loadUserData();
+
+      await _auth.signOut();
+      currentUser = null;
+      userRole = null;
+      userName = null;
+
       return null;
     } catch (e) {
       return e.toString();
     }
   }
 
-  // ✅ PATIENT LOGIN USING FIREBASE AUTH
   Future<String?> signIn({
     required String email,
     required String password,
   }) async {
     try {
       UserCredential cred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: email.trim(),
+        password: password.trim(),
       );
 
       currentUser = cred.user;
-
       await currentUser!.reload();
-      if (!currentUser!.emailVerified) {
+      currentUser = _auth.currentUser;
+
+      if (currentUser != null && !currentUser!.emailVerified) {
         await _auth.signOut();
         currentUser = null;
+        userRole = null;
+        userName = null;
         return "Please verify your email before logging in.";
       }
 
       await _syncEmailVerification();
       await _loadUserData();
-      return null;
 
+      return null;
     } catch (e) {
       return e.toString();
     }
   }
 
-  // ✅ STAFF LOGIN USING STAFF ID + PASSWORD (FIRESTORE ONLY)
   Future<String?> staffSignIn({
     required String staffId,
     required String password,
   }) async {
     try {
-      // Find staff by staffId
+      final id = staffId.trim();
+
       final query = await _firestore
           .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .where("role", isEqualTo: "staff")
+          .where("staffId", isEqualTo: id)
+          .limit(1)
           .get();
 
       if (query.docs.isEmpty) {
         return "Staff ID not found.";
       }
 
-      final doc = query.docs.first;
-      final data = doc.data();
+      final data = query.docs.first.data();
 
-      // Password check (plain text for now)
-      if (data["password"] != password) {
-        return "Incorrect password.";
+      if (data["role"] != "doctor" && data["role"] != "staff") {
+        return "This account is not authorized.";
       }
 
-      // ✅ Staff login success → NO FirebaseAuth
-      currentUser = null;
-      userRole = "staff";
-      userName = data["fullName"];
+      final String email = data["email"];
+
+      UserCredential cred = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      currentUser = cred.user;
+      await currentUser!.reload();
+      currentUser = _auth.currentUser;
+
+      if (currentUser != null && !currentUser!.emailVerified) {
+        await currentUser!.sendEmailVerification();
+
+        await _auth.signOut();
+        currentUser = null;
+        userRole = null;
+        userName = null;
+
+        notifyListeners();
+
+        return "Verification email sent to $email. Check Gmail inbox, spam, and updates.";
+      }
+
+      userRole = data["role"];
+      userName = data["name"] ?? data["fullName"];
+
+      await _firestore.collection("users").doc(currentUser!.uid).update({
+        "emailVerified": true,
+      });
 
       notifyListeners();
       return null;
-
     } catch (e) {
       return e.toString();
     }
   }
 
-  // ✅ Load patient data (Firebase users only)
   Future<void> _loadUserData() async {
     if (currentUser == null) return;
 
-    final doc =
-        await _firestore.collection("users").doc(currentUser!.uid).get();
+    final doc = await _firestore.collection("users").doc(currentUser!.uid).get();
 
     userRole = doc.data()?["role"];
-    userName = doc.data()?["name"];
+    userName = doc.data()?["name"] ?? doc.data()?["fullName"];
   }
 
-  // ✅ Sync patient email verification
   Future<void> _syncEmailVerification() async {
     if (currentUser == null) return;
 
     await currentUser!.reload();
-    bool verified = currentUser!.emailVerified;
+    currentUser = _auth.currentUser;
 
     await _firestore.collection("users").doc(currentUser!.uid).update({
-      "emailVerified": verified,
+      "emailVerified": currentUser!.emailVerified,
     });
   }
 
-  // ✅ RESEND
   Future<void> resendEmailVerification() async {
     if (currentUser != null && !currentUser!.emailVerified) {
       await currentUser!.sendEmailVerification();
     }
   }
 
-  // ✅ LOGOUT (works for both patient + staff)
   Future<void> signOut() async {
-    await _auth.signOut(); // does nothing if staff is logged in
+    await _auth.signOut();
     currentUser = null;
     userRole = null;
     userName = null;
