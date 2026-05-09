@@ -1,10 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:queueless/screens/register_screen.dart';
-import 'package:queueless/screens/visitor_home_screen.dart';
-import 'package:queueless/screens/staff/staff_login_screen.dart';
-import 'package:queueless/screens/reset_password_screen.dart';
 import '../providers/auth_provider.dart';
+import 'register_screen.dart';
+import 'staff/staff_login_screen.dart'; // ✅ Staff login page
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,181 +14,327 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController userController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
-  bool isEmailMode = true;
-
-  void setEmailMode() {
-    setState(() {
-      isEmailMode = true;
-      userController.clear();
-      passwordController.clear();
-    });
-  }
-
-  void setPhoneMode() {
-    setState(() {
-      isEmailMode = false;
-      userController.clear();
-      passwordController.clear();
-    });
-  }
-
-  void validateLogin() async {
-    final userInput = userController.text.trim();
-    final password = passwordController.text.trim();
-
-    if (userInput.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
-      return;
-    }
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    try {
-      await authProvider.signIn(email: userInput, password: password);
-
-      if (!mounted) return;
-      // Navigation will be handled by AuthWrapper in main.dart
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login failed: ${e.toString()}")));
-    }
-  }
+  bool obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Login'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.language),
-            onPressed: () {
-              // Language toggle logic can go here
-            },
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF6F8FB),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Text(
-              'Sign In',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+            // ✅ HEADER WITH LOGO (same as Register)
+            Container(
+              height: 260,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF009688), Color(0xFF00796B)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: setEmailMode,
-                  child: Text(
-                    'Use Email',
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ✅ LOGO BOX
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF2F2F2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 70,
+                      height: 70,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "QueueLess",
                     style: TextStyle(
-                      color: isEmailMode ? Colors.blue : Colors.grey,
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                TextButton(
-                  onPressed: setPhoneMode,
-                  child: Text(
-                    'Use Phone',
-                    style: TextStyle(
-                      color: !isEmailMode ? Colors.blue : Colors.grey,
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Skip the wait, not the care",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+
+            // ✅ White bottom section
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Welcome back",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "Sign in with your email",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ✅ Email
+                  _inputField(
+                    controller: emailController,
+                    icon: Icons.email_outlined,
+                    hint: "Email Address",
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ Password
+                  _passwordField(),
+
+                  const SizedBox(height: 24),
+
+Center(
+  child: GestureDetector(
+    onTap: () {
+      _showResetPasswordDialog(context);
+    },
+    child: const Text(
+      "Forgot Password?",
+      style: TextStyle(
+        color: Color(0xFF009688),
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+
+const SizedBox(height: 12),  
+
+
+
+                  // ✅ SIGN IN BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final error = await auth.signIn(
+                          email: emailController.text.trim(),
+                          password: passwordController.text.trim(),
+                        );
+
+                        if (error != null && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(error)),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF009688),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        "Sign In",
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: userController,
-              keyboardType: isEmailMode
-                  ? TextInputType.emailAddress
-                  : TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: isEmailMode ? 'Email Address' : 'Phone Number',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: validateLogin,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: const Text('Login'),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ResetPasswordScreen(),
+
+                  const SizedBox(height: 10),
+
+                  // ✅ STAFF LOGIN BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StaffLoginScreen(),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFF009688)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        "Staff Login",
+                        style: TextStyle(
+                          color: Color(0xFF009688),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text('Forgot Password?'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ FOOTER: Sign Up link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don't have an account? "),
+                      GestureDetector(
+                        onTap: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const RegisterScreen()),
+                        ),
+                        child: const Text(
+                          "Sign Up",
+                          style: TextStyle(
+                            color: Color(0xFF009688),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('Create Account'),
-                ),
-              ],
-            ),
-            const Divider(),
-            ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const VisitorHomeScreen()),
+                ],
               ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.grey[200],
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Continue as Visitor'),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const StaffLoginScreen()),
-              ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.grey[200],
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Staff Login'),
             ),
           ],
         ),
       ),
     );
   }
+
+  // ✅ Email Input
+  Widget _inputField({
+    required TextEditingController controller,
+    required IconData icon,
+    required String hint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F5F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: Color(0xFF009688)),
+          hintText: hint,
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  // ✅ Password Input
+  Widget _passwordField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F5F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: TextField(
+        controller: passwordController,
+        obscureText: obscurePassword,
+        decoration: InputDecoration(
+          prefixIcon:
+              const Icon(Icons.lock_outline, color: Color(0xFF009688)),
+          hintText: "Password",
+          border: InputBorder.none,
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscurePassword ? Icons.visibility_off : Icons.visibility,
+              color: Colors.grey,
+            ),
+            onPressed: () {
+              setState(() => obscurePassword = !obscurePassword);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showResetPasswordDialog(BuildContext context) {
+  final TextEditingController resetEmailController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Reset Password"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter your email address"),
+            const SizedBox(height: 10),
+            TextField(
+              controller: resetEmailController,
+              decoration: const InputDecoration(
+                hintText: "example@gmail.com",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = resetEmailController.text.trim();
+
+              if (email.isEmpty) return;
+
+              try {
+                await Provider.of<AuthProvider>(context, listen: false)
+                    .sendPasswordResetEmail(email);
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Password reset email sent."),
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF009688),
+            ),
+            child: const Text("Send",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+}
+  
 }
