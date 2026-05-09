@@ -83,112 +83,115 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ✅ REGISTER with full validation
-  void registerUser() async {
-    // ✅ FULL NAME
-    if (fullNameController.text.trim().isEmpty) {
-      _showError("Full name is required.");
-      return;
-    }
-    if (!fullNameController.text.trim().contains(" ")) {
-      _showError("Enter full name (first & last).");
-      return;
-    }
-
-    // ✅ EMIRATES ID
-    final emiratesId = nationalIdController.text.trim();
-    final emiratesIdRegex = RegExp(r"^784-\d{4}-\d{7}-\d{1}$");
-    if (!emiratesIdRegex.hasMatch(emiratesId)) {
-      _showError("Enter a valid Emirates ID (784-YYYY-XXXXXXX-X).");
-      return;
-    }
-
-    // ✅ DOB
-    if (dobController.text.trim().isEmpty) {
-      _showError("Date of Birth is required.");
-      return;
-    }
-
-    // ✅ NATIONALITY
-    if (nationalityController.text.trim().isEmpty) {
-      _showError("Please select your nationality.");
-      return;
-    }
-
-    // ✅ GENDER
-    if (selectedGender == null) {
-      _showError("Please select your gender.");
-      return;
-    }
-
-    // ✅ PHONE (UAE FORMAT)
-    final phone = phoneController.text.trim();
-    final phoneRegex = RegExp(r"^05\d{8}$");
-    if (!phoneRegex.hasMatch(phone)) {
-      _showError("Enter valid UAE phone (05XXXXXXXX).");
-      return;
-    }
-
-    // ✅ EMAIL
-    final email = emailController.text.trim();
-    final emailRegex =
-        RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
-    if (!emailRegex.hasMatch(email)) {
-      _showError("Enter a valid email address.");
-      return;
-    }
-
-    // ✅ PASSWORD
-    if (!isStrongPassword(passwordController.text)) {
-      _showError(
-          "Weak password — use A‑Z, a‑z, numbers & special characters.");
-      return;
-    }
-
-    // ✅ CONFIRM PASSWORD
-    if (passwordController.text.trim() !=
-        confirmPasswordController.text.trim()) {
-      _showError("Passwords do not match.");
-      return;
-    }
-
-    // ✅ EXTRA PATIENT DATA
-    final extraData = {
-      "fullName": fullNameController.text.trim(),
-      "nationalId": emiratesId,
-      "dob": dobController.text.trim(),
-      "nationality": nationalityController.text.trim(),
-      "gender": selectedGender,
-      "phone": phone,
-      "role": "patient",
-    };
-
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-
-    final error = await auth.signUpWithDetails(
-      name: fullNameController.text.trim(),
-      email: email,
-      password: passwordController.text.trim(),
-      phone: phone,
-      extraData: extraData,
-    );
-
-    if (error != null) {
-      _showError(error);
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Account created! Please verify your email."),
-      ),
-    );
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+void registerUser() async {
+  // ✅ FULL NAME
+  if (fullNameController.text.trim().isEmpty) {
+    _showError("Full name is required.");
+    return;
   }
+  if (!fullNameController.text.trim().contains(" ")) {
+    _showError("Enter full name (first & last).");
+    return;
+  }
+
+  // ✅ EMIRATES ID
+  final emiratesId = nationalIdController.text.trim();
+  final emiratesIdRegex = RegExp(r"^784-\d{4}-\d{7}-\d{1}$");
+  if (!emiratesIdRegex.hasMatch(emiratesId)) {
+    _showError("Enter a valid Emirates ID (784-YYYY-XXXXXXX-X).");
+    return;
+  }
+
+  // ✅ DOB
+  if (dobController.text.trim().isEmpty) {
+    _showError("Date of Birth is required.");
+    return;
+  }
+
+  // ✅ NATIONALITY
+  if (nationalityController.text.trim().isEmpty) {
+    _showError("Please select your nationality.");
+    return;
+  }
+
+  // ✅ GENDER
+  if (selectedGender == null) {
+    _showError("Please select your gender.");
+    return;
+  }
+
+  // ✅ PHONE (UAE FORMAT)
+  final phone = phoneController.text.trim();
+  final phoneRegex = RegExp(r"^05\d{8}$");
+  if (!phoneRegex.hasMatch(phone)) {
+    _showError("Enter valid UAE phone (05XXXXXXXX).");
+    return;
+  }
+
+  // ✅ EMAIL
+  final email = emailController.text.trim();
+  final emailRegex =
+      RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+  if (!emailRegex.hasMatch(email)) {
+    _showError("Enter a valid email address.");
+    return;
+  }
+
+  // ✅ PASSWORD
+  if (!isStrongPassword(passwordController.text)) {
+    _showError(
+        "Weak password — use A‑Z, a‑z, numbers & special characters.");
+    return;
+  }
+
+  // ✅ CONFIRM PASSWORD
+  if (passwordController.text.trim() !=
+      confirmPasswordController.text.trim()) {
+    _showError("Passwords do not match.");
+    return;
+  }
+
+  // ✅ ✅ ✅ HASH NATIONAL ID HERE
+  final auth = Provider.of<AuthProvider>(context, listen: false);
+
+  final hashedNationalId = auth.hashData(emiratesId);
+
+  // ✅ EXTRA PATIENT DATA (UPDATED)
+  final extraData = {
+    "fullName": fullNameController.text.trim(),
+    "nationalId": hashedNationalId, // ✅ hashed instead of plain text
+    "dob": dobController.text.trim(),
+    "nationality": nationalityController.text.trim(),
+    "gender": selectedGender,
+    "phone": phone,
+    "role": "patient",
+  };
+
+  final error = await auth.signUpWithDetails(
+    name: fullNameController.text.trim(),
+    email: email,
+    password: passwordController.text.trim(),
+    phone: phone,
+    extraData: extraData,
+  );
+
+  if (error != null) {
+    _showError(error);
+    return;
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text("Account created! Please verify your email."),
+    ),
+  );
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => const LoginScreen()),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

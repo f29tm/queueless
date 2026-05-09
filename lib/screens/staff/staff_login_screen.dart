@@ -100,6 +100,23 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   _passwordField(),
                   const SizedBox(height: 24),
 
+                  Center(
+  child: GestureDetector(
+    onTap: () {
+      _showStaffResetDialog(context);
+    },
+    child: const Text(
+      "Forgot Password?",
+      style: TextStyle(
+        color: Color(0xFF009688),
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+
+const SizedBox(height: 12),
+
                   // ✅ LOGIN BUTTON
                   SizedBox(
                     width: double.infinity,
@@ -200,4 +217,85 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
       ),
     );
   }
+
+  void _showStaffResetDialog(BuildContext context) {
+  final staffIdController = TextEditingController();
+  final emailController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Reset Staff Password"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter your Staff ID and Email"),
+            const SizedBox(height: 10),
+
+            TextField(
+              controller: staffIdController,
+              decoration: const InputDecoration(
+                hintText: "Staff ID",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                hintText: "Email",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final staffId = staffIdController.text.trim();
+              final email = emailController.text.trim();
+
+              if (staffId.isEmpty || email.isEmpty) return;
+
+              final error = await Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              ).staffResetPassword(
+                staffId: staffId,
+                email: email,
+              );
+
+              if (!mounted) return;
+
+              Navigator.pop(context);
+
+              if (error == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text("Password reset email sent.")),
+                );
+              } else {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(error)));
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF009688),
+            ),
+            child: const Text("Send",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+}
 }

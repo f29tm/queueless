@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 import 'staff/staff_login_screen.dart'; // ✅ Staff login page
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -107,6 +108,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   _passwordField(),
 
                   const SizedBox(height: 24),
+
+Center(
+  child: GestureDetector(
+    onTap: () {
+      _showResetPasswordDialog(context);
+    },
+    child: const Text(
+      "Forgot Password?",
+      style: TextStyle(
+        color: Color(0xFF009688),
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+
+const SizedBox(height: 12),  
+
+
 
                   // ✅ SIGN IN BUTTON
                   SizedBox(
@@ -254,4 +274,67 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  void _showResetPasswordDialog(BuildContext context) {
+  final TextEditingController resetEmailController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Reset Password"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter your email address"),
+            const SizedBox(height: 10),
+            TextField(
+              controller: resetEmailController,
+              decoration: const InputDecoration(
+                hintText: "example@gmail.com",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = resetEmailController.text.trim();
+
+              if (email.isEmpty) return;
+
+              try {
+                await Provider.of<AuthProvider>(context, listen: false)
+                    .sendPasswordReset(email);
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Password reset email sent."),
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString())),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF009688),
+            ),
+            child: const Text("Send",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+}
+  
 }
