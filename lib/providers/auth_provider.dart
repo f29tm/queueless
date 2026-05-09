@@ -38,15 +38,16 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       UserCredential cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: email.trim(),
+        password: password.trim(),
       );
 
       currentUser = cred.user;
 
       Map<String, dynamic> userData = {
+        "uid": currentUser!.uid,
         "name": name,
-        "email": email,
+        "email": email.trim(),
         "phone": phone,
         "role": "patient",
         "emailVerified": false,
@@ -58,7 +59,12 @@ class AuthProvider with ChangeNotifier {
       await _firestore.collection("users").doc(currentUser!.uid).set(userData);
 
       await currentUser!.sendEmailVerification();
-      await _loadUserData();
+
+      await _auth.signOut();
+      currentUser = null;
+      userRole = null;
+      userName = null;
+
       return null;
     } catch (e) {
       return e.toString();
@@ -72,23 +78,26 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       UserCredential cred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: email.trim(),
+        password: password.trim(),
       );
 
       currentUser = cred.user;
-
       await currentUser!.reload();
-      if (!currentUser!.emailVerified) {
+      currentUser = _auth.currentUser;
+
+      if (currentUser != null && !currentUser!.emailVerified) {
         await _auth.signOut();
         currentUser = null;
+        userRole = null;
+        userName = null;
         return "Please verify your email before logging in.";
       }
 
       await _syncEmailVerification();
       await _loadUserData();
-      return null;
 
+      return null;
     } catch (e) {
       return e.toString();
     }
@@ -103,8 +112,8 @@ class AuthProvider with ChangeNotifier {
       // ✅ Step 1: Find staff in Firestore
       final query = await _firestore
           .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .where("role", isEqualTo: "staff")
+          .where("staffId", isEqualTo: id)
+          .limit(1)
           .get();
 
       if (query.docs.isEmpty) {
@@ -127,7 +136,6 @@ class AuthProvider with ChangeNotifier {
       await _loadUserData();
 
       return null;
-
     } catch (e) {
       return "Invalid Staff ID or password.";
     }
@@ -137,8 +145,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> _loadUserData() async {
     if (currentUser == null) return;
 
-    final doc =
-        await _firestore.collection("users").doc(currentUser!.uid).get();
+    final doc = await _firestore.collection("users").doc(currentUser!.uid).get();
 
     userRole = doc.data()?["role"];
 
@@ -151,10 +158,10 @@ class AuthProvider with ChangeNotifier {
     if (currentUser == null) return;
 
     await currentUser!.reload();
-    bool verified = currentUser!.emailVerified;
+    currentUser = _auth.currentUser;
 
     await _firestore.collection("users").doc(currentUser!.uid).update({
-      "emailVerified": verified,
+      "emailVerified": currentUser!.emailVerified,
     });
   }
 
@@ -167,6 +174,7 @@ class AuthProvider with ChangeNotifier {
 
   // ✅ LOGOUT
   Future<void> signOut() async {
+    await _auth.signOut();
     await _auth.signOut();
     currentUser = null;
     userRole = null;
