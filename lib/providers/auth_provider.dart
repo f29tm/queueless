@@ -112,7 +112,7 @@ class AuthProvider with ChangeNotifier {
       // ✅ Step 1: Find staff in Firestore
       final query = await _firestore
           .collection("users")
-          .where("staffId", isEqualTo: id)
+          .where("staffId", isEqualTo: staffId)
           .limit(1)
           .get();
 
