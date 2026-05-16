@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 class SymptomResultScreen extends StatelessWidget {
   final List<String> selectedSymptoms;
   final String description;
@@ -72,7 +73,7 @@ class SymptomResultScreen extends StatelessWidget {
       };
     } else {
       return {
-        "level": "NORMAL",
+        "level": "LOW",
         "color": Colors.green,
         "icon": Icons.check_circle_outline,
         "score": 2.0,
@@ -231,23 +232,50 @@ class SymptomResultScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // ✅ CLOSE BUTTON
               Center(
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: result["color"],
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 40),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
-                  ),
-                  child: const Text(
-                    "Close",
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
-                ),
-              )
+  child: ElevatedButton(
+    onPressed: () async {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No user logged in")),
+        );
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection("triageResults").add({
+        "patientId": user.uid,
+        "selectedSymptoms": selectedSymptoms,
+        "description": description.isEmpty ? "No description" : description,
+        "triageLevel": result["level"],
+        "severityScore": result["score"],
+        "department": result["department"],
+        "wait": result["wait"],
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Assessment saved successfully")),
+        );
+
+        Navigator.pop(context);
+      }
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: result["color"],
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30),
+      ),
+    ),
+    child: const Text(
+      "Save Assessment",
+      style: TextStyle(fontSize: 18, color: Colors.white),
+    ),
+  ),
+)
             ],
           ),
         ),

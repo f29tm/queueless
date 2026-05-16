@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'staff_dashboard_screen.dart';
 import '../doctor/doctor_dashboard_screen.dart';
+import '../nurse/nurse_dashboard_screen.dart';
 
 class StaffLoginScreen extends StatefulWidget {
   const StaffLoginScreen({super.key});
@@ -51,6 +52,14 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
         ),
         (route) => false,
       );
+    } else if (role == "nurse") {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const NurseDashboardScreen(),
+        ),
+        (route) => false,
+      );
     } else if (role == "staff") {
       Navigator.pushAndRemoveUntil(
         context,
@@ -75,7 +84,6 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ✅ HEADER
             Container(
               width: double.infinity,
               height: 260,
@@ -119,7 +127,6 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               ),
             ),
 
-            // ✅ FORM
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -150,7 +157,6 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   _passwordField(),
                   const SizedBox(height: 24),
 
-                  // ✅ FORGOT PASSWORD
                   Center(
                     child: GestureDetector(
                       onTap: () {
@@ -159,7 +165,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                       child: const Text(
                         "Forgot Password?",
                         style: TextStyle(
-                          color: Color(0xFF009688),
+                          color: Color(0xFF2446B8),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -168,7 +174,6 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
 
                   const SizedBox(height: 12),
 
-                  // ✅ LOGIN BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -258,7 +263,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   }
 
   void _showStaffResetDialog(BuildContext context) {
-    final staffIdController = TextEditingController();
+    final resetStaffIdController = TextEditingController();
     final emailController = TextEditingController();
 
     showDialog(
@@ -272,7 +277,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               const Text("Enter your Staff ID and Email"),
               const SizedBox(height: 10),
               TextField(
-                controller: staffIdController,
+                controller: resetStaffIdController,
                 decoration: const InputDecoration(
                   hintText: "Staff ID",
                   border: OutlineInputBorder(),
@@ -295,7 +300,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final staffId = staffIdController.text.trim();
+                final staffId = resetStaffIdController.text.trim();
                 final email = emailController.text.trim();
 
                 if (staffId.isEmpty || email.isEmpty) return;
@@ -326,8 +331,10 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF009688),
               ),
-              child: const Text("Send",
-                  style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "Send",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
