@@ -8,6 +8,7 @@ import 'profile_screen.dart';
 import 'records_screen.dart';
 import 'book_appointment_screen.dart';
 import 'online_consultation_screen.dart';
+import 'notifications_screen.dart';
 
 class PatientHubScreen extends StatefulWidget {
   const PatientHubScreen({super.key});
@@ -96,7 +97,17 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
                   ],
                 ),
               ),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
+              IconButton(
+  icon: const Icon(Icons.notifications_none),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NotificationsScreen(),
+      ),
+    );
+  },
+),
               IconButton(
                 onPressed: () {
                   setState(() {
