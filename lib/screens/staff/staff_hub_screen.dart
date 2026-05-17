@@ -12,23 +12,6 @@ class StaffHubScreen extends StatefulWidget {
 }
 
 class _StaffHubScreenState extends State<StaffHubScreen> {
-  int _selectedIndex = 0;
-
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex) return;
-
-    if (index == 1 || index == 2 || index == 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Feature not implemented")),
-      );
-      return;
-    }
-
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,30 +116,6 @@ class _StaffHubScreenState extends State<StaffHubScreen> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Patients',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Alerts',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        onTap: _onItemTapped,
       ),
     );
   }

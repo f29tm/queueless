@@ -232,18 +232,19 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.2,
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
         title: const Text(
           "Symptom Assessment",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.teal,
-          labelColor: Colors.teal,
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: "Symptoms"),
             Tab(text: "Describe"),

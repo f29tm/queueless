@@ -158,10 +158,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   const SizedBox(height: 24),
 
                   Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        _showStaffResetDialog(context);
-                      },
+                    child: TextButton(
+                      onPressed: () => _showStaffResetDialog(context),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       child: const Text(
                         "Forgot Password?",
                         style: TextStyle(
@@ -195,8 +197,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   const SizedBox(height: 16),
 
                   Center(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       child: const Text(
                         "← Back to User Login",
                         style: TextStyle(

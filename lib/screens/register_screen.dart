@@ -329,12 +329,17 @@ void registerUser() async {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("Already have an account? "),
-                      GestureDetector(
-                        onTap: () => Navigator.pushReplacement(
+                      TextButton(
+                        onPressed: () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
                           ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(48, 48),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: const Text(
                           "Sign In",

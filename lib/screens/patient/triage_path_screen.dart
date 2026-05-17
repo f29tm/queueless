@@ -126,7 +126,9 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
                       "For emergencies, call 999 immediately.",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade500),
+                          fontSize: 15,
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
                   ],

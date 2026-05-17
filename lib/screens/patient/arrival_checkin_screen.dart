@@ -178,7 +178,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.blueAccent.withOpacity(0.3),
+                  color: Colors.teal.withOpacity(0.3),
                   width: 4,
                 ),
               ),
@@ -186,11 +186,11 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blueAccent.withOpacity(0.15),
+                  color: Colors.teal.withOpacity(0.15),
                 ),
                 child: const Icon(
                   Icons.location_on,
-                  color: Colors.blueAccent,
+                  color: Colors.teal,
                   size: 40,
                 ),
               ),
@@ -217,7 +217,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 style: const TextStyle(fontSize: 18),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: Colors.teal,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
@@ -273,7 +273,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.gps_fixed, color: Colors.blueAccent),
+                    Icon(Icons.gps_fixed, color: Colors.teal),
                     SizedBox(width: 12),
                     Text(
                       "Auto-Detect Location",
@@ -298,14 +298,14 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                       );
                     },
                     icon: const Icon(Icons.location_searching,
-                        color: Colors.blueAccent),
+                        color: Colors.teal),
                     label: const Text(
                       "Enable Location",
-                      style: TextStyle(color: Colors.blueAccent),
+                      style: TextStyle(color: Colors.teal),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                          color: Colors.blueAccent.withOpacity(0.4)),
+                          color: Colors.teal.withOpacity(0.4)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -322,7 +322,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.blueAccent.withOpacity(0.1),
+              color: Colors.teal.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Text(

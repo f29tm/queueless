@@ -199,6 +199,38 @@ class SymptomResultScreen extends StatelessWidget {
 
               const SizedBox(height: 32),
 
+              // EMERGENCY WARNING — shown only for Emergency patients
+              if (triageResult.prediction == 'Emergency') ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.red.shade300, width: 1.5),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.emergency, color: Colors.red.shade700, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "If you are in severe distress or unable to move, call 999 immediately. Do not wait.",
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                            fontSize: 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // PRIMARY ACTION — arrive now
               SizedBox(
                 width: double.infinity,
@@ -212,10 +244,11 @@ class SymptomResultScreen extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.location_on,
                       color: Colors.white),
-                  label: const Text(
-                    "I Have Arrived at the Hospital",
-                    style:
-                        TextStyle(fontSize: 16, color: Colors.white),
+                  label: Text(
+                    triageResult.prediction == 'Emergency'
+                        ? "Check In — I'm at the Hospital"
+                        : "I Have Arrived at the Hospital",
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _color,

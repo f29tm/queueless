@@ -110,10 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
 
 Center(
-  child: GestureDetector(
-    onTap: () {
-      _showResetPasswordDialog(context);
-    },
+  child: TextButton(
+    onPressed: () => _showResetPasswordDialog(context),
     child: const Text(
       "Forgot Password?",
       style: TextStyle(
@@ -197,11 +195,16 @@ const SizedBox(height: 12),
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("Don't have an account? "),
-                      GestureDetector(
-                        onTap: () => Navigator.pushReplacement(
+                      TextButton(
+                        onPressed: () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                               builder: (_) => const RegisterScreen()),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(48, 48),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: const Text(
                           "Sign Up",

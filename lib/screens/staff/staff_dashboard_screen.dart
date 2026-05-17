@@ -242,7 +242,9 @@ class _PatientCard extends StatelessWidget {
               ],
               const SizedBox(height: 6),
               Text(
-                "AI Stage 1 confidence: ${(confidence * 100).toStringAsFixed(0)}%",
+                (data['noAITriage'] == true)
+                    ? "Awaiting nurse assessment"
+                    : "AI Stage 1 confidence: ${(confidence * 100).toStringAsFixed(0)}%",
                 style: TextStyle(
                     fontSize: 12, color: Colors.grey.shade600),
               ),
