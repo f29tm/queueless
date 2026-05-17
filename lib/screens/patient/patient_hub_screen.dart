@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'arrival_checkin_screen.dart';
-import 'symptom_assessment_screen.dart';
+import 'triage_path_screen.dart';
 import 'medication_tracker_screen.dart';
 import 'profile_screen.dart';
 import 'records_screen.dart';
 import 'book_appointment_screen.dart';
 import 'online_consultation_screen.dart';
 import 'notifications_screen.dart';
+import 'chatbot_screen.dart';
 
 class PatientHubScreen extends StatefulWidget {
   const PatientHubScreen({super.key});
@@ -31,7 +32,7 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
           index: _selectedIndex,
           children: [
             _buildHome(context, authProvider),
-            _buildChatbotPlaceholder(),
+            const ChatbotScreen(),
             const RecordsScreen(),
             const ProfileScreen(),
           ],
@@ -53,15 +54,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: "Records"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
-      ),
-    );
-  }
-
-  Widget _buildChatbotPlaceholder() {
-    return const Center(
-      child: Text(
-        "Chatbot coming soon",
-        style: TextStyle(fontSize: 18, color: Colors.grey),
       ),
     );
   }
@@ -137,7 +129,7 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SymptomAssessmentScreen()),
+                  MaterialPageRoute(builder: (_) => const TriagePathScreen()),
                 );
               },
             ),

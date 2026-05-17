@@ -110,8 +110,25 @@ class _PatientCard extends StatelessWidget {
         return Colors.red;
       case 'MODERATE':
         return Colors.orange;
+      case 'PENDING':
+        return Colors.grey.shade400;
       default:
         return Colors.green;
+    }
+  }
+
+  String _levelLabel(String level) {
+    switch (level) {
+      case 'EMERGENCY':
+        return 'EMERGENCY';
+      case 'MODERATE':
+        return 'URGENT';
+      case 'LOW':
+        return 'NON-URGENT';
+      case 'PENDING':
+        return 'Manual Assessment';
+      default:
+        return level;
     }
   }
 
@@ -191,12 +208,22 @@ class _PatientCard extends StatelessWidget {
                           color: _levelColor(level),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          level,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (level == 'PENDING') ...[
+                              const Icon(Icons.person_outline,
+                                  size: 13, color: Colors.white),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              _levelLabel(level),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                     ],

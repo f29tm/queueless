@@ -1,0 +1,212 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+class TriagePathScreen extends StatefulWidget {
+  const TriagePathScreen({super.key});
+
+  @override
+  State<TriagePathScreen> createState() => _TriagePathScreenState();
+}
+
+class _TriagePathScreenState extends State<TriagePathScreen> {
+  bool _isCreating = false;
+
+  Future<void> _createManualQueueEntry() async {
+    setState(() => _isCreating = true);
+
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        _showError("You must be logged in to continue.");
+        return;
+      }
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final name = (userDoc.data()?['name'] as String?) ?? 'Unknown Patient';
+
+      final queueNumber =
+          'Q${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+
+      await FirebaseFirestore.instance.collection('queue').add({
+        'patientId': uid,
+        'patientName': name,
+        'triageLevel': 'PENDING',
+        'triageMethod': 'manual',
+        'status': 'pre_arrival',
+        'priorityNumber': 3,
+        'noAITriage': true,
+        'queueNumber': queueNumber,
+        'createdAt': FieldValue.serverTimestamp(),
+        'symptoms': [],
+        'chiefComplaint': 'To be assessed by nurse',
+      });
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        '/manual-confirmation',
+        arguments: {'queueNumber': queueNumber},
+      );
+    } catch (_) {
+      _showError("Something went wrong. Please try again.");
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
+      appBar: AppBar(
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          "How would you like to check in?",
+          style: TextStyle(fontSize: 17),
+        ),
+      ),
+      body: _isCreating
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.teal),
+                  SizedBox(height: 16),
+                  Text("Registering you in the queue…",
+                      style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            )
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 20),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Choose how you want to be triaged today",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 16, color: Colors.black54, height: 1.4),
+                    ),
+                    const SizedBox(height: 32),
+                    _ChoiceCard(
+                      icon: Icons.psychology_outlined,
+                      iconColor: Colors.teal,
+                      title: "Assess Symptoms with AI",
+                      subtitle:
+                          "Answer a few questions and get an urgency rating before you arrive. Faster processing at the ED.",
+                      onTap: () => Navigator.pushNamed(
+                          context, '/symptom-assessment'),
+                    ),
+                    const SizedBox(height: 18),
+                    _ChoiceCard(
+                      icon: Icons.personal_injury_outlined,
+                      iconColor: Colors.grey.shade600,
+                      title: "Report to Nurse on Arrival",
+                      subtitle:
+                          "Skip the questionnaire. Come in and the nurse will assess you directly.",
+                      onTap: _createManualQueueEntry,
+                    ),
+                    const Spacer(),
+                    Text(
+                      "For emergencies, call 999 immediately.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.grey.shade500),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _ChoiceCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ChoiceCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 30),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+    );
+  }
+}

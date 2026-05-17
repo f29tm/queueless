@@ -7,6 +7,9 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/patient/patient_hub_screen.dart';
+import 'screens/patient/symptom_assessment_screen.dart';
+import 'screens/patient/triage_path_screen.dart';
+import 'screens/patient/manual_checkin_confirmation_screen.dart';
 import 'screens/staff/staff_hub_screen.dart';
 
 void main() async {
@@ -25,9 +28,16 @@ class QueueLessApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
-      child: const MaterialApp(
+      child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: AuthGate(),
+        home: const AuthGate(),
+        routes: {
+          '/patient-hub': (context) => const PatientHubScreen(),
+          '/symptom-assessment': (context) => const SymptomAssessmentScreen(),
+          '/triage-path': (context) => const TriagePathScreen(),
+          '/manual-confirmation': (context) =>
+              const ManualCheckinConfirmationScreen(),
+        },
       ),
     );
   }
