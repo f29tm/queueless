@@ -35,7 +35,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
   String? _patientName;
   int? _age;
   int? _sex;
-  bool _profileLoaded = false;
   bool _isLoading = false;
 
   final Map<String, List<String>> _symptomCategories = {
@@ -85,10 +84,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
 
   Future<void> _fetchProfile() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      if (mounted) setState(() => _profileLoaded = true);
-      return;
-    }
+    if (uid == null) return;
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -102,12 +98,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
           final gender = data['gender'] as String?;
           if (dob != null) _age = TriageService.ageFromDob(dob);
           if (gender != null) _sex = TriageService.sexFromGender(gender);
-          _profileLoaded = true;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _profileLoaded = true);
-    }
+    } catch (_) {}
   }
 
   @override
