@@ -101,22 +101,24 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: Icon(Icons.smart_toy, color: Colors.white, size: 20),
             ),
             SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'QueueLess Assistant',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'QueueLess Assistant',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Text(
-                  'Powered by Gemini',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
+                  Text(
+                    'Powered by Gemini',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
