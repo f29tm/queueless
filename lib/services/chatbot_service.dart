@@ -1,4 +1,5 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../config/api_keys.dart';
 
 class ChatbotService {
@@ -19,20 +20,55 @@ Guidelines:
 - Be empathetic and supportive — patients may be anxious
 ''';
 
-  late final GenerativeModel _model;
-  late final ChatSession _chat;
+  static const String _endpoint =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  ChatbotService() {
-    _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: ApiKeys.gemini,
-      systemInstruction: Content.system(_systemInstruction),
-    );
-    _chat = _model.startChat();
-  }
+  final List<Map<String, dynamic>> _history = [];
 
   Future<String> sendMessage(String text) async {
-    final response = await _chat.sendMessage(Content.text(text));
-    return response.text ?? 'Sorry, I could not generate a response. Please try again.';
+    _history.add({
+      'role': 'user',
+      'parts': [{'text': text}],
+    });
+
+    final uri = Uri.parse('$_endpoint?key=${ApiKeys.gemini}');
+
+    final body = jsonEncode({
+      'system_instruction': {
+        'parts': [{'text': _systemInstruction}],
+      },
+      'contents': _history,
+      'generationConfig': {'maxOutputTokens': 500},
+    });
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      _history.removeLast();
+      throw Exception(
+          'Gemini API error ${response.statusCode}: ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+
+    final reply = (json['candidates'] as List?)
+        ?.firstOrNull?['content']?['parts']
+        ?.firstOrNull?['text'] as String?;
+
+    if (reply == null || reply.isEmpty) {
+      _history.removeLast();
+      throw Exception('Empty response from Gemini API');
+    }
+
+    _history.add({
+      'role': 'model',
+      'parts': [{'text': reply}],
+    });
+
+    return reply;
   }
 }
