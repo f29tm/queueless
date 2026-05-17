@@ -1,7 +1,7 @@
-// Add this import at the top if not already there
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../login_screen.dart';
 
 class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
@@ -286,9 +286,9 @@ class DoctorProfilePage extends StatelessWidget {
     await FirebaseAuth.instance.signOut();
 
     if (context.mounted) {
-      Navigator.pushNamedAndRemoveUntil(
+      Navigator.pushAndRemoveUntil(
         context,
-        '/login',
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
         (route) => false,
       );
     }

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)",
+      "Bash(git lfs *)",
+      "Bash(git remote *)",
+      "Bash(firebase --version)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(firebase login *)",
+      "Bash(firebase projects:list)",
+      "Bash(firebase deploy *)",
+      "Bash(Get-ChildItem -Recurse lib/ -Filter \"*.dart\")",
+      "Bash(Select-Object FullName, LastWriteTime)",
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(git add *)",
+      "Bash(git checkout *)",
+      "Bash(GIT_EDITOR=true git rebase --continue)"
+    ]
+  }
+}

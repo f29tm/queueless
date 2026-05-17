@@ -43,6 +43,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   crypto: ^3.0.7
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
