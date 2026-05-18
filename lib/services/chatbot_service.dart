@@ -23,9 +23,7 @@ Guidelines:
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
 
-  static const List<String> _models = ['gemini-2.5-flash'];
-
-  static int _modelIndex = 0;
+  static const int _modelIndex = 0;
 
   final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
