@@ -158,7 +158,7 @@ class DoctorAppointmentsPage extends StatelessWidget {
 
 // ===================== PATIENTS PAGE =====================
 
-class DoctorPatientsPage extends StatelessWidget {
+class DoctorPatientsPage extends StatefulWidget {
   final VoidCallback onProfileTap;
 
   const DoctorPatientsPage({
@@ -167,30 +167,259 @@ class DoctorPatientsPage extends StatelessWidget {
   });
 
   @override
+  State<DoctorPatientsPage> createState() => _DoctorPatientsPageState();
+}
+
+class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
+  Stream<QuerySnapshot> get _stream =>
+      FirebaseFirestore.instance
+          .collection('queue')
+          .where('status', isEqualTo: 'waiting_doctor')
+          .orderBy('finalPriorityNumber')
+          .orderBy('triageCompletedAt')
+          .snapshots();
+
+  // ── helpers ────────────────────────────────────────────────
+
+  String _effectiveLevel(Map<String, dynamic> data) =>
+      (data['finalTriageLevel'] as String?) ??
+      (data['triageLevel'] as String?) ??
+      'LOW';
+
+  Color _levelColor(String level) {
+    switch (level) {
+      case 'EMERGENCY':
+        return Colors.red;
+      case 'MODERATE':
+        return Colors.orange;
+      default:
+        return Colors.green;
+    }
+  }
+
+  String _levelLabel(String level) {
+    switch (level) {
+      case 'EMERGENCY':
+        return 'Emergency';
+      case 'MODERATE':
+        return 'Urgent';
+      default:
+        return 'Non-Urgent';
+    }
+  }
+
+  String _timeAgo(Timestamp? ts) {
+    if (ts == null) return '';
+    final diff = DateTime.now().difference(ts.toDate());
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  // ── build ──────────────────────────────────────────────────
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
-      body: Column(
-        children: [
-          _blueHeader(
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _stream,
+        builder: (context, snapshot) {
+          final header = _blueHeader(
             "Patient Queue",
             subtitle: "Sorted by severity",
-            onProfileTap: onProfileTap,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: const [
-                StatBox(number: "1", label: "Emergency", color: Colors.red),
-                SizedBox(width: 12),
-                StatBox(number: "0", label: "Urgent", color: Colors.orange),
-                SizedBox(width: 12),
-                StatBox(number: "1", label: "Active", color: Color(0xFF2446B8)),
-              ],
-            ),
-          ),
-          const PatientQueueCard(),
-        ],
+            onProfileTap: widget.onProfileTap,
+          );
+
+          if (snapshot.hasError) {
+            return Column(children: [
+              header,
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    "Error loading queue",
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ),
+              ),
+            ]);
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Column(children: [
+              header,
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF2446B8)),
+                ),
+              ),
+            ]);
+          }
+
+          final docs = snapshot.data!.docs;
+
+          int emergencyCount = 0;
+          int urgentCount = 0;
+          for (final doc in docs) {
+            final level =
+                _effectiveLevel(doc.data() as Map<String, dynamic>);
+            if (level == 'EMERGENCY') emergencyCount++;
+            if (level == 'MODERATE') urgentCount++;
+          }
+
+          return Column(
+            children: [
+              header,
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    StatBox(
+                        number: '$emergencyCount',
+                        label: "Emergency",
+                        color: Colors.red),
+                    const SizedBox(width: 12),
+                    StatBox(
+                        number: '$urgentCount',
+                        label: "Urgent",
+                        color: Colors.orange),
+                    const SizedBox(width: 12),
+                    StatBox(
+                        number: '${docs.length}',
+                        label: "Active",
+                        color: const Color(0xFF2446B8)),
+                  ],
+                ),
+              ),
+              if (docs.isEmpty)
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      "No patients waiting for doctor",
+                      style:
+                          TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final data = docs[index].data()
+                          as Map<String, dynamic>;
+                      final level = _effectiveLevel(data);
+                      final borderColor = _levelColor(level);
+                      final patientName =
+                          data['patientName'] as String? ?? 'Unknown';
+                      final completedAt =
+                          data['triageCompletedAt'] as Timestamp?;
+                      final symptoms = (data['symptoms'] as List?)
+                              ?.map((s) => s.toString())
+                              .join(', ') ??
+                          '';
+                      final nurseOverride =
+                          data['nurseOverride'] as bool? ?? false;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border(
+                            left: BorderSide(
+                                color: borderColor, width: 5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Level chip + override chip + time
+                            Row(
+                              children: [
+                                Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: borderColor,
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _levelLabel(level),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                if (nurseOverride) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                      border: Border.all(
+                                          color:
+                                              Colors.amber.shade300),
+                                    ),
+                                    child: Text(
+                                      "Nurse overridden",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.amber.shade900,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const Spacer(),
+                                Text(
+                                  _timeAgo(completedAt),
+                                  style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              patientName,
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            if (symptoms.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                symptoms,
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 14),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -816,7 +1045,7 @@ class StatBox extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -826,38 +1055,6 @@ class StatBox extends StatelessWidget {
             Text(label, style: TextStyle(color: color)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class PatientQueueCard extends StatelessWidget {
-  const PatientQueueCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: const Border(
-          left: BorderSide(color: Colors.red, width: 5),
-        ),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("🔴 Emergency", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          SizedBox(height: 12),
-          Text("Latifa Alsulaim", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text("1m ago", style: TextStyle(color: Colors.grey)),
-          SizedBox(height: 12),
-          Text("♡ chest_pain, palpitations", style: TextStyle(color: Colors.grey)),
-          SizedBox(height: 8),
-          Text("▣ Cardiology", style: TextStyle(color: Color(0xFF2446B8))),
-        ],
       ),
     );
   }
