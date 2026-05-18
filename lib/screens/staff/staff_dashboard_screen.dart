@@ -10,8 +10,9 @@ class StaffDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {},
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -242,11 +243,13 @@ class _PatientCard extends StatelessWidget {
               ],
               const SizedBox(height: 6),
               Text(
-                (data['noAITriage'] == true)
+                (data['noAITriage'] == true ||
+                        data['aiPrediction'] == null ||
+                        (confidence == 0.0 && level == 'PENDING'))
                     ? "Awaiting nurse assessment"
                     : "AI Stage 1 confidence: ${(confidence * 100).toStringAsFixed(0)}%",
                 style: TextStyle(
-                    fontSize: 12, color: Colors.grey.shade600),
+                    fontSize: 13, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 6),
               Text(

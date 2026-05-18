@@ -17,6 +17,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   bool obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,54 +27,59 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   }
 
   Future<void> _login() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    setState(() => _isLoading = true);
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
 
-    final error = await auth.staffSignIn(
-      staffId: staffIdController.text.trim(),
-      password: passwordController.text.trim(),
-    );
+      final error = await auth.staffSignIn(
+        staffId: staffIdController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
-      return;
-    }
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+        return;
+      }
 
-    final role = auth.userRole?.toLowerCase().trim();
+      final role = auth.userRole?.toLowerCase().trim();
 
-    if (role == "doctor") {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const DoctorDashboardScreen(),
-        ),
-        (route) => false,
-      );
-    } else if (role == "nurse") {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const NurseDashboardScreen(),
-        ),
-        (route) => false,
-      );
-    } else if (role == "staff") {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const StaffDashboardScreen(),
-        ),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Invalid role. Please contact admin."),
-        ),
-      );
+      if (role == "doctor") {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DoctorDashboardScreen(),
+          ),
+          (route) => false,
+        );
+      } else if (role == "nurse") {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const NurseDashboardScreen(),
+          ),
+          (route) => false,
+        );
+      } else if (role == "staff") {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const StaffDashboardScreen(),
+          ),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Invalid role. Please contact admin."),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -179,7 +185,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _login,
+                      onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2446B8),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -187,10 +193,18 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text(
-                        "Login",
-                        style: TextStyle(fontSize: 18, color: Colors.white),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text(
+                              "Login",
+                              style:
+                                  TextStyle(fontSize: 18, color: Colors.white),
+                            ),
                     ),
                   ),
 

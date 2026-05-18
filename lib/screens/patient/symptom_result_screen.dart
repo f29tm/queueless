@@ -39,11 +39,11 @@ class SymptomResultScreen extends StatelessWidget {
   String get _label {
     switch (triageResult.prediction) {
       case 'Emergency':
-        return 'EMERGENCY';
+        return 'Emergency';
       case 'Urgent':
-        return 'URGENT';
+        return 'Urgent';
       default:
-        return 'NON-URGENT';
+        return 'Non-Urgent';
     }
   }
 
@@ -231,35 +231,80 @@ class SymptomResultScreen extends StatelessWidget {
                 ),
               ],
 
-              // PRIMARY ACTION — arrive now
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ArrivalCheckInScreen(queueDocId: queueDocId),
+              // PRIMARY ACTION
+              if (triageResult.prediction == 'Emergency') ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("Emergency"),
+                        content: const Text(
+                            "Please call 999 or proceed to the nearest Emergency Department immediately."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("OK"),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.location_on,
-                      color: Colors.white),
-                  label: Text(
-                    triageResult.prediction == 'Emergency'
-                        ? "Check In — I'm at the Hospital"
-                        : "I Have Arrived at the Hospital",
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _color,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                    icon: const Icon(Icons.call, color: Colors.white),
+                    label: const Text(
+                      "Call Emergency Services (999)",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _color,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ArrivalCheckInScreen(queueDocId: queueDocId),
+                      ),
+                    ),
+                    icon: const Icon(Icons.location_on),
+                    label: const Text("I Have Arrived at the Hospital"),
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ArrivalCheckInScreen(queueDocId: queueDocId),
+                      ),
+                    ),
+                    icon: const Icon(Icons.location_on, color: Colors.white),
+                    label: const Text(
+                      "I Have Arrived at the Hospital",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _color,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 12),
 
@@ -269,8 +314,7 @@ class SymptomResultScreen extends StatelessWidget {
                   onPressed: () => Navigator.pop(context),
                   child: const Text(
                     "Arrive later — back to home",
-                    style:
-                        TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ),
               ),

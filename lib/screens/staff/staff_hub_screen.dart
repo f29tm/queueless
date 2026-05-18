@@ -55,7 +55,7 @@ class _StaffHubScreenState extends State<StaffHubScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome, Staff',
+                        'Welcome back',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -101,18 +101,17 @@ class _StaffHubScreenState extends State<StaffHubScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _buildHorizontalActionCard(
-              context,
-              title: 'Patient Records',
-              subtitle: 'Search and manage patient information.',
-              icon: Icons.people,
-              color: const Color(0xFFFF9800),
-              bgColor: const Color(0xFFFFF3E0),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Feature not implemented")),
-                );
-              },
+            Opacity(
+              opacity: 0.4,
+              child: _buildHorizontalActionCard(
+                context,
+                title: 'Patient Records',
+                subtitle: 'Coming soon.',
+                icon: Icons.people,
+                color: const Color(0xFFFF9800),
+                bgColor: const Color(0xFFFFF3E0),
+                onTap: () {},
+              ),
             ),
           ],
         ),

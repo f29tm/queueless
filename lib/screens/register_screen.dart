@@ -27,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool obscurePass = true;
   bool obscureConfirm = true;
+  bool _isLoading = false;
 
   final List<String> genders = ["Male", "Female"];
 
@@ -83,7 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-void registerUser() async {
+Future<void> registerUser() async {
   // ✅ FULL NAME
   if (fullNameController.text.trim().isEmpty) {
     _showError("Full name is required.");
@@ -308,7 +309,13 @@ void registerUser() async {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: registerUser,
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              await registerUser();
+                              if (mounted) setState(() => _isLoading = false);
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF009688),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -316,10 +323,18 @@ void registerUser() async {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text(
-                        "Create Account",
-                        style: TextStyle(fontSize: 18, color: Colors.white),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text(
+                              "Create Account",
+                              style:
+                                  TextStyle(fontSize: 18, color: Colors.white),
+                            ),
                     ),
                   ),
 

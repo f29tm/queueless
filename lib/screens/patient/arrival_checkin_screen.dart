@@ -254,66 +254,64 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
 
           const SizedBox(height: 26),
 
-          // Auto-detect card (visual only — GPS not in scope)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.gps_fixed, color: Colors.teal),
-                    SizedBox(width: 12),
-                    Text(
-                      "Auto-Detect Location",
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "Enable GPS to automatically detect when you're near the hospital for instant check-in.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text("Location permission required.")),
-                      );
-                    },
-                    icon: const Icon(Icons.location_searching,
-                        color: Colors.teal),
-                    label: const Text(
-                      "Enable Location",
-                      style: TextStyle(color: Colors.teal),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: Colors.teal.withOpacity(0.4)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          // Auto-detect card — GPS not yet implemented
+          Opacity(
+            opacity: 0.5,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.gps_fixed, color: Colors.teal),
+                      SizedBox(width: 12),
+                      Text(
+                        "Auto-Detect Location",
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Enable GPS to automatically detect when you're near the hospital for instant check-in.",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.location_searching,
+                          color: Colors.teal),
+                      label: const Text(
+                        "Coming Soon",
+                        style: TextStyle(color: Colors.teal),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: Colors.teal.withOpacity(0.4)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
