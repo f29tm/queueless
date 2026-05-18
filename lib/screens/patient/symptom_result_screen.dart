@@ -181,8 +181,7 @@ class SymptomResultScreen extends StatelessWidget {
                 _infoRow(
                     Icons.timer_outlined, "Estimated Wait", _waitTime),
                 const Divider(height: 24),
-                _infoRow(Icons.local_hospital, "Priority Level",
-                    triageResult.triageLevel),
+                _infoRow(Icons.local_hospital, "Priority Level", _label),
               ]),
 
               // REPORTED SYMPTOMS

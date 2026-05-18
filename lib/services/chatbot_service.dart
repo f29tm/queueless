@@ -20,55 +20,86 @@ Guidelines:
 - Be empathetic and supportive — patients may be anxious
 ''';
 
-  static const String _endpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  static const String _baseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models';
 
+  static const List<String> _models = ['gemini-2.5-flash'];
+
+  static int _modelIndex = 0;
+
+  final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
 
+  ChatbotService({http.Client? client}) : _client = client ?? http.Client();
+
+  List<Map<String, dynamic>> get history => List.unmodifiable(_history);
+
+  Future<void> listAvailableModels() async {
+    final uri = Uri.parse('$_baseUrl?key=${ApiKeys.gemini}');
+    final response = await _client.get(uri);
+    print('Available Gemini models: ${response.body}');
+  }
+
   Future<String> sendMessage(String text) async {
+    if (_modelIndex == 0) await listAvailableModels();
+
     _history.add({
       'role': 'user',
       'parts': [{'text': text}],
     });
 
-    final uri = Uri.parse('$_endpoint?key=${ApiKeys.gemini}');
+    try {
+      print('Calling Gemini with key length: ${ApiKeys.gemini.length}');
+      print('Trying model: gemini-2.5-flash');
 
-    final body = jsonEncode({
-      'system_instruction': {
-        'parts': [{'text': _systemInstruction}],
-      },
-      'contents': _history,
-      'generationConfig': {'maxOutputTokens': 500},
-    });
+      final uri = Uri.parse(
+          '$_baseUrl/gemini-2.5-flash:generateContent?key=${ApiKeys.gemini}');
 
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
+      final body = jsonEncode({
+        'system_instruction': {
+          'parts': [{'text': _systemInstruction}],
+        },
+        'contents': _history,
+        'generationConfig': {'maxOutputTokens': 500},
+      });
 
-    if (response.statusCode != 200) {
-      _history.removeLast();
-      throw Exception(
-          'Gemini API error ${response.statusCode}: ${response.body}');
+      final response = await _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode != 200) {
+        print('Gemini HTTP error: ${response.statusCode}');
+        print('Gemini response body: ${response.body}');
+        _history.removeLast();
+        throw Exception(
+            'Gemini API error ${response.statusCode}: ${response.body}');
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final candidates = json['candidates'] as List?;
+      final parts = (candidates == null || candidates.isEmpty)
+          ? null
+          : candidates.first['content']?['parts'] as List?;
+      final reply = (parts == null || parts.isEmpty)
+          ? null
+          : parts.first['text'] as String?;
+
+      if (reply == null || reply.isEmpty) {
+        _history.removeLast();
+        throw Exception('Empty response from Gemini API');
+      }
+
+      _history.add({
+        'role': 'model',
+        'parts': [{'text': reply}],
+      });
+
+      return reply;
+    } catch (e) {
+      print('Gemini error: $e');
+      rethrow;
     }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-
-    final reply = (json['candidates'] as List?)
-        ?.firstOrNull?['content']?['parts']
-        ?.firstOrNull?['text'] as String?;
-
-    if (reply == null || reply.isEmpty) {
-      _history.removeLast();
-      throw Exception('Empty response from Gemini API');
-    }
-
-    _history.add({
-      'role': 'model',
-      'parts': [{'text': reply}],
-    });
-
-    return reply;
   }
 }
