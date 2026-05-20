@@ -468,6 +468,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         'queueType': 'doctor',
         'nurseChecked': true,
         'nurseCheckedAt': FieldValue.serverTimestamp(),
+        'triageCompletedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

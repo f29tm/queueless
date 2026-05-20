@@ -15,6 +15,11 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
   bool _isConfirming = false;
   bool _confirmed = false;
   String? _resolvedDocId;
+  String _queueNumber = '-';
+  int? _waitPosition;
+  int? _estimatedWaitMinutes;
+
+  static const int _avgServiceMinutes = 15;
 
   @override
   void initState() {
@@ -56,20 +61,48 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
     setState(() => _isConfirming = true);
 
     try {
+      final docRef = FirebaseFirestore.instance
+          .collection('queue')
+          .doc(_resolvedDocId);
+      final existingDoc = await docRef.get();
+      final existingData = existingDoc.data();
+      final queueNumber = existingData?['queueNumber'] as String? ??
+          'Q${_resolvedDocId!.substring(0, 6).toUpperCase()}';
+
       await FirebaseFirestore.instance
           .collection('queue')
           .doc(_resolvedDocId)
           .update({
         'queueType': 'nurse',
         'status': 'waiting_nurse',
+        'queueNumber': queueNumber,
         'arrivedAt': FieldValue.serverTimestamp(),
       });
 
-      if (mounted) setState(() => _confirmed = true);
+      final waiting = await FirebaseFirestore.instance
+          .collection('queue')
+          .where('queueType', isEqualTo: 'nurse')
+          .where('status', isEqualTo: 'waiting_nurse')
+          .orderBy('priorityNumber')
+          .orderBy('createdAt')
+          .get();
+      final index = waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
+      final patientsAhead = index < 0 ? 0 : index;
+
+      if (mounted) {
+        setState(() {
+          _confirmed = true;
+          _queueNumber = queueNumber;
+          _waitPosition = patientsAhead + 1;
+          _estimatedWaitMinutes = patientsAhead * _avgServiceMinutes;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Check-in failed: $e")),
+        const SnackBar(
+          content: Text("Check-in failed. Please try again at reception."),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isConfirming = false);
@@ -123,6 +156,59 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 height: 1.5,
               ),
             ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    "Your Queue Number",
+                    style: TextStyle(
+                      color: Colors.teal,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _queueNumber,
+                    style: TextStyle(
+                      color: Colors.teal.shade800,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _queueInfo(
+                          "Position",
+                          _waitPosition == null ? "-" : "#$_waitPosition",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _queueInfo(
+                          "Estimated Wait",
+                          _estimatedWaitMinutes == null
+                              ? "-"
+                              : _estimatedWaitMinutes == 0
+                                  ? "Next"
+                                  : "$_estimatedWaitMinutes min",
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
@@ -144,6 +230,33 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _queueInfo(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

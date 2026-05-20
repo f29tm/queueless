@@ -59,14 +59,8 @@ class SymptomResultScreen extends StatelessWidget {
   }
 
   String get _waitTime {
-    switch (triageResult.prediction) {
-      case 'Emergency':
-        return 'Immediate';
-      case 'Urgent':
-        return '20–40 minutes';
-      default:
-        return '1–2 hours';
-    }
+    if (triageResult.prediction == 'Emergency') return 'Immediate';
+    return 'Shown after check-in';
   }
 
   @override
@@ -143,37 +137,6 @@ class SymptomResultScreen extends StatelessWidget {
                   ),
                 ),
               ]),
-
-              // DEFERRED WARNING — patient-friendly, no technical jargon
-              if (triageResult.deferred) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.amber.shade300),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline,
-                          color: Colors.amber.shade700, size: 20),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          "A nurse will review your case when you arrive.",
-                          style: TextStyle(
-                              fontSize: 14,
-                              height: 1.4,
-                              color: Colors.black87),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
               const SizedBox(height: 20),
 
               // WAIT TIME INFO CARD
