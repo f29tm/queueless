@@ -17,11 +17,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(
-          child: Text("No user logged in"),
-        ),
-      );
+      return const Scaffold(body: Center(child: Text("No user logged in")));
     }
 
     return Scaffold(
@@ -44,10 +40,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
               const SizedBox(height: 6),
               const Text(
                 "Your appointments and consultations",
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF6B7280),
-                ),
+                style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 24),
               _buildTabs(user.uid),
@@ -114,10 +107,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Stream<List<int>> _combinedCounts(String uid) async* {
-    await for (final appointmentsSnapshot in FirebaseFirestore.instance
-        .collection('appointments')
-        .where('patientId', isEqualTo: uid)
-        .snapshots()) {
+    await for (final appointmentsSnapshot
+        in FirebaseFirestore.instance
+            .collection('appointments')
+            .where('patientId', isEqualTo: uid)
+            .snapshots()) {
       final consultationsSnapshot = await FirebaseFirestore.instance
           .collection('consultations')
           .where('patientId', isEqualTo: uid)
@@ -151,7 +145,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     color: Colors.black.withOpacity(0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ]
               : [],
         ),
@@ -179,8 +173,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             if (badgeCount != null && badgeCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F7F7),
                   borderRadius: BorderRadius.circular(12),
@@ -218,8 +211,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
 
-        final List<QueryDocumentSnapshot> docs =
-            List.from(snapshot.data?.docs ?? []);
+        final List<QueryDocumentSnapshot> docs = List.from(
+          snapshot.data?.docs ?? [],
+        );
 
         docs.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -239,13 +233,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
-            return _AppointmentCard(
-              appointmentId: docs[index].id,
-              data: data,
-            );
+            return _AppointmentCard(appointmentId: docs[index].id, data: data);
           },
         );
       },
@@ -269,8 +260,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
 
-        final List<QueryDocumentSnapshot> docs =
-            List.from(snapshot.data?.docs ?? []);
+        final List<QueryDocumentSnapshot> docs = List.from(
+          snapshot.data?.docs ?? [],
+        );
 
         docs.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -290,7 +282,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             return _ConsultationCard(
@@ -327,10 +319,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             const SizedBox(height: 8),
             const Text(
               "Your booked appointments will appear here",
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xFF6B7280),
-              ),
+              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -362,10 +351,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             const SizedBox(height: 8),
             const Text(
               "Your completed consultations will appear here",
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xFF6B7280),
-              ),
+              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -378,10 +364,7 @@ class _AppointmentCard extends StatelessWidget {
   final String appointmentId;
   final Map<String, dynamic> data;
 
-  const _AppointmentCard({
-    required this.appointmentId,
-    required this.data,
-  });
+  const _AppointmentCard({required this.appointmentId, required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -389,10 +372,10 @@ class _AppointmentCard extends StatelessWidget {
     final DateTime bookedAt = createdAt?.toDate() ?? DateTime.now();
 
     final String hospital = (data['hospital'] ?? 'Dubai Hospital').toString();
-    final String department =
-        (data['department'] ?? 'General Medicine').toString();
-    final String doctorName =
-        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+    final String department = (data['department'] ?? 'General Medicine')
+        .toString();
+    final String doctorName = (data['doctorName'] ?? 'Dr. Ahmed Al Rashid')
+        .toString();
     final String reason = (data['reason'] ?? 'Regular check up').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
@@ -408,7 +391,7 @@ class _AppointmentCard extends StatelessWidget {
             color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -454,18 +437,9 @@ class _AppointmentCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 10,
             children: [
-              _infoItem(
-                icon: Icons.calendar_today_outlined,
-                text: date,
-              ),
-              _infoItem(
-                icon: Icons.access_time_outlined,
-                text: time,
-              ),
-              _infoItem(
-                icon: Icons.person_outline,
-                text: doctorName,
-              ),
+              _infoItem(icon: Icons.calendar_today_outlined, text: date),
+              _infoItem(icon: Icons.access_time_outlined, text: time),
+              _infoItem(icon: Icons.person_outline, text: doctorName),
             ],
           ),
           const SizedBox(height: 16),
@@ -544,11 +518,7 @@ class _AppointmentCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.circle,
-            size: 10,
-            color: Color(0xFF0F8B8D),
-          ),
+          const Icon(Icons.circle, size: 10, color: Color(0xFF0F8B8D)),
           const SizedBox(width: 8),
           Text(
             text,
@@ -563,10 +533,7 @@ class _AppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _infoItem({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _infoItem({required IconData icon, required String text}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -574,10 +541,7 @@ class _AppointmentCard extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           text,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 15,
-          ),
+          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 15),
         ),
       ],
     );
@@ -597,8 +561,18 @@ class _AppointmentCard extends StatelessWidget {
 
   String _formatBookedDate(DateTime dt) {
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     return "${months[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
@@ -608,10 +582,7 @@ class _ConsultationCard extends StatelessWidget {
   final String consultationId;
   final Map<String, dynamic> data;
 
-  const _ConsultationCard({
-    required this.consultationId,
-    required this.data,
-  });
+  const _ConsultationCard({required this.consultationId, required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -619,8 +590,8 @@ class _ConsultationCard extends StatelessWidget {
     final DateTime bookedAt = createdAt?.toDate() ?? DateTime.now();
 
     final String type = (data['consultationType'] ?? 'Video Call').toString();
-    final String doctorName =
-        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+    final String doctorName = (data['doctorName'] ?? 'Dr. Ahmed Al Rashid')
+        .toString();
     final String notes = (data['notes'] ?? 'General consultation').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
@@ -636,7 +607,7 @@ class _ConsultationCard extends StatelessWidget {
             color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -682,18 +653,9 @@ class _ConsultationCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 10,
             children: [
-              _infoItem(
-                icon: Icons.calendar_today_outlined,
-                text: date,
-              ),
-              _infoItem(
-                icon: Icons.access_time_outlined,
-                text: time,
-              ),
-              _infoItem(
-                icon: Icons.person_outline,
-                text: doctorName,
-              ),
+              _infoItem(icon: Icons.calendar_today_outlined, text: date),
+              _infoItem(icon: Icons.access_time_outlined, text: time),
+              _infoItem(icon: Icons.person_outline, text: doctorName),
             ],
           ),
           const SizedBox(height: 16),
@@ -772,11 +734,7 @@ class _ConsultationCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.circle,
-            size: 10,
-            color: Color(0xFF0F8B8D),
-          ),
+          const Icon(Icons.circle, size: 10, color: Color(0xFF0F8B8D)),
           const SizedBox(width: 8),
           Text(
             text,
@@ -791,10 +749,7 @@ class _ConsultationCard extends StatelessWidget {
     );
   }
 
-  Widget _infoItem({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _infoItem({required IconData icon, required String text}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -802,10 +757,7 @@ class _ConsultationCard extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           text,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 15,
-          ),
+          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 15),
         ),
       ],
     );
@@ -825,8 +777,18 @@ class _ConsultationCard extends StatelessWidget {
 
   String _formatBookedDate(DateTime dt) {
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     return "${months[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
