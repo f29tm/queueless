@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../login_screen.dart';
 
@@ -84,13 +85,57 @@ class ProfileScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // ✅ COUNTERS ROW (placeholder)
+                    // ✅ COUNTERS ROW (live counts)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildCounter("0", "Visits"),
-                        _buildCounter("0", "Appointments"),
-                        _buildCounter("0", "Consultations"),
+                        // Visits: include queue entries + completed appointments
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('queue')
+                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .snapshots(),
+                          builder: (context, queueSnap) {
+                            final queueCount = queueSnap.hasData ? queueSnap.data!.docs.length : 0;
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('appointments')
+                                  .where('patientId', isEqualTo: auth.currentUser?.uid)
+                                  .where('status', isEqualTo: 'completed')
+                                  .snapshots(),
+                              builder: (context, apptSnap) {
+                                final completedApptCount = apptSnap.hasData ? apptSnap.data!.docs.length : 0;
+                                return _buildCounter((queueCount + completedApptCount).toString(), 'Visits');
+                              },
+                            );
+                          },
+                        ),
+
+                        // Appointments: count only scheduled
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('appointments')
+                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .where('status', isEqualTo: 'scheduled')
+                              .snapshots(),
+                          builder: (context, snap) {
+                            final count = snap.hasData ? snap.data!.docs.length : 0;
+                            return _buildCounter(count.toString(), 'Appointments');
+                          },
+                        ),
+
+                        // Consultations: count only scheduled
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('consultations')
+                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .where('status', isEqualTo: 'scheduled')
+                              .snapshots(),
+                          builder: (context, snap) {
+                            final count = snap.hasData ? snap.data!.docs.length : 0;
+                            return _buildCounter(count.toString(), 'Consultations');
+                          },
+                        ),
                       ],
                     ),
                   ],
@@ -226,7 +271,7 @@ Widget _buildSettingsItem({
 
         if (value != null)
           Text(
-            value!,
+            value,
             style: const TextStyle(color: Colors.grey),
           ),
 

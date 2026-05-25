@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -15,7 +16,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
   final TextEditingController reasonController = TextEditingController();
 
-  String? selectedHospital;
+  String? selectedHospital = "NMC Speciality Hospital";
   String? selectedDepartment;
   String? selectedDoctor;
   String? selectedDoctorUid;
@@ -24,7 +25,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   String? selectedTime;
 
   final Map<String, List<String>> hospitals = {
-    "NMC Specialty Hospital": [
+    "NMC Speciality Hospital": [
       "Emergency Medicine",
       "Cardiology",
       "Dermatology",
@@ -41,13 +42,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     ],
   };
 
-  final List<String> availableDates = [
-    "Thu, Feb 26",
-    "Fri, Feb 27",
-    "Sat, Feb 28",
-    "Sun, Mar 1",
-    "Mon, Mar 2",
-  ];
+  late final List<String> availableDates = List.generate(
+    5,
+    (index) => DateFormat('EEE, MMM d').format(
+      DateTime.now().add(Duration(days: index)),
+    ),
+  );
 
   final List<String> availableTimes = [
     "09:00 AM",
@@ -69,28 +69,48 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     );
   }
 
-  void nextStep() {
-    if (currentStep == 0 && selectedHospital == null) {
-      _showSnack("Please select a hospital.");
-      return;
-    }
+  DateTime _parseDateTime(String dateLabel, String timeLabel) {
+    final datePart = dateLabel.split(',').last.trim();
+    final date = DateFormat('MMM d').parse(datePart);
+    final time = DateFormat('hh:mm a').parse(timeLabel);
+    final now = DateTime.now();
+    final year = (date.month < now.month ||
+            (date.month == now.month && date.day < now.day))
+        ? now.year + 1
+        : now.year;
 
-    if (currentStep == 1 && selectedDepartment == null) {
+    return DateTime(year, date.month, date.day, time.hour, time.minute);
+  }
+
+  bool _isSelectedAppointmentInPast() {
+    if (selectedDate == null || selectedTime == null) {
+      return false;
+    }
+    return _parseDateTime(selectedDate!, selectedTime!).isBefore(DateTime.now());
+  }
+
+  void nextStep() {
+    if (currentStep == 0 && selectedDepartment == null) {
       _showSnack("Please select a department.");
       return;
     }
 
-    if (currentStep == 2 && selectedDoctorUid == null) {
+    if (currentStep == 1 && selectedDoctorUid == null) {
       _showSnack("Please select a doctor.");
       return;
     }
 
-    if (currentStep == 3 && (selectedDate == null || selectedTime == null)) {
+    if (currentStep == 2 && (selectedDate == null || selectedTime == null)) {
       _showSnack("Please select date and time.");
       return;
     }
 
-    if (currentStep < 4) {
+    if (currentStep == 2 && _isSelectedAppointmentInPast()) {
+      _showSnack("Selected appointment time has already passed.");
+      return;
+    }
+
+    if (currentStep < 3) {
       setState(() {
         currentStep++;
       });
@@ -124,6 +144,11 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       return;
     }
 
+    if (_isSelectedAppointmentInPast()) {
+      _showSnack("Selected appointment time has already passed.");
+      return;
+    }
+
     setState(() {
       isSaving = true;
     });
@@ -132,7 +157,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       final appointmentRef =
           FirebaseFirestore.instance.collection('appointments').doc();
 
-      await appointmentRef.set({
+      final reason = reasonController.text.trim();
+      final appointmentData = {
         'appointmentId': appointmentRef.id,
         'patientId': user.uid,
         'hospital': selectedHospital,
@@ -142,12 +168,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         'doctorSpecialty': selectedDoctorSpecialty,
         'date': selectedDate,
         'time': selectedTime,
-        'reason': reasonController.text.trim().isEmpty
-            ? "Regular check up"
-            : reasonController.text.trim(),
         'status': 'scheduled',
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (reason.isNotEmpty) {
+        appointmentData['reason'] = reason;
+      }
+
+      await appointmentRef.set(appointmentData);
 
       if (!mounted) return;
 
@@ -235,14 +264,26 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           bottom: Radius.circular(28),
         ),
       ),
-      child: const Center(
-        child: Text(
-          "Book Appointment",
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            selectedHospital ?? "Book Appointment",
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          const Text(
+            "Book Appointment",
+            style: TextStyle(
+              fontSize: 15,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -252,7 +293,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(5, (index) {
+        children: List.generate(4, (index) {
           final active = index <= currentStep;
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -271,57 +312,16 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   Widget _buildStepContent() {
     switch (currentStep) {
       case 0:
-        return _buildHospitalStep();
-      case 1:
         return _buildDepartmentStep();
-      case 2:
+      case 1:
         return _buildDoctorStep();
-      case 3:
+      case 2:
         return _buildDateTimeStep();
-      case 4:
+      case 3:
         return _buildReasonSummaryStep();
       default:
         return const SizedBox();
     }
-  }
-
-  Widget _buildHospitalStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Select Hospital",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF111827),
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          "Choose a hospital near you",
-          style: TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
-        ),
-        const SizedBox(height: 22),
-        ...hospitals.entries.map(
-          (entry) => _selectCard(
-            title: entry.key,
-            subtitle: "${entry.value.length} departments",
-            selected: selectedHospital == entry.key,
-            icon: Icons.local_hospital,
-            onTap: () {
-              setState(() {
-                selectedHospital = entry.key;
-                selectedDepartment = null;
-                selectedDoctor = null;
-                selectedDoctorUid = null;
-                selectedDoctorSpecialty = null;
-              });
-            },
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildDepartmentStep() {
@@ -510,19 +510,29 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           runSpacing: 10,
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
+            final dateTime = selectedDate != null
+                ? _parseDateTime(selectedDate!, time)
+                : null;
+            final disabled = dateTime != null && dateTime.isBefore(DateTime.now());
             return ChoiceChip(
               label: Text(time),
               selected: selected,
-              onSelected: (_) {
-                setState(() {
-                  selectedTime = time;
-                });
-              },
+              onSelected: disabled
+                  ? null
+                  : (_) {
+                      setState(() {
+                        selectedTime = time;
+                      });
+                    },
               selectedColor: const Color(0xFF0F8B8D).withOpacity(0.18),
+              backgroundColor:
+                  disabled ? const Color(0xFFF3F4F6) : Colors.white,
               labelStyle: TextStyle(
-                color: selected
-                    ? const Color(0xFF0F8B8D)
-                    : const Color(0xFF111827),
+                color: disabled
+                    ? const Color(0xFF9CA3AF)
+                    : selected
+                        ? const Color(0xFF0F8B8D)
+                        : const Color(0xFF111827),
                 fontWeight: FontWeight.w600,
               ),
             );
@@ -700,7 +710,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 
   Widget _buildBottomButtons() {
-    final bool isLastStep = currentStep == 4;
+    final bool isLastStep = currentStep == 3;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),

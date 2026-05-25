@@ -360,6 +360,58 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 }
 
+Future<void> _confirmCancelRecord({
+  required BuildContext context,
+  required String collection,
+  required String docId,
+  required String itemType,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text('Cancel $itemType'),
+        content: Text(
+          'Are you sure you want to cancel this $itemType? The doctor will be notified.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F8B8D),
+            ),
+            child: const Text(
+              'Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true) return;
+
+  await FirebaseFirestore.instance.collection(collection).doc(docId).update({
+        'status': 'cancelled',
+        'cancelledBy': 'patient',
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${itemType[0].toUpperCase()}${itemType.substring(1)} cancelled')),
+    );
+  }
+}
+
 class _AppointmentCard extends StatelessWidget {
   final String appointmentId;
   final Map<String, dynamic> data;
@@ -485,22 +537,21 @@ class _AppointmentCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: () async {
-                  await FirebaseFirestore.instance
-                      .collection('appointments')
-                      .doc(appointmentId)
-                      .delete();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Appointment removed")),
-                  );
-                },
-                icon: const Icon(
-                  Icons.cancel_outlined,
-                  color: Colors.redAccent,
+              if (status.toLowerCase() == 'scheduled')
+                IconButton(
+                  onPressed: () async {
+                    await _confirmCancelRecord(
+                      context: context,
+                      collection: 'appointments',
+                      docId: appointmentId,
+                      itemType: 'appointment',
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.cancel_outlined,
+                    color: Colors.redAccent,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -701,22 +752,21 @@ class _ConsultationCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: () async {
-                  await FirebaseFirestore.instance
-                      .collection('consultations')
-                      .doc(consultationId)
-                      .delete();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Consultation removed")),
-                  );
-                },
-                icon: const Icon(
-                  Icons.cancel_outlined,
-                  color: Colors.redAccent,
+              if (status.toLowerCase() == 'scheduled')
+                IconButton(
+                  onPressed: () async {
+                    await _confirmCancelRecord(
+                      context: context,
+                      collection: 'consultations',
+                      docId: consultationId,
+                      itemType: 'consultation',
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.cancel_outlined,
+                    color: Colors.redAccent,
+                  ),
                 ),
-              ),
             ],
           ),
         ],

@@ -1,7 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../login_screen.dart';
+
+String _todayLabel() => DateFormat('EEE, MMM d').format(DateTime.now());
+
+Future<bool> _showDoctorCancelConfirmation(BuildContext context, String itemType) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text('Cancel $itemType'),
+        content: Text(
+          'Are you sure you want to cancel this $itemType? This action will notify the patient.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F8B8D),
+            ),
+            child: const Text(
+              'Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  return confirmed == true;
+}
+
+Future<bool> _showDoctorCompleteConfirmation(BuildContext context, String itemType) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text('Complete $itemType'),
+        content: Text(
+          'Are you sure you want to mark this $itemType as completed? This action will notify the patient.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F8B8D),
+            ),
+            child: const Text(
+              'Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  return confirmed == true;
+}
+
+int _countTodayItems(QuerySnapshot? snapshot) {
+  if (snapshot == null) return 0;
+  final today = _todayLabel();
+  return snapshot.docs.where((doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final status = (data['status'] as String?)?.toLowerCase() ?? '';
+    return status != 'cancelled' && (data['date'] as String?) == today;
+  }).length;
+}
 
 class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
@@ -93,7 +176,7 @@ class DoctorAppointmentsPage extends StatelessWidget {
                 .where("doctorUid", isEqualTo: doctorUid)
                 .snapshots(),
             builder: (context, snapshot) {
-              final count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+              final count = _countTodayItems(snapshot.data);
 
               return _blueHeader(
                 "Appointments",
@@ -449,9 +532,20 @@ class DoctorConsultsPage extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F4FC),
       body: Column(
         children: [
-          _blueHeader(
-            "Consults",
-            onProfileTap: onProfileTap,
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection("consultations")
+                .where("doctorUid", isEqualTo: doctorUid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              final count = _countTodayItems(snapshot.data);
+
+              return _blueHeader(
+                "Consults",
+                rightText: "$count today",
+                onProfileTap: onProfileTap,
+              );
+            },
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -750,27 +844,39 @@ class AppointmentCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _updateStatus("completed"),
-                      icon: const Icon(Icons.check_circle, color: Colors.green),
-                      label: const Text("Complete", style: TextStyle(color: Colors.green)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFC9F8DF),
+                  if (status.toLowerCase() == 'scheduled')
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final confirmed = await _showDoctorCompleteConfirmation(context, 'appointment');
+                          if (confirmed) {
+                            await _updateStatus("completed");
+                          }
+                        },
+                        icon: const Icon(Icons.check_circle, color: Colors.green),
+                        label: const Text("Complete", style: TextStyle(color: Colors.green)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFC9F8DF),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _updateStatus("cancelled"),
-                      icon: const Icon(Icons.cancel, color: Colors.red),
-                      label: const Text("Cancel", style: TextStyle(color: Colors.red)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBDADD),
+                  if (status.toLowerCase() == 'scheduled')
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final confirmed = await _showDoctorCancelConfirmation(context, 'appointment');
+                          if (confirmed) {
+                            await _updateStatus("cancelled");
+                          }
+                        },
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        label: const Text("Cancel", style: TextStyle(color: Colors.red)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFBDADD),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -872,27 +978,39 @@ class ConsultationCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _updateStatus("completed"),
-                      icon: const Icon(Icons.check_circle, color: Colors.green),
-                      label: const Text("Complete", style: TextStyle(color: Colors.green)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFC9F8DF),
+                  if (status.toLowerCase() == 'scheduled')
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final confirmed = await _showDoctorCompleteConfirmation(context, 'consultation');
+                          if (confirmed) {
+                            await _updateStatus("completed");
+                          }
+                        },
+                        icon: const Icon(Icons.check_circle, color: Colors.green),
+                        label: const Text("Complete", style: TextStyle(color: Colors.green)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFC9F8DF),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _updateStatus("cancelled"),
-                      icon: const Icon(Icons.cancel, color: Colors.red),
-                      label: const Text("Cancel", style: TextStyle(color: Colors.red)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBDADD),
+                  if (status.toLowerCase() == 'scheduled')
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final confirmed = await _showDoctorCancelConfirmation(context, 'consultation');
+                          if (confirmed) {
+                            await _updateStatus("cancelled");
+                          }
+                        },
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        label: const Text("Cancel", style: TextStyle(color: Colors.red)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFBDADD),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ],

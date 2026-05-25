@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class OnlineConsultationScreen extends StatefulWidget {
   const OnlineConsultationScreen({super.key});
@@ -42,12 +43,12 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     },
   ];
 
-  final List<String> availableDates = [
-    "Thu, Feb 26",
-    "Fri, Feb 27",
-    "Sat, Feb 28",
-    "Sun, Mar 1",
-  ];
+  late final List<String> availableDates = List.generate(
+    4,
+    (index) => DateFormat('EEE, MMM d').format(
+      DateTime.now().add(Duration(days: index)),
+    ),
+  );
 
   final List<String> availableTimes = [
     "09:00 AM",
@@ -68,6 +69,26 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     );
   }
 
+  DateTime _parseDateTime(String dateLabel, String timeLabel) {
+    final datePart = dateLabel.split(',').last.trim();
+    final date = DateFormat('MMM d').parse(datePart);
+    final time = DateFormat('hh:mm a').parse(timeLabel);
+    final now = DateTime.now();
+    final year = (date.month < now.month ||
+            (date.month == now.month && date.day < now.day))
+        ? now.year + 1
+        : now.year;
+
+    return DateTime(year, date.month, date.day, time.hour, time.minute);
+  }
+
+  bool _isSelectedConsultationInPast() {
+    if (selectedDate == null || selectedTime == null) {
+      return false;
+    }
+    return _parseDateTime(selectedDate!, selectedTime!).isBefore(DateTime.now());
+  }
+
   void nextStep() {
     if (currentStep == 0 && selectedType == null) {
       _showSnack("Please select a consultation type.");
@@ -81,6 +102,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
     if (currentStep == 2 && (selectedDate == null || selectedTime == null)) {
       _showSnack("Please select date and time.");
+      return;
+    }
+
+    if (currentStep == 2 && _isSelectedConsultationInPast()) {
+      _showSnack("Selected consultation time has already passed.");
       return;
     }
 
@@ -117,6 +143,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
       return;
     }
 
+    if (_isSelectedConsultationInPast()) {
+      _showSnack("Selected consultation time has already passed.");
+      return;
+    }
+
     setState(() {
       isSaving = true;
     });
@@ -125,7 +156,8 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
       final consultationRef =
           FirebaseFirestore.instance.collection('consultations').doc();
 
-      await consultationRef.set({
+      final notes = notesController.text.trim();
+      final consultationData = {
         'consultationId': consultationRef.id,
         'patientId': user.uid,
         'consultationType': selectedType,
@@ -135,12 +167,15 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         'doctorSpecialty': selectedDoctorSpecialty,
         'date': selectedDate,
         'time': selectedTime,
-        'notes': notesController.text.trim().isEmpty
-            ? "General consultation"
-            : notesController.text.trim(),
         'status': 'scheduled',
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (notes.isNotEmpty) {
+        consultationData['notes'] = notes;
+      }
+
+      await consultationRef.set(consultationData);
 
       if (!mounted) return;
 
@@ -461,19 +496,29 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           runSpacing: 10,
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
+            final dateTime = selectedDate != null
+                ? _parseDateTime(selectedDate!, time)
+                : null;
+            final disabled = dateTime != null && dateTime.isBefore(DateTime.now());
             return ChoiceChip(
               label: Text(time),
               selected: selected,
-              onSelected: (_) {
-                setState(() {
-                  selectedTime = time;
-                });
-              },
+              onSelected: disabled
+                  ? null
+                  : (_) {
+                      setState(() {
+                        selectedTime = time;
+                      });
+                    },
               selectedColor: const Color(0xFF0F8B8D).withOpacity(0.18),
+              backgroundColor:
+                  disabled ? const Color(0xFFF3F4F6) : Colors.white,
               labelStyle: TextStyle(
-                color: selected
-                    ? const Color(0xFF0F8B8D)
-                    : const Color(0xFF111827),
+                color: disabled
+                    ? const Color(0xFF9CA3AF)
+                    : selected
+                        ? const Color(0xFF0F8B8D)
+                        : const Color(0xFF111827),
                 fontWeight: FontWeight.w600,
               ),
             );
