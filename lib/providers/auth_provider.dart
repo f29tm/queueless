@@ -27,6 +27,8 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
+String? get userId => currentUser?.uid;
+
   // ✅ PATIENT SIGN-UP
   Future<String?> signUpWithDetails({
     required String name,
