@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum NotificationType {
@@ -42,44 +43,39 @@ class AppNotification {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
-
-  Map<String, dynamic> toMap() => {
-        'type': type.name,
-        'title': title,
-        'body': body,
-        'metadata': metadata,
-        'isRead': isRead,
-        'createdAt': Timestamp.fromDate(createdAt),
-      };
 }
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ─── Collection reference for a patient ───────────────────────────────────
-  CollectionReference _notifRef(String patientId) => _firestore
-    .collection('users')
-    .doc(patientId)
-    .collection('notifications');
+  // ─── Shared collection reference for any user ─────────────────────────────
+  CollectionReference _notifRef(String userId) => _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications');
 
   // ─── Stream: all notifications (newest first) ─────────────────────────────
-  Stream<List<AppNotification>> notificationsStream(String patientId) {
-    return _notifRef(patientId)
+  Stream<List<AppNotification>> notificationsStream(String userId) {
+    return _notifRef(userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) =>
             snap.docs.map((d) => AppNotification.fromFirestore(d)).toList());
   }
 
-  // ─── Stream: unread count only (for the badge) ────────────────────────────
-  Stream<int> unreadCountStream(String patientId) {
-    return _notifRef(patientId)
+  // ─── Stream: unread count only (for badge) ────────────────────────────────
+  Stream<int> unreadCountStream(String userId) {
+    return _notifRef(userId)
         .where('isRead', isEqualTo: false)
         .snapshots()
         .map((snap) => snap.docs.length);
   }
 
-  // ─── WRITE: Doctor cancels an appointment ─────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  //  PATIENT-FACING NOTIFICATIONS  (doctor → patient)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ─── Doctor cancels appointment → notify patient ──────────────────────────
   Future<void> notifyAppointmentCancelled({
     required String patientId,
     required String appointmentId,
@@ -90,8 +86,7 @@ class NotificationService {
     await _notifRef(patientId).add({
       'type': NotificationType.appointmentCancelled.name,
       'title': 'Appointment Cancelled',
-      'body':
-          '$doctorName has cancelled your appointment on $appointmentDate.',
+      'body': '$doctorName has cancelled your appointment on $appointmentDate.',
       'metadata': {
         'appointmentId': appointmentId,
         'doctorName': doctorName,
@@ -103,7 +98,7 @@ class NotificationService {
     });
   }
 
-  // ─── WRITE: Doctor cancels an online consultation ─────────────────────────
+  // ─── Doctor cancels consultation → notify patient ─────────────────────────
   Future<void> notifyConsultationCancelled({
     required String patientId,
     required String consultationId,
@@ -127,7 +122,7 @@ class NotificationService {
     });
   }
 
-  // ─── WRITE: Nurse overrides triage level ──────────────────────────────────
+  // ─── Nurse overrides triage → notify patient ──────────────────────────────
   Future<void> notifyTriageOverride({
     required String patientId,
     required String oldLevel,
@@ -151,7 +146,7 @@ class NotificationService {
     });
   }
 
-  // ─── WRITE: Queue position update ─────────────────────────────────────────
+  // ─── Queue position update → notify patient ───────────────────────────────
   Future<void> notifyQueueUpdate({
     required String patientId,
     required int position,
@@ -171,32 +166,65 @@ class NotificationService {
     });
   }
 
-  // ─── WRITE: General reminder ──────────────────────────────────────────────
-  Future<void> notifyReminder({
-    required String patientId,
-    required String title,
-    required String body,
-    Map<String, dynamic>? metadata,
+  // ══════════════════════════════════════════════════════════════════════════
+  //  DOCTOR-FACING NOTIFICATIONS  (patient → doctor)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ─── Patient cancels appointment → notify doctor ──────────────────────────
+  Future<void> notifyDoctorAppointmentCancelled({
+    required String doctorId,
+    required String appointmentId,
+    required String patientName,
+    required String appointmentDate,
   }) async {
-    await _notifRef(patientId).add({
-      'type': NotificationType.reminder.name,
-      'title': title,
-      'body': body,
-      'metadata': metadata ?? {},
+    await _notifRef(doctorId).add({
+      'type': NotificationType.appointmentCancelled.name,
+      'title': 'Appointment Cancelled by Patient',
+      'body':
+          '$patientName has cancelled their appointment on $appointmentDate.',
+      'metadata': {
+        'appointmentId': appointmentId,
+        'patientName': patientName,
+        'appointmentDate': appointmentDate,
+      },
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // ─── Mark one notification as read ────────────────────────────────────────
-  Future<void> markAsRead(String patientId, String notificationId) async {
-    await _notifRef(patientId).doc(notificationId).update({'isRead': true});
+  // ─── Patient cancels consultation → notify doctor ─────────────────────────
+  Future<void> notifyDoctorConsultationCancelled({
+    required String doctorId,
+    required String consultationId,
+    required String patientName,
+    required String scheduledTime,
+  }) async {
+    await _notifRef(doctorId).add({
+      'type': NotificationType.consultationCancelled.name,
+      'title': 'Consultation Cancelled by Patient',
+      'body':
+          '$patientName has cancelled their online consultation scheduled at $scheduledTime.',
+      'metadata': {
+        'consultationId': consultationId,
+        'patientName': patientName,
+        'scheduledTime': scheduledTime,
+      },
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
-  // ─── Mark all as read ─────────────────────────────────────────────────────
-  Future<void> markAllAsRead(String patientId) async {
+  // ══════════════════════════════════════════════════════════════════════════
+  //  SHARED OPERATIONS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Future<void> markAsRead(String userId, String notificationId) async {
+    await _notifRef(userId).doc(notificationId).update({'isRead': true});
+  }
+
+  Future<void> markAllAsRead(String userId) async {
     final snap =
-        await _notifRef(patientId).where('isRead', isEqualTo: false).get();
+        await _notifRef(userId).where('isRead', isEqualTo: false).get();
     final batch = _firestore.batch();
     for (final doc in snap.docs) {
       batch.update(doc.reference, {'isRead': true});
@@ -204,9 +232,7 @@ class NotificationService {
     await batch.commit();
   }
 
-  // ─── Delete one notification ──────────────────────────────────────────────
-  Future<void> deleteNotification(
-      String patientId, String notificationId) async {
-    await _notifRef(patientId).doc(notificationId).delete();
+  Future<void> deleteNotification(String userId, String notificationId) async {
+    await _notifRef(userId).doc(notificationId).delete();
   }
 }

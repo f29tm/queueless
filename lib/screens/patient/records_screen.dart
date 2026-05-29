@@ -1,6 +1,8 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../services/notification_service.dart';
 
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key});
@@ -79,11 +81,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   icon: Icons.calendar_today_outlined,
                   title: "Appointments",
                   badgeCount: appointmentCount,
-                  onTap: () {
-                    setState(() {
-                      showAppointments = true;
-                    });
-                  },
+                  onTap: () => setState(() => showAppointments = true),
                 ),
               ),
               Expanded(
@@ -92,11 +90,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   icon: Icons.medical_information_outlined,
                   title: "Consultations",
                   badgeCount: consultationCount,
-                  onTap: () {
-                    setState(() {
-                      showAppointments = false;
-                    });
-                  },
+                  onTap: () => setState(() => showAppointments = false),
                 ),
               ),
             ],
@@ -107,11 +101,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Stream<List<int>> _combinedCounts(String uid) async* {
-    await for (final appointmentsSnapshot
-        in FirebaseFirestore.instance
-            .collection('appointments')
-            .where('patientId', isEqualTo: uid)
-            .snapshots()) {
+    await for (final appointmentsSnapshot in FirebaseFirestore.instance
+        .collection('appointments')
+        .where('patientId', isEqualTo: uid)
+        .snapshots()) {
       final consultationsSnapshot = await FirebaseFirestore.instance
           .collection('consultations')
           .where('patientId', isEqualTo: uid)
@@ -173,7 +166,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
             if (badgeCount != null && badgeCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F7F7),
                   borderRadius: BorderRadius.circular(12),
@@ -206,37 +200,34 @@ class _RecordsScreenState extends State<RecordsScreen> {
             child: CircularProgressIndicator(color: Color(0xFF0F8B8D)),
           );
         }
-
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
 
-        final List<QueryDocumentSnapshot> docs = List.from(
-          snapshot.data?.docs ?? [],
-        );
+        final List<QueryDocumentSnapshot> docs =
+            List.from(snapshot.data?.docs ?? []);
 
         docs.sort((a, b) {
-          final aData = a.data() as Map<String, dynamic>;
-          final bData = b.data() as Map<String, dynamic>;
-          final aTime = aData['createdAt'] as Timestamp?;
-          final bTime = bData['createdAt'] as Timestamp?;
+          final aTime =
+              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime =
+              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           if (aTime == null && bTime == null) return 0;
           if (aTime == null) return 1;
           if (bTime == null) return -1;
           return bTime.compareTo(aTime);
         });
 
-        if (docs.isEmpty) {
-          return _buildEmptyAppointments();
-        }
+        if (docs.isEmpty) return _buildEmptyAppointments();
 
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
-            return _AppointmentCard(appointmentId: docs[index].id, data: data);
+            return _AppointmentCard(
+                appointmentId: docs[index].id, data: data);
           },
         );
       },
@@ -255,40 +246,34 @@ class _RecordsScreenState extends State<RecordsScreen> {
             child: CircularProgressIndicator(color: Color(0xFF0F8B8D)),
           );
         }
-
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
 
-        final List<QueryDocumentSnapshot> docs = List.from(
-          snapshot.data?.docs ?? [],
-        );
+        final List<QueryDocumentSnapshot> docs =
+            List.from(snapshot.data?.docs ?? []);
 
         docs.sort((a, b) {
-          final aData = a.data() as Map<String, dynamic>;
-          final bData = b.data() as Map<String, dynamic>;
-          final aTime = aData['createdAt'] as Timestamp?;
-          final bTime = bData['createdAt'] as Timestamp?;
+          final aTime =
+              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTime =
+              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
           if (aTime == null && bTime == null) return 0;
           if (aTime == null) return 1;
           if (bTime == null) return -1;
           return bTime.compareTo(aTime);
         });
 
-        if (docs.isEmpty) {
-          return _buildEmptyConsultations();
-        }
+        if (docs.isEmpty) return _buildEmptyConsultations();
 
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             return _ConsultationCard(
-              consultationId: docs[index].id,
-              data: data,
-            );
+                consultationId: docs[index].id, data: data);
           },
         );
       },
@@ -302,25 +287,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.event_note_outlined,
-              size: 62,
-              color: Colors.grey.shade300,
-            ),
+            Icon(Icons.event_note_outlined,
+                size: 62, color: Colors.grey.shade300),
             const SizedBox(height: 18),
-            const Text(
-              "No appointments yet",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
+            const Text("No appointments yet",
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827))),
             const SizedBox(height: 8),
-            const Text(
-              "Your booked appointments will appear here",
-              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
-            ),
+            const Text("Your booked appointments will appear here",
+                style: TextStyle(fontSize: 15, color: Color(0xFF6B7280))),
           ],
         ),
       ),
@@ -334,25 +311,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.medical_information_outlined,
-              size: 58,
-              color: Colors.grey.shade300,
-            ),
+            Icon(Icons.medical_information_outlined,
+                size: 58, color: Colors.grey.shade300),
             const SizedBox(height: 18),
-            const Text(
-              "No consultations yet",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
+            const Text("No consultations yet",
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827))),
             const SizedBox(height: 8),
-            const Text(
-              "Your completed consultations will appear here",
-              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
-            ),
+            const Text("Your completed consultations will appear here",
+                style: TextStyle(fontSize: 15, color: Color(0xFF6B7280))),
           ],
         ),
       ),
@@ -360,11 +329,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 }
 
+// ── Cancel dialog + notify doctor ─────────────────────────────────────────────
 Future<void> _confirmCancelRecord({
   required BuildContext context,
   required String collection,
   required String docId,
   required String itemType,
+  required String doctorId,
+  required String patientName,
+  required String scheduledDate,
+  required String scheduledTime,
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -387,10 +361,8 @@ Future<void> _confirmCancelRecord({
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0F8B8D),
             ),
-            child: const Text(
-              'Confirm',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Confirm',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       );
@@ -399,18 +371,46 @@ Future<void> _confirmCancelRecord({
 
   if (confirmed != true) return;
 
+  // ── Update Firestore status ──────────────────────────────────────────────
   await FirebaseFirestore.instance.collection(collection).doc(docId).update({
-        'status': 'cancelled',
-        'cancelledBy': 'patient',
-        'cancelledAt': FieldValue.serverTimestamp(),
-      });
+    'status': 'cancelled',
+    'cancelledBy': 'patient',
+    'cancelledAt': FieldValue.serverTimestamp(),
+  });
+
+  // ── Notify the doctor ────────────────────────────────────────────────────
+  if (doctorId.isNotEmpty) {
+    final dateTime = '$scheduledDate at $scheduledTime';
+
+    if (collection == 'appointments') {
+      await NotificationService().notifyDoctorAppointmentCancelled(
+        doctorId: doctorId,
+        appointmentId: docId,
+        patientName: patientName,
+        appointmentDate: dateTime,
+      );
+    } else {
+      await NotificationService().notifyDoctorConsultationCancelled(
+        doctorId: doctorId,
+        consultationId: docId,
+        patientName: patientName,
+        scheduledTime: dateTime,
+      );
+    }
+  }
 
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${itemType[0].toUpperCase()}${itemType.substring(1)} cancelled')),
+      SnackBar(
+          content: Text(
+              '${itemType[0].toUpperCase()}${itemType.substring(1)} cancelled')),
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  APPOINTMENT CARD
+// ══════════════════════════════════════════════════════════════════════════════
 
 class _AppointmentCard extends StatelessWidget {
   final String appointmentId;
@@ -423,139 +423,149 @@ class _AppointmentCard extends StatelessWidget {
     final Timestamp? createdAt = data['createdAt'] as Timestamp?;
     final DateTime bookedAt = createdAt?.toDate() ?? DateTime.now();
 
-    final String hospital = (data['hospital'] ?? 'Dubai Hospital').toString();
-    final String department = (data['department'] ?? 'General Medicine')
-        .toString();
-    final String doctorName = (data['doctorName'] ?? 'Dr. Ahmed Al Rashid')
-        .toString();
-    final String reason = (data['reason'] ?? 'Regular check up').toString();
+    final String hospital =
+        (data['hospital'] ?? 'Dubai Hospital').toString();
+    final String department =
+        (data['department'] ?? 'General Medicine').toString();
+    final String doctorName =
+        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+    final String doctorId = (data['doctorUid'] ?? '').toString();
+    final String reason =
+        (data['reason'] ?? 'Regular check up').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
     final String time = (data['time'] ?? '04:00 PM').toString();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    // ── Get patient name from Auth ─────────────────────────────────────────
+    final patientId =
+        (data['patientId'] ?? '').toString();
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get(),
+      builder: (context, snapshot) {
+        final patientName =
+            (snapshot.data?.data() as Map<String, dynamic>?)?['name']
+                as String? ??
+            'Patient';
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  hospital,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      hospital,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
                   ),
+                  _statusBadge(_formatStatus(status)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.local_hospital_outlined,
+                      size: 18, color: Color(0xFF0F8B8D)),
+                  const SizedBox(width: 6),
+                  Text(
+                    department,
+                    style: const TextStyle(
+                      color: Color(0xFF0F8B8D),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 16,
+                runSpacing: 10,
+                children: [
+                  _infoItem(icon: Icons.calendar_today_outlined, text: date),
+                  _infoItem(icon: Icons.access_time_outlined, text: time),
+                  _infoItem(icon: Icons.person_outline, text: doctorName),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("REASON",
+                        style: TextStyle(
+                            fontSize: 12,
+                            letterSpacing: 0.6,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF6B7280))),
+                    const SizedBox(height: 6),
+                    Text(reason,
+                        style: const TextStyle(
+                            fontSize: 16, color: Color(0xFF111827))),
+                  ],
                 ),
               ),
-              _statusBadge(_formatStatus(status)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.local_hospital_outlined,
-                size: 18,
-                color: Color(0xFF0F8B8D),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Booked ${_formatBookedDate(bookedAt)}",
+                      style: const TextStyle(
+                          color: Color(0xFF9CA3AF), fontSize: 14),
+                    ),
+                  ),
+                  if (status.toLowerCase() == 'scheduled')
+                    IconButton(
+                      onPressed: () async {
+                        await _confirmCancelRecord(
+                          context: context,
+                          collection: 'appointments',
+                          docId: appointmentId,
+                          itemType: 'appointment',
+                          doctorId: doctorId,
+                          patientName: patientName,
+                          scheduledDate: date,
+                          scheduledTime: time,
+                        );
+                      },
+                      icon: const Icon(Icons.cancel_outlined,
+                          color: Colors.redAccent),
+                    ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                department,
-                style: const TextStyle(
-                  color: Color(0xFF0F8B8D),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 16,
-            runSpacing: 10,
-            children: [
-              _infoItem(icon: Icons.calendar_today_outlined, text: date),
-              _infoItem(icon: Icons.access_time_outlined, text: time),
-              _infoItem(icon: Icons.person_outline, text: doctorName),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "REASON",
-                  style: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: 0.6,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  reason,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Booked ${_formatBookedDate(bookedAt)}",
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              if (status.toLowerCase() == 'scheduled')
-                IconButton(
-                  onPressed: () async {
-                    await _confirmCancelRecord(
-                      context: context,
-                      collection: 'appointments',
-                      docId: appointmentId,
-                      itemType: 'appointment',
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.cancel_outlined,
-                    color: Colors.redAccent,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -571,14 +581,11 @@ class _AppointmentCard extends StatelessWidget {
         children: [
           const Icon(Icons.circle, size: 10, color: Color(0xFF0F8B8D)),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Color(0xFF0F8B8D),
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-            ),
-          ),
+          Text(text,
+              style: const TextStyle(
+                  color: Color(0xFF0F8B8D),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15)),
         ],
       ),
     );
@@ -590,10 +597,9 @@ class _AppointmentCard extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: const Color(0xFF6B7280)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 15),
-        ),
+        Text(text,
+            style:
+                const TextStyle(color: Color(0xFF6B7280), fontSize: 15)),
       ],
     );
   }
@@ -604,7 +610,6 @@ class _AppointmentCard extends StatelessWidget {
         return 'Completed';
       case 'cancelled':
         return 'Cancelled';
-      case 'scheduled':
       default:
         return 'Scheduled';
     }
@@ -612,165 +617,164 @@ class _AppointmentCard extends StatelessWidget {
 
   String _formatBookedDate(DateTime dt) {
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec"
     ];
     return "${months[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  CONSULTATION CARD
+// ══════════════════════════════════════════════════════════════════════════════
+
 class _ConsultationCard extends StatelessWidget {
   final String consultationId;
   final Map<String, dynamic> data;
 
-  const _ConsultationCard({required this.consultationId, required this.data});
+  const _ConsultationCard(
+      {required this.consultationId, required this.data});
 
   @override
   Widget build(BuildContext context) {
     final Timestamp? createdAt = data['createdAt'] as Timestamp?;
     final DateTime bookedAt = createdAt?.toDate() ?? DateTime.now();
 
-    final String type = (data['consultationType'] ?? 'Video Call').toString();
-    final String doctorName = (data['doctorName'] ?? 'Dr. Ahmed Al Rashid')
-        .toString();
-    final String notes = (data['notes'] ?? 'General consultation').toString();
+    final String type =
+        (data['consultationType'] ?? 'Video Call').toString();
+    final String doctorName =
+        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+    final String doctorId = (data['doctorUid'] ?? '').toString();
+    final String notes =
+        (data['notes'] ?? 'General consultation').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
     final String time = (data['time'] ?? '04:00 PM').toString();
+    final String patientId = (data['patientId'] ?? '').toString();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get(),
+      builder: (context, snapshot) {
+        final patientName =
+            (snapshot.data?.data() as Map<String, dynamic>?)?['name']
+                as String? ??
+            'Patient';
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Text(
-                  "Online Consultation",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Online Consultation",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
                   ),
+                  _statusBadge(_formatStatus(status)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.video_call_outlined,
+                      size: 18, color: Color(0xFF0F8B8D)),
+                  const SizedBox(width: 6),
+                  Text(type,
+                      style: const TextStyle(
+                          color: Color(0xFF0F8B8D),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 16,
+                runSpacing: 10,
+                children: [
+                  _infoItem(icon: Icons.calendar_today_outlined, text: date),
+                  _infoItem(icon: Icons.access_time_outlined, text: time),
+                  _infoItem(icon: Icons.person_outline, text: doctorName),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("NOTES",
+                        style: TextStyle(
+                            fontSize: 12,
+                            letterSpacing: 0.6,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF6B7280))),
+                    const SizedBox(height: 6),
+                    Text(notes,
+                        style: const TextStyle(
+                            fontSize: 16, color: Color(0xFF111827))),
+                  ],
                 ),
               ),
-              _statusBadge(_formatStatus(status)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.video_call_outlined,
-                size: 18,
-                color: Color(0xFF0F8B8D),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Booked ${_formatBookedDate(bookedAt)}",
+                      style: const TextStyle(
+                          color: Color(0xFF9CA3AF), fontSize: 14),
+                    ),
+                  ),
+                  if (status.toLowerCase() == 'scheduled')
+                    IconButton(
+                      onPressed: () async {
+                        await _confirmCancelRecord(
+                          context: context,
+                          collection: 'consultations',
+                          docId: consultationId,
+                          itemType: 'consultation',
+                          doctorId: doctorId,
+                          patientName: patientName,
+                          scheduledDate: date,
+                          scheduledTime: time,
+                        );
+                      },
+                      icon: const Icon(Icons.cancel_outlined,
+                          color: Colors.redAccent),
+                    ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                type,
-                style: const TextStyle(
-                  color: Color(0xFF0F8B8D),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 16,
-            runSpacing: 10,
-            children: [
-              _infoItem(icon: Icons.calendar_today_outlined, text: date),
-              _infoItem(icon: Icons.access_time_outlined, text: time),
-              _infoItem(icon: Icons.person_outline, text: doctorName),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "NOTES",
-                  style: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: 0.6,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  notes,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Booked ${_formatBookedDate(bookedAt)}",
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              if (status.toLowerCase() == 'scheduled')
-                IconButton(
-                  onPressed: () async {
-                    await _confirmCancelRecord(
-                      context: context,
-                      collection: 'consultations',
-                      docId: consultationId,
-                      itemType: 'consultation',
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.cancel_outlined,
-                    color: Colors.redAccent,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -786,14 +790,11 @@ class _ConsultationCard extends StatelessWidget {
         children: [
           const Icon(Icons.circle, size: 10, color: Color(0xFF0F8B8D)),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Color(0xFF0F8B8D),
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-            ),
-          ),
+          Text(text,
+              style: const TextStyle(
+                  color: Color(0xFF0F8B8D),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15)),
         ],
       ),
     );
@@ -805,10 +806,9 @@ class _ConsultationCard extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: const Color(0xFF6B7280)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 15),
-        ),
+        Text(text,
+            style:
+                const TextStyle(color: Color(0xFF6B7280), fontSize: 15)),
       ],
     );
   }
@@ -819,7 +819,6 @@ class _ConsultationCard extends StatelessWidget {
         return 'Completed';
       case 'cancelled':
         return 'Cancelled';
-      case 'scheduled':
       default:
         return 'Scheduled';
     }
@@ -827,18 +826,8 @@ class _ConsultationCard extends StatelessWidget {
 
   String _formatBookedDate(DateTime dt) {
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec"
     ];
     return "${months[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
