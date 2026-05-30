@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -20,14 +19,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   String? selectedGender;
   DateTime? selectedDate;
 
   bool obscurePass = true;
   bool obscureConfirm = true;
-  bool _isLoading = false;
 
   final List<String> genders = ["Male", "Female"];
 
@@ -79,120 +78,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void registerUser() async {
+    // ✅ FULL NAME
+    if (fullNameController.text.trim().isEmpty) {
+      _showError("Full name is required.");
+      return;
+    }
+    if (!fullNameController.text.trim().contains(" ")) {
+      _showError("Enter full name (first & last).");
+      return;
+    }
+
+    // ✅ EMIRATES ID
+    final emiratesId = nationalIdController.text.trim();
+    final emiratesIdRegex = RegExp(r"^784-\d{4}-\d{7}-\d{1}$");
+    if (!emiratesIdRegex.hasMatch(emiratesId)) {
+      _showError("Enter a valid Emirates ID (784-YYYY-XXXXXXX-X).");
+      return;
+    }
+
+    // ✅ DOB
+    if (dobController.text.trim().isEmpty) {
+      _showError("Date of Birth is required.");
+      return;
+    }
+
+    // ✅ NATIONALITY
+    if (nationalityController.text.trim().isEmpty) {
+      _showError("Please select your nationality.");
+      return;
+    }
+
+    // ✅ GENDER
+    if (selectedGender == null) {
+      _showError("Please select your gender.");
+      return;
+    }
+
+    // ✅ PHONE (UAE FORMAT)
+    final phone = phoneController.text.trim();
+    final phoneRegex = RegExp(r"^05\d{8}$");
+    if (!phoneRegex.hasMatch(phone)) {
+      _showError("Enter valid UAE phone (05XXXXXXXX).");
+      return;
+    }
+
+    // ✅ EMAIL
+    final email = emailController.text.trim();
+    final emailRegex = RegExp(
+      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+    );
+    if (!emailRegex.hasMatch(email)) {
+      _showError("Enter a valid email address.");
+      return;
+    }
+
+    // ✅ PASSWORD
+    if (!isStrongPassword(passwordController.text)) {
+      _showError("Weak password — use A‑Z, a‑z, numbers & special characters.");
+      return;
+    }
+
+    // ✅ CONFIRM PASSWORD
+    if (passwordController.text.trim() !=
+        confirmPasswordController.text.trim()) {
+      _showError("Passwords do not match.");
+      return;
+    }
+
+    // ✅ ✅ ✅ HASH NATIONAL ID HERE
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    final hashedNationalId = auth.hashData(emiratesId);
+
+    // ✅ EXTRA PATIENT DATA (UPDATED)
+    final extraData = {
+      "fullName": fullNameController.text.trim(),
+      "nationalId": hashedNationalId, // ✅ hashed instead of plain text
+      "dob": dobController.text.trim(),
+      "nationality": nationalityController.text.trim(),
+      "gender": selectedGender,
+      "phone": phone,
+      "role": "patient",
+    };
+
+    final error = await auth.signUpWithDetails(
+      name: fullNameController.text.trim(),
+      email: email,
+      password: passwordController.text.trim(),
+      phone: phone,
+      extraData: extraData,
+    );
+
+    if (error != null) {
+      _showError(error);
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+      const SnackBar(
+        content: Text("Account created! Please verify your email."),
+      ),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
-
-Future<void> registerUser() async {
-  // ✅ FULL NAME
-  if (fullNameController.text.trim().isEmpty) {
-    _showError("Full name is required.");
-    return;
-  }
-  if (!fullNameController.text.trim().contains(" ")) {
-    _showError("Enter full name (first & last).");
-    return;
-  }
-
-  // ✅ EMIRATES ID
-  final emiratesId = nationalIdController.text.trim();
-  final emiratesIdRegex = RegExp(r"^784-\d{4}-\d{7}-\d{1}$");
-  if (!emiratesIdRegex.hasMatch(emiratesId)) {
-    _showError("Enter a valid Emirates ID (784-YYYY-XXXXXXX-X).");
-    return;
-  }
-
-  // ✅ DOB
-  if (dobController.text.trim().isEmpty) {
-    _showError("Date of Birth is required.");
-    return;
-  }
-
-  // ✅ NATIONALITY
-  if (nationalityController.text.trim().isEmpty) {
-    _showError("Please select your nationality.");
-    return;
-  }
-
-  // ✅ GENDER
-  if (selectedGender == null) {
-    _showError("Please select your gender.");
-    return;
-  }
-
-  // ✅ PHONE (UAE FORMAT)
-  final phone = phoneController.text.trim();
-  final phoneRegex = RegExp(r"^05\d{8}$");
-  if (!phoneRegex.hasMatch(phone)) {
-    _showError("Enter valid UAE phone (05XXXXXXXX).");
-    return;
-  }
-
-  // ✅ EMAIL
-  final email = emailController.text.trim();
-  final emailRegex =
-      RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
-  if (!emailRegex.hasMatch(email)) {
-    _showError("Enter a valid email address.");
-    return;
-  }
-
-  // ✅ PASSWORD
-  if (!isStrongPassword(passwordController.text)) {
-    _showError(
-        "Weak password — use A‑Z, a‑z, numbers & special characters.");
-    return;
-  }
-
-  // ✅ CONFIRM PASSWORD
-  if (passwordController.text.trim() !=
-      confirmPasswordController.text.trim()) {
-    _showError("Passwords do not match.");
-    return;
-  }
-
-  // ✅ ✅ ✅ HASH NATIONAL ID HERE
-  final auth = Provider.of<AuthProvider>(context, listen: false);
-
-  final hashedNationalId = auth.hashData(emiratesId);
-
-  // ✅ EXTRA PATIENT DATA (UPDATED)
-  final extraData = {
-    "fullName": fullNameController.text.trim(),
-    "nationalId": hashedNationalId, // ✅ hashed instead of plain text
-    "dob": dobController.text.trim(),
-    "nationality": nationalityController.text.trim(),
-    "gender": selectedGender,
-    "phone": phone,
-    "role": "patient",
-  };
-
-  final error = await auth.signUpWithDetails(
-    name: fullNameController.text.trim(),
-    email: email,
-    password: passwordController.text.trim(),
-    phone: phone,
-    extraData: extraData,
-  );
-
-  if (error != null) {
-    _showError(error);
-    return;
-  }
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text("Account created! Please verify your email."),
-    ),
-  );
-
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const LoginScreen()),
-  );
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -250,12 +246,20 @@ Future<void> registerUser() async {
               ),
               child: Column(
                 children: [
-                  _input(fullNameController, "Full Name", Icons.person,
-                      "e.g. Meriem Bettayeb"),
+                  _input(
+                    fullNameController,
+                    "Full Name",
+                    Icons.person,
+                    "e.g. Meriem Bettayeb",
+                  ),
                   const SizedBox(height: 16),
 
-                  _input(nationalIdController, "National ID", Icons.badge,
-                      "e.g. 784-YYYY-XXXXXXX-X"),
+                  _input(
+                    nationalIdController,
+                    "National ID",
+                    Icons.badge,
+                    "e.g. 784-YYYY-XXXXXXX-X",
+                  ),
                   const SizedBox(height: 16),
 
                   _dobField(),
@@ -285,37 +289,49 @@ Future<void> registerUser() async {
                   ),
                   const SizedBox(height: 16),
 
-                  _input(phoneController, "Phone Number", Icons.phone,
-                      "e.g. 0501234567"),
+                  _input(
+                    phoneController,
+                    "Phone Number",
+                    Icons.phone,
+                    "e.g. 0501234567",
+                  ),
                   const SizedBox(height: 16),
 
-                  _input(emailController, "Email", Icons.email,
-                      "e.g. example@gmail.com"),
+                  _input(
+                    emailController,
+                    "Email",
+                    Icons.email,
+                    "e.g. example@gmail.com",
+                  ),
                   const SizedBox(height: 16),
 
-                  _passwordField(passwordController, "Password", "Strong@Pass1",
-                      obscurePass, () {
-                    setState(() => obscurePass = !obscurePass);
-                  }),
+                  _passwordField(
+                    passwordController,
+                    "Password",
+                    "Strong@Pass1",
+                    obscurePass,
+                    () {
+                      setState(() => obscurePass = !obscurePass);
+                    },
+                  ),
                   const SizedBox(height: 16),
 
-                  _passwordField(confirmPasswordController, "Confirm Password",
-                      "Repeat password", obscureConfirm, () {
-                    setState(() => obscureConfirm = !obscureConfirm);
-                  }),
+                  _passwordField(
+                    confirmPasswordController,
+                    "Confirm Password",
+                    "Repeat password",
+                    obscureConfirm,
+                    () {
+                      setState(() => obscureConfirm = !obscureConfirm);
+                    },
+                  ),
                   const SizedBox(height: 24),
 
                   // ✅ BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () async {
-                              setState(() => _isLoading = true);
-                              await registerUser();
-                              if (mounted) setState(() => _isLoading = false);
-                            },
+                      onPressed: registerUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF009688),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -323,18 +339,10 @@ Future<void> registerUser() async {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text(
-                              "Create Account",
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.white),
-                            ),
+                      child: const Text(
+                        "Create Account",
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
                     ),
                   ),
 
@@ -363,9 +371,9 @@ Future<void> registerUser() async {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      )
+                      ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -377,7 +385,11 @@ Future<void> registerUser() async {
 
   // ✅ INPUT FIELD
   Widget _input(
-      TextEditingController c, String label, IconData icon, String hint) {
+    TextEditingController c,
+    String label,
+    IconData icon,
+    String hint,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -397,8 +409,13 @@ Future<void> registerUser() async {
   }
 
   // ✅ PASSWORD FIELD
-  Widget _passwordField(TextEditingController c, String label, String hint,
-      bool obscure, VoidCallback toggle) {
+  Widget _passwordField(
+    TextEditingController c,
+    String label,
+    String hint,
+    bool obscure,
+    VoidCallback toggle,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -414,8 +431,7 @@ Future<void> registerUser() async {
           hintText: hint,
           border: InputBorder.none,
           suffixIcon: IconButton(
-            icon:
-                Icon(obscure ? Icons.visibility_off : Icons.visibility),
+            icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
             onPressed: toggle,
           ),
         ),
@@ -437,8 +453,7 @@ Future<void> registerUser() async {
           child: TextField(
             controller: dobController,
             decoration: const InputDecoration(
-              prefixIcon:
-                  Icon(Icons.calendar_today, color: Color(0xFF009688)),
+              prefixIcon: Icon(Icons.calendar_today, color: Color(0xFF009688)),
               labelText: "Date of Birth",
               hintText: "DD/MM/YYYY",
               border: InputBorder.none,
@@ -464,7 +479,7 @@ Future<void> registerUser() async {
         borderRadius: BorderRadius.circular(14),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           prefixIcon: Icon(icon, color: Color(0xFF009688)),
           border: InputBorder.none,
@@ -508,8 +523,9 @@ Future<void> registerUser() async {
                     context: context,
                     isScrollControlled: true,
                     shape: const RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(24)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
                     ),
                     builder: (_) {
                       return Padding(
@@ -529,9 +545,11 @@ Future<void> registerUser() async {
                                   onChanged: (v) {
                                     setSheet(() {
                                       filtered = items
-                                          .where((e) => e
-                                              .toLowerCase()
-                                              .contains(v.toLowerCase()))
+                                          .where(
+                                            (e) => e.toLowerCase().contains(
+                                              v.toLowerCase(),
+                                            ),
+                                          )
                                           .toList();
                                     });
                                   },
@@ -573,7 +591,7 @@ Future<void> registerUser() async {
                         ),
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down)
+                    const Icon(Icons.arrow_drop_down),
                   ],
                 ),
               ),

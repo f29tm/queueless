@@ -23,7 +23,9 @@ Guidelines:
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
 
-  static const int _modelIndex = 0;
+  static const List<String> _models = ['gemini-2.5-flash'];
+
+  static final int _modelIndex = 0;
 
   final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
@@ -43,7 +45,9 @@ Guidelines:
 
     _history.add({
       'role': 'user',
-      'parts': [{'text': text}],
+      'parts': [
+        {'text': text},
+      ],
     });
 
     try {
@@ -51,11 +55,14 @@ Guidelines:
       print('Trying model: gemini-2.5-flash');
 
       final uri = Uri.parse(
-          '$_baseUrl/gemini-2.5-flash:generateContent?key=${ApiKeys.gemini}');
+        '$_baseUrl/gemini-2.5-flash:generateContent?key=${ApiKeys.gemini}',
+      );
 
       final body = jsonEncode({
         'system_instruction': {
-          'parts': [{'text': _systemInstruction}],
+          'parts': [
+            {'text': _systemInstruction},
+          ],
         },
         'contents': _history,
         'generationConfig': {'maxOutputTokens': 500},
@@ -72,7 +79,8 @@ Guidelines:
         print('Gemini response body: ${response.body}');
         _history.removeLast();
         throw Exception(
-            'Gemini API error ${response.statusCode}: ${response.body}');
+          'Gemini API error ${response.statusCode}: ${response.body}',
+        );
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -91,7 +99,9 @@ Guidelines:
 
       _history.add({
         'role': 'model',
-        'parts': [{'text': reply}],
+        'parts': [
+          {'text': reply},
+        ],
       });
 
       return reply;

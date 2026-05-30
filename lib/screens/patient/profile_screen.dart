@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -23,14 +22,10 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               // ✅ PAGE TITLE
               const Text(
                 "Profile",
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 20),
@@ -38,7 +33,10 @@ class ProfileScreen extends StatelessWidget {
               // ✅ MAIN PROFILE CARD (NOW DYNAMIC)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 25,
+                  horizontal: 20,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -57,7 +55,11 @@ class ProfileScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 35,
                       backgroundColor: Colors.teal,
-                      child: const Icon(Icons.person, size: 40, color: Colors.white),
+                      child: const Icon(
+                        Icons.person,
+                        size: 40,
+                        color: Colors.white,
+                      ),
                     ),
 
                     const SizedBox(height: 12),
@@ -122,10 +124,7 @@ class ProfileScreen extends StatelessWidget {
                 label: "Language",
                 value: "English",
               ),
-              _buildSettingsItem(
-                icon: Icons.lock_outline,
-                label: "Privacy",
-              ),
+              _buildSettingsItem(icon: Icons.lock_outline, label: "Privacy"),
               _buildSettingsItem(
                 icon: Icons.help_outline,
                 label: "Help & Support",
@@ -139,12 +138,6 @@ class ProfileScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     await auth.signOut();
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
                   },
                   icon: const Icon(Icons.logout, color: Colors.red),
                   label: const Text(
@@ -174,19 +167,10 @@ Widget _buildCounter(String number, String label) {
     children: [
       Text(
         number,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 4),
-      Text(
-        label,
-        style: const TextStyle(
-          color: Colors.grey,
-          fontSize: 13,
-        ),
-      ),
+      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
     ],
   );
 }
@@ -208,7 +192,7 @@ Widget _buildSettingsItem({
           color: Colors.grey.withOpacity(0.08),
           blurRadius: 5,
           offset: const Offset(0, 3),
-        )
+        ),
       ],
     ),
 
@@ -217,18 +201,10 @@ Widget _buildSettingsItem({
         Icon(icon, color: Colors.teal),
         const SizedBox(width: 14),
 
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 15),
-          ),
-        ),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
 
         if (value != null)
-          Text(
-            value!,
-            style: const TextStyle(color: Colors.grey),
-          ),
+          Text(value, style: const TextStyle(color: Colors.grey)),
 
         const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
       ],
