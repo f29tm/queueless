@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
+
 import 'arrival_checkin_screen.dart';
 import 'triage_path_screen.dart';
 import 'medication_tracker_screen.dart';
@@ -10,10 +13,14 @@ import 'book_appointment_screen.dart';
 import 'online_consultation_screen.dart';
 import 'notifications_screen.dart';
 import 'chatbot_screen.dart';
-import '../../services/notification_service.dart';
 
 class PatientHubScreen extends StatefulWidget {
-  const PatientHubScreen({super.key});
+  final Future<void> Function(String)? onLanguageChanged;
+
+  const PatientHubScreen({
+    super.key,
+    this.onLanguageChanged,
+  });
 
   @override
   State<PatientHubScreen> createState() => _PatientHubScreenState();
@@ -25,6 +32,7 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
@@ -32,10 +40,12 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
         child: IndexedStack(
           index: _selectedIndex,
           children: [
-            _buildHome(context, authProvider),
+            _buildHome(context, authProvider, isArabic),
             const ChatbotScreen(),
             const RecordsScreen(),
-            const ProfileScreen(),
+            ProfileScreen(
+              onLanguageChanged: widget.onLanguageChanged,
+            ),
           ],
         ),
       ),
@@ -49,24 +59,39 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
         selectedItemColor: Colors.teal,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: "Chatbot"),
-          BottomNavigationBarItem(icon: Icon(Icons.folder), label: "Records"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: isArabic ? "الرئيسية" : "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.chat_bubble),
+            label: isArabic ? "المحادثة" : "Chatbot",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.folder),
+            label: isArabic ? "السجلات" : "Records",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
+            label: isArabic ? "الملف" : "Profile",
+          ),
         ],
       ),
     );
   }
 
-  // ✅ ✅ HOME CONTENT (FIXED)
-  Widget _buildHome(BuildContext context, AuthProvider authProvider) {
+  Widget _buildHome(
+    BuildContext context,
+    AuthProvider authProvider,
+    bool isArabic,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // ✅ HEADER
           Row(
             children: [
               Image.asset(
@@ -77,67 +102,73 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    const Text("Welcome back,", style: TextStyle(color: Colors.grey)),
+                    Text(
+                      isArabic ? "مرحباً بعودتك،" : "Welcome back,",
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                     Text(
                       authProvider.userName ?? "User",
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
                     ),
                   ],
                 ),
               ),
               StreamBuilder<int>(
-  stream: NotificationService().unreadCountStream(
-    authProvider.userId ?? '',
-  ),
-  builder: (context, snapshot) {
-    final count = snapshot.data ?? 0;
-    return Stack(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.notifications_none),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const NotificationsScreen(),
-              ),
-            );
-          },
-        ),
-        if (count > 0)
-          Positioned(
-            right: 6,
-            top: 6,
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                count > 99 ? '99+' : '$count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                stream: NotificationService().unreadCountStream(
+                  authProvider.userId ?? '',
                 ),
-                textAlign: TextAlign.center,
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              count > 99 ? '99+' : '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
-            ),
-          ),
-      ],
-    );
-  },
-),
               IconButton(
                 onPressed: () {
                   setState(() {
@@ -151,9 +182,12 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
 
           const SizedBox(height: 28),
 
-          const Text(
-            "Quick Actions",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            isArabic ? "الإجراءات السريعة" : "Quick Actions",
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
 
           const SizedBox(height: 16),
@@ -162,24 +196,28 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             _quickActionCard(
               icon: Icons.medical_services_outlined,
               iconColor: Colors.teal,
-              title: "Report Symptoms",
-              subtitle: "Check from home",
+              title: isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
+              subtitle: isArabic ? "افحص حالتك من المنزل" : "Check from home",
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const TriagePathScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const TriagePathScreen(),
+                  ),
                 );
               },
             ),
             _quickActionCard(
               icon: Icons.location_on_outlined,
               iconColor: Colors.blue,
-              title: "I Have Arrived",
-              subtitle: "Skip the queue",
+              title: isArabic ? "لقد وصلت" : "I Have Arrived",
+              subtitle: isArabic ? "تجنب الانتظار" : "Skip the queue",
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ArrivalCheckInScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ArrivalCheckInScreen(),
+                  ),
                 );
               },
             ),
@@ -191,24 +229,28 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             _quickActionCard(
               icon: Icons.event_available,
               iconColor: Colors.orange,
-              title: "Book Appointment",
-              subtitle: "Schedule a visit",
+              title: isArabic ? "حجز موعد" : "Book Appointment",
+              subtitle: isArabic ? "حدد موعد زيارة" : "Schedule a visit",
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BookAppointmentScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const BookAppointmentScreen(),
+                  ),
                 );
               },
             ),
             _quickActionCard(
               icon: Icons.video_call_outlined,
               iconColor: Colors.indigo,
-              title: "Consult Online",
-              subtitle: "Talk to a doctor",
+              title: isArabic ? "استشارة عن بعد" : "Consult Online",
+              subtitle: isArabic ? "تحدث مع طبيب" : "Talk to a doctor",
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const OnlineConsultationScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const OnlineConsultationScreen(),
+                  ),
                 );
               },
             ),
@@ -220,42 +262,72 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             _quickActionCard(
               icon: Icons.medication_outlined,
               iconColor: Colors.purple,
-              title: "Medication Tracker",
-              subtitle: "View prescriptions",
+              title: isArabic ? "متتبع الأدوية" : "Medication Tracker",
+              subtitle: isArabic ? "عرض الوصفات الطبية" : "View prescriptions",
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const MedicationTrackerScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const MedicationTrackerScreen(),
+                  ),
                 );
               },
             ),
             _quickActionCard(
               icon: Icons.payment_outlined,
               iconColor: Colors.green,
-              title: "Payment Portal",
-              subtitle: "View & pay bills",
+              title: isArabic ? "بوابة الدفع" : "Payment Portal",
+              subtitle: isArabic ? "عرض ودفع الفواتير" : "View & pay bills",
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Payment portal coming soon")),
+                  SnackBar(
+                    content: Text(
+                      isArabic
+                          ? "بوابة الدفع قريباً"
+                          : "Payment portal coming soon",
+                    ),
+                  ),
                 );
               },
             ),
           ),
 
-          // ✅ ✅ ✅ CORRECT PLACE FOR THIS SECTION
           const SizedBox(height: 30),
 
-          const Text(
-            "How It Works",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            isArabic ? "كيف يعمل التطبيق" : "How It Works",
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
 
           const SizedBox(height: 16),
 
-          _howItWorksItem("1", "Report Symptoms", "Describe how you're feeling", Icons.edit),
-          _howItWorksItem("2", "Get Assessed", "Severity assessment", Icons.analytics),
-          _howItWorksItem("3", "Arrive & Check In", "Skip the queue", Icons.location_on),
-          _howItWorksItem("4", "Follow Your Path", "Step-by-step care", Icons.timeline),
+          _howItWorksItem(
+            "1",
+            isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
+            isArabic ? "صف حالتك الصحية" : "Describe how you're feeling",
+            Icons.edit,
+          ),
+          _howItWorksItem(
+            "2",
+            isArabic ? "الحصول على التقييم" : "Get Assessed",
+            isArabic ? "تقييم درجة الخطورة" : "Severity assessment",
+            Icons.analytics,
+          ),
+          _howItWorksItem(
+            "3",
+            isArabic ? "الوصول وتسجيل الدخول" : "Arrive & Check In",
+            isArabic ? "تجنب الانتظار في الطابور" : "Skip the queue",
+            Icons.location_on,
+          ),
+          _howItWorksItem(
+            "4",
+            isArabic ? "اتبع مسارك" : "Follow Your Path",
+            isArabic ? "رعاية خطوة بخطوة" : "Step-by-step care",
+            Icons.timeline,
+          ),
         ],
       ),
     );
@@ -308,9 +380,18 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -351,9 +432,18 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
