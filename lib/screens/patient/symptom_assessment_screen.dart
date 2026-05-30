@@ -20,10 +20,7 @@ class SymptomAssessmentScreen extends StatefulWidget {
       _SymptomAssessmentScreenState();
 }
 
-class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
   final Set<String> _selectedSymptoms = {};
   final TextEditingController _descriptionController = TextEditingController();
 
@@ -42,23 +39,23 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
       "Chest pain", "Chest tightness", "Shortness of breath",
       "Heart palpitations", "Radiating jaw pain",
     ],
-    "Head & Neurological": [
-      "Headache", "Seizures", "Dizziness", "Vision changes",
-      "Confusion", "Weakness", "Numbness",
-    ],
     "Breathing & Respiratory": [
       "Wheezing", "Coughing blood", "Persistent cough",
       "Sore throat", "Trouble breathing",
+    ],
+    "Head & Neurological": [
+      "Headache", "Seizures", "Dizziness", "Vision changes",
+      "Confusion", "Weakness", "Numbness",
     ],
     "Abdomen & Digestive": [
       "Abdominal pain", "Vomiting", "Persistent vomiting",
       "Diarrhea", "Blood in stool", "Bloating",
     ],
-    "General Symptoms": [
-      "Fever", "Fatigue", "Body aches", "Weakness", "Weight loss",
-    ],
     "Muscles & Joints": [
       "Fracture", "Joint swelling", "Muscle spasms", "Back pain",
+    ],
+    "General Symptoms": [
+      "Fever", "Fatigue", "Body aches", "Weakness", "Weight loss",
     ],
     "Mental Health": [
       "Anxiety", "Depressed mood", "Confusion", "Memory issues",
@@ -78,7 +75,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _fetchProfile();
   }
 
@@ -105,7 +101,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -240,33 +235,39 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
           "Symptom Assessment",
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: "Symptoms"),
-            Tab(text: "Describe"),
-            Tab(text: "Details"),
-          ],
-        ),
       ),
       bottomNavigationBar: _buildBottomBar(),
-      body: TabBarView(
-        controller: _tabController,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          _buildSymptomsTab(),
-          _buildDescribeTab(),
-          _buildDetailsTab(),
+          _sectionHeader("What are your symptoms?"),
+          const SizedBox(height: 12),
+          _buildSymptomsSection(),
+          const SizedBox(height: 20),
+          _sectionHeader("Describe in your own words (optional)"),
+          const SizedBox(height: 12),
+          _buildDescribeSection(),
+          const SizedBox(height: 24),
+          _sectionHeader("A few more details"),
+          const SizedBox(height: 12),
+          _buildDetailsSection(),
         ],
       ),
     );
   }
 
-  Widget _buildSymptomsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _sectionHeader(String text) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      );
+
+  Widget _buildSymptomsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding:
@@ -303,27 +304,24 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
     );
   }
 
-  Widget _buildDescribeTab() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: TextField(
-        controller: _descriptionController,
-        maxLines: 8,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          labelText: "Describe your symptoms",
-          alignLabelWithHint: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+  Widget _buildDescribeSection() {
+    return TextField(
+      controller: _descriptionController,
+      maxLines: 8,
+      onChanged: (_) => setState(() {}),
+      decoration: InputDecoration(
+        labelText: "Describe your symptoms",
+        alignLabelWithHint: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
   }
 
-  Widget _buildDetailsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+  Widget _buildDetailsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionLabel("Pain Level (NRS)"),
         const SizedBox(height: 8),

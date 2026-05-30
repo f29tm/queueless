@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../services/notification_service.dart';
 import '../../services/triage_service.dart';
 import '../staff/staff_login_screen.dart';
 
@@ -58,6 +61,114 @@ class NurseQueuePage extends StatefulWidget {
 
 class _NurseQueuePageState extends State<NurseQueuePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ScrollController _scrollController = ScrollController();
+
+  // Live "new patient" banner state.
+  Set<String> _knownIds = {};
+  bool _firstLoad = true;
+  String? _bannerText;
+  Timer? _bannerTimer;
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Compares the latest queue snapshot's doc IDs against the previously seen
+  // set. Fires the banner only for genuinely new patients — never on first load.
+  void _handleSnapshotIds(
+      Set<String> currentIds, List<QueryDocumentSnapshot> docs) {
+    if (!mounted) return;
+    if (_firstLoad) {
+      _knownIds = currentIds;
+      _firstLoad = false;
+      return;
+    }
+    final newIds = currentIds.difference(_knownIds);
+    _knownIds = currentIds;
+    if (newIds.isEmpty) return;
+    final newDoc = docs.firstWhere(
+      (d) => newIds.contains(d.id),
+      orElse: () => docs.first,
+    );
+    final data = newDoc.data() as Map<String, dynamic>;
+    final name = data['patientName'] as String? ?? 'Unknown Patient';
+    _showBanner("New patient in queue: $name");
+  }
+
+  void _showBanner(String text) {
+    setState(() => _bannerText = text);
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _bannerText = null);
+    });
+  }
+
+  void _dismissBanner() {
+    _bannerTimer?.cancel();
+    if (mounted) setState(() => _bannerText = null);
+  }
+
+  void _onViewBanner() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    _dismissBanner();
+  }
+
+  String _symptomsText(dynamic raw) {
+    if (raw is List) {
+      final items = raw
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (items.isNotEmpty) return items.join(', ');
+    }
+    return 'None selected';
+  }
+
+  Widget _buildNewPatientBanner() {
+    return Material(
+      color: const Color(0xFF2446B8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          children: [
+            const Icon(Icons.person_add_alt_1,
+                color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _bannerText ?? '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _onViewBanner,
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              child: const Text("View"),
+            ),
+            IconButton(
+              onPressed: _dismissBanner,
+              icon: const Icon(Icons.close, color: Colors.white, size: 18),
+              visualDensity: VisualDensity.compact,
+              tooltip: "Dismiss",
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Stream<QuerySnapshot> _nurseQueueStream() {
     return _firestore
@@ -117,6 +228,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
               ],
             ),
           ),
+          if (_bannerText != null) _buildNewPatientBanner(),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _nurseQueueStream(),
@@ -129,6 +241,10 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                 }
 
                 final patients = snapshot.data?.docs ?? [];
+                final currentIds = patients.map((d) => d.id).toSet();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _handleSnapshotIds(currentIds, patients);
+                });
 
                 if (patients.isEmpty) {
                   return const Center(
@@ -145,6 +261,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                 }).length;
 
                 return ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(20),
                   children: [
                     Row(
@@ -206,7 +323,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                             const SizedBox(height: 14),
                             if (!isManual) ...[
                               Text(
-                                "Symptoms: ${symptoms.toString()}",
+                                "Symptoms: ${_symptomsText(symptoms)}",
                                 style: const TextStyle(color: Colors.grey),
                               ),
                               const SizedBox(height: 6),
@@ -495,19 +612,28 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Notification when triage level changed
-      if (oldTriageLevel != finalTriageLevel && patientId != null) {
-        batch.set(db.collection('notifications').doc(), {
-          'patientId': patientId,
-          'type': 'triage_update',
-          'message': 'Your triage priority has been updated.',
-          'triageLevel': finalTriageLevel,
-          'read': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-
       await batch.commit();
+
+      // Notify the patient in their own users/{uid}/notifications subcollection
+      // (what the patient app reads) when the triage level changed. Friendly
+      // words only — never internal codes like MODERATE.
+      if (oldTriageLevel != finalTriageLevel && patientId != null) {
+        try {
+          final rawNurseName =
+              FirebaseAuth.instance.currentUser?.displayName?.trim();
+          await NotificationService().notifyTriageOverride(
+            patientId: patientId,
+            oldLevel: _friendlyLevel(oldTriageLevel),
+            newLevel: _friendlyLevel(finalTriageLevel),
+            nurseName: (rawNurseName == null || rawNurseName.isEmpty)
+                ? 'the triage nurse'
+                : rawNurseName,
+            reason: 'Updated after vitals assessment',
+          );
+        } catch (_) {
+          // Best-effort: triage is already committed; ignore notify failures.
+        }
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -550,6 +676,256 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       default:
         return '5 Non-Urgent';
     }
+  }
+
+  // Maps internal triage codes to patient-friendly words for notifications.
+  String _friendlyLevel(String level) {
+    switch (level) {
+      case 'EMERGENCY':
+        return 'Emergency';
+      case 'MODERATE':
+        return 'Urgent';
+      case 'LOW':
+        return 'Non-Urgent';
+      default:
+        return level;
+    }
+  }
+
+  String _arrivalModeLabel(int? v) {
+    switch (v) {
+      case 1:
+        return 'Walking';
+      case 2:
+        return 'Ambulance';
+      case 3:
+        return 'Private car';
+      case 4:
+        return 'Public transport';
+      case 5:
+        return 'Referral';
+      default:
+        return '—';
+    }
+  }
+
+  String _injuryLabel(int? v) {
+    if (v == 1) return 'Yes';
+    if (v == 2) return 'No';
+    return '—';
+  }
+
+  String _avpuLabel(int? v) {
+    switch (v) {
+      case 1:
+        return 'Alert';
+      case 2:
+        return 'Verbal';
+      case 3:
+        return 'Pain response';
+      case 4:
+        return 'Unresponsive';
+      default:
+        return '—';
+    }
+  }
+
+  String _sexLabel(int? v) {
+    if (v == 1) return 'Male';
+    if (v == 2) return 'Female';
+    return '—';
+  }
+
+  // Read-only summary of everything the patient submitted. Nurse-only view,
+  // so AI confidence and the review flag are allowed here.
+  Widget _buildSelfReportCard() {
+    const accent = Color(0xFF2446B8);
+    final data = _data;
+
+    if (data['noAITriage'] == true) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: accent.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: accent, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Manual check-in — no patient self-report",
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final rawSymptoms = data['symptoms'];
+    final symptoms = rawSymptoms is List
+        ? rawSymptoms
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+        : <String>[];
+
+    final description = (data['description'] as String?)?.trim();
+    final descText =
+        (description == null || description.isEmpty) ? "—" : description;
+
+    final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
+    final pain = s1['nrs_pain'] as num?;
+    final painText = pain == null ? "—" : "${pain.toInt()} / 10";
+    final arrivalText =
+        _arrivalModeLabel((s1['arrival_mode'] as num?)?.toInt());
+    final injuryText = _injuryLabel((s1['injury'] as num?)?.toInt());
+    final avpuText = _avpuLabel((s1['mental'] as num?)?.toInt());
+    final age = (s1['age'] as num?)?.toInt();
+    final sexText = _sexLabel((s1['sex'] as num?)?.toInt());
+    final ageSexText = "${age?.toString() ?? '—'}  ·  $sexText";
+
+    final confidence = data['confidence'] as num?;
+    final confText = confidence == null
+        ? null
+        : "AI confidence: ${(confidence * 100).round()}%";
+    final deferred = data['deferred'] == true;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+          left: const BorderSide(color: accent, width: 4),
+          top: BorderSide(color: accent.withValues(alpha: 0.2)),
+          right: BorderSide(color: accent.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: accent.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined, color: accent, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                "Patient Self-Report",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              if (deferred)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag,
+                          size: 12, color: Colors.amber.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Flagged for review",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.amber.shade800,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text("Symptoms",
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 6),
+          if (symptoms.isEmpty)
+            Text("None selected",
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600))
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: symptoms.map(_reportChip).toList(),
+            ),
+          const SizedBox(height: 12),
+          const Text("Description",
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(descText, style: const TextStyle(fontSize: 13)),
+          const Divider(height: 22),
+          _reportRow("Pain", painText),
+          _reportRow("Arrival", arrivalText),
+          _reportRow("Injury related", injuryText),
+          _reportRow("Alertness", avpuText),
+          _reportRow("Age · Sex", ageSexText),
+          if (confText != null) ...[
+            const Divider(height: 22),
+            Text(
+              confText,
+              style: const TextStyle(
+                fontSize: 12,
+                color: accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _reportChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2446B8).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: const Color(0xFF2446B8).withValues(alpha: 0.2)),
+      ),
+      child: Text(text,
+          style: const TextStyle(fontSize: 12, color: Colors.black87)),
+    );
+  }
+
+  Widget _reportRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -599,6 +975,9 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                 ),
               ),
             ],
+
+            // Full read-only summary of what the patient submitted.
+            _buildSelfReportCard(),
 
             const SizedBox(height: 20),
             const Text(

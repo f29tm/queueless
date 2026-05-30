@@ -20,8 +20,9 @@ class NotificationsScreen extends StatelessWidget {
             )
           : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
                   .collection('notifications')
-                  .where('patientId', isEqualTo: user.uid)
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
 
