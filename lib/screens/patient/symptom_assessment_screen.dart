@@ -3,13 +3,62 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/triage_service.dart';
 import 'symptom_result_screen.dart';
+import '../../utils/app_localizer.dart';
 
+// English keys are kept as-is — these are sent to the AI API unchanged
 const Set<String> _triageRelevantSymptoms = {
   'Chest pain', 'Shortness of breath', 'Trouble breathing',
   'Abdominal pain', 'Headache', 'Seizures', 'Dizziness', 'Fever',
   'Confusion', 'Weakness', 'Vomiting', 'Persistent vomiting',
   'Coughing blood', 'Fracture', 'Back pain',
   'Radiating jaw pain', 'Heart palpitations',
+};
+
+const Map<String, String> _categoryAr = {
+  "Chest & Heart": "الصدر والقلب",
+  "Head & Neurological": "الرأس والأعصاب",
+  "Breathing & Respiratory": "التنفس والجهاز التنفسي",
+  "Abdomen & Digestive": "البطن والجهاز الهضمي",
+  "General Symptoms": "الأعراض العامة",
+  "Muscles & Joints": "العضلات والمفاصل",
+  "Mental Health": "الصحة النفسية",
+};
+
+const Map<String, String> _symptomAr = {
+  "Chest pain": "ألم في الصدر",
+  "Chest tightness": "ضيق في الصدر",
+  "Shortness of breath": "ضيق في التنفس",
+  "Heart palpitations": "خفقان القلب",
+  "Radiating jaw pain": "ألم يمتد للفك",
+  "Headache": "صداع",
+  "Seizures": "نوبات تشنجية",
+  "Dizziness": "دوخة",
+  "Vision changes": "تغيرات في الرؤية",
+  "Confusion": "ارتباك",
+  "Weakness": "ضعف",
+  "Numbness": "تخدر",
+  "Wheezing": "صفير في التنفس",
+  "Coughing blood": "سعال بالدم",
+  "Persistent cough": "سعال مستمر",
+  "Sore throat": "التهاب الحلق",
+  "Trouble breathing": "صعوبة في التنفس",
+  "Abdominal pain": "ألم في البطن",
+  "Vomiting": "قيء",
+  "Persistent vomiting": "قيء مستمر",
+  "Diarrhea": "إسهال",
+  "Blood in stool": "دم في البراز",
+  "Bloating": "انتفاخ",
+  "Fever": "حمى",
+  "Fatigue": "إرهاق",
+  "Body aches": "آلام جسدية",
+  "Weight loss": "فقدان الوزن",
+  "Fracture": "كسر",
+  "Joint swelling": "تورم المفاصل",
+  "Muscle spasms": "تشنج عضلي",
+  "Back pain": "ألم الظهر",
+  "Anxiety": "قلق",
+  "Depressed mood": "مزاج مكتئب",
+  "Memory issues": "مشاكل في الذاكرة",
 };
 
 class SymptomAssessmentScreen extends StatefulWidget {
@@ -34,6 +83,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
   int? _sex;
   bool _isLoading = false;
 
+  // English keys preserved — used for API payload
   final Map<String, List<String>> _symptomCategories = {
     "Chest & Heart": [
       "Chest pain", "Chest tightness", "Shortness of breath",
@@ -71,6 +121,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
     "Muscles & Joints": Icons.accessibility_new,
     "Mental Health": Icons.self_improvement,
   };
+
+  bool get _isArabic =>
+      Localizations.localeOf(context).languageCode == 'ar';
 
   @override
   void initState() {
@@ -122,28 +175,31 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
   }
 
   Future<void> _handleGetAssessment() async {
+    final isArabic = _isArabic;
     final description = _descriptionController.text.trim();
 
     if (_selectedSymptoms.isEmpty && description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text("Please select or describe at least one symptom.")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(isArabic
+            ? "يرجى اختيار أو وصف عرض واحد على الأقل."
+            : "Please select or describe at least one symptom."),
+      ));
       return;
     }
 
     if (_age == null || _sex == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text("Could not load your profile. Please try again.")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(isArabic
+            ? "تعذر تحميل ملفك الشخصي. يرجى المحاولة مرة أخرى."
+            : "Could not load your profile. Please try again."),
+      ));
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
+      // Always send English symptoms to the API
       String chiefComplaint = _selectedSymptoms.join(', ');
       if (description.isNotEmpty) {
         chiefComplaint += chiefComplaint.isNotEmpty
@@ -169,16 +225,15 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
       if (!mounted) return;
 
       if (result.isError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  "Could not reach AI model. Check connection and try again.")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isArabic
+              ? "تعذر الوصول إلى النموذج. تحقق من الاتصال وأعد المحاولة."
+              : "Could not reach AI model. Check connection and try again."),
+        ));
         return;
       }
 
       final uid = FirebaseAuth.instance.currentUser!.uid;
-
       final ref =
           await FirebaseFirestore.instance.collection('queue').add({
         'patientId': uid,
@@ -212,11 +267,12 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                "Could not reach AI model. Check connection and try again.")),
-      );
+      final isArabicErr = _isArabic;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(isArabicErr
+            ? "تعذر الوصول إلى النموذج. تحقق من الاتصال وأعد المحاولة."
+            : "Could not reach AI model. Check connection and try again."),
+      ));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -235,43 +291,36 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
           "Symptom Assessment",
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: "Symptoms"),
+            Tab(text: "Describe"),
+            Tab(text: "Details"),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildBottomBar(),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          _sectionHeader("What are your symptoms?"),
-          const SizedBox(height: 12),
-          _buildSymptomsSection(),
-          const SizedBox(height: 20),
-          _sectionHeader("Describe in your own words (optional)"),
-          const SizedBox(height: 12),
-          _buildDescribeSection(),
-          const SizedBox(height: 24),
-          _sectionHeader("A few more details"),
-          const SizedBox(height: 12),
-          _buildDetailsSection(),
+          _buildSymptomsTab(),
+          _buildDescribeTab(),
+          _buildDetailsTab(),
         ],
       ),
     );
   }
 
-  Widget _sectionHeader(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 19,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      );
-
-  Widget _buildSymptomsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _buildSymptomsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.teal.shade50,
@@ -288,9 +337,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
-                "Triage-relevant symptom",
-                style: TextStyle(
+              Text(
+                isArabic ? "عرض حرج للفرز" : "Triage-relevant symptom",
+                style: const TextStyle(
                     fontSize: 13,
                     color: Colors.teal,
                     fontWeight: FontWeight.w500),
@@ -299,31 +348,34 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
           ),
         ),
         ..._symptomCategories.entries
-            .map((e) => _buildCategoryTile(e.key, e.value)),
+            .map((e) => _buildCategoryTile(e.key, e.value, isArabic)),
       ],
     );
   }
 
-  Widget _buildDescribeSection() {
-    return TextField(
-      controller: _descriptionController,
-      maxLines: 8,
-      onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(
-        labelText: "Describe your symptoms",
-        alignLabelWithHint: true,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDescribeTab() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: TextField(
+        controller: _descriptionController,
+        maxLines: 8,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: "Describe your symptoms",
+          alignLabelWithHint: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDetailsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _buildDetailsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
       children: [
-        _sectionLabel("Pain Level (NRS)"),
+        _sectionLabel(isArabic ? "مستوى الألم (NRS)" : "Pain Level (NRS)"),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
@@ -333,7 +385,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
             boxShadow: [
               BoxShadow(
                 blurRadius: 6,
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 offset: const Offset(0, 2),
               ),
             ],
@@ -343,8 +395,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("No pain",
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(isArabic ? "لا ألم" : "No pain",
+                      style: const TextStyle(
+                          color: Colors.grey, fontSize: 13)),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 6),
@@ -353,15 +406,18 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      "Pain: ${_nrsPain.toInt()}/10",
+                      isArabic
+                          ? "الألم: ${_nrsPain.toInt()}/10"
+                          : "Pain: ${_nrsPain.toInt()}/10",
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 14),
                     ),
                   ),
-                  const Text("Worst",
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(isArabic ? "أشد ألم" : "Worst",
+                      style: const TextStyle(
+                          color: Colors.grey, fontSize: 13)),
                 ],
               ),
               Slider(
@@ -378,41 +434,71 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
 
         const SizedBox(height: 24),
 
-        _sectionLabel("How will you arrive?"),
+        _sectionLabel(isArabic ? "كيف ستصل؟" : "How will you arrive?"),
         const SizedBox(height: 10),
         Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
-            _arrivalChip(1, Icons.directions_walk, "Walking"),
-            _arrivalChip(2, Icons.emergency, "Ambulance"),
-            _arrivalChip(3, Icons.directions_car, "Private car"),
-            _arrivalChip(4, Icons.directions_bus, "Public transport"),
-            _arrivalChip(5, Icons.local_hospital, "Referral"),
+            _arrivalChip(1, Icons.directions_walk,
+                isArabic ? "مشياً" : "Walking"),
+            _arrivalChip(2, Icons.emergency,
+                isArabic ? "إسعاف" : "Ambulance"),
+            _arrivalChip(3, Icons.directions_car,
+                isArabic ? "سيارة خاصة" : "Private car"),
+            _arrivalChip(4, Icons.directions_bus,
+                isArabic ? "مواصلات عامة" : "Public transport"),
+            _arrivalChip(5, Icons.local_hospital,
+                isArabic ? "إحالة" : "Referral"),
           ],
         ),
 
         const SizedBox(height: 24),
 
-        _sectionLabel("Is this injury-related?"),
+        _sectionLabel(
+            isArabic ? "هل هذا مرتبط بإصابة؟" : "Is this injury-related?"),
         const SizedBox(height: 10),
         Row(
           children: [
-            _injuryChip(1, "Yes"),
+            _injuryChip(1, isArabic ? "نعم" : "Yes"),
             const SizedBox(width: 10),
-            _injuryChip(2, "No"),
+            _injuryChip(2, isArabic ? "لا" : "No"),
           ],
         ),
 
         const SizedBox(height: 24),
 
-        _sectionLabel("Alertness Level (AVPU)"),
+        _sectionLabel(
+            isArabic ? "مستوى الوعي (AVPU)" : "Alertness Level (AVPU)"),
         const SizedBox(height: 10),
-        _avpuCard(1, "Alert", "Fully awake and aware of surroundings"),
-        _avpuCard(2, "Verbal", "Responds to voice but may be confused"),
         _avpuCard(
-            3, "Pain response", "Only responds to painful stimulus"),
-        _avpuCard(4, "Unresponsive", "No response to voice or pain"),
+          1,
+          isArabic ? "يقظ" : "Alert",
+          isArabic
+              ? "مستيقظ تماماً وواعٍ لمحيطه"
+              : "Fully awake and aware of surroundings",
+        ),
+        _avpuCard(
+          2,
+          isArabic ? "يستجيب للصوت" : "Verbal",
+          isArabic
+              ? "يستجيب للصوت وقد يكون مرتبكاً"
+              : "Responds to voice but may be confused",
+        ),
+        _avpuCard(
+          3,
+          isArabic ? "يستجيب للألم" : "Pain response",
+          isArabic
+              ? "يستجيب للمؤثرات المؤلمة فقط"
+              : "Only responds to painful stimulus",
+        ),
+        _avpuCard(
+          4,
+          isArabic ? "لا يستجيب" : "Unresponsive",
+          isArabic
+              ? "لا استجابة للصوت أو الألم"
+              : "No response to voice or pain",
+        ),
 
         const SizedBox(height: 16),
       ],
@@ -432,8 +518,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
     return GestureDetector(
       onTap: () => setState(() => _arrivalMode = value),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? Colors.teal.shade50 : Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -452,7 +537,8 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.teal.shade900 : Colors.black87,
+                color:
+                    selected ? Colors.teal.shade900 : Colors.black87,
                 fontWeight:
                     selected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 13,
@@ -514,15 +600,13 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color:
-                      selected ? Colors.teal : Colors.grey.shade400,
+                  color: selected ? Colors.teal : Colors.grey.shade400,
                   width: 2,
                 ),
                 color: selected ? Colors.teal : Colors.transparent,
               ),
               child: selected
-                  ? const Icon(Icons.check,
-                      color: Colors.white, size: 12)
+                  ? const Icon(Icons.check, color: Colors.white, size: 12)
                   : null,
             ),
             const SizedBox(width: 14),
@@ -552,7 +636,11 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
     );
   }
 
-  Widget _buildCategoryTile(String category, List<String> symptoms) {
+  Widget _buildCategoryTile(
+      String category, List<String> symptoms, bool isArabic) {
+    final displayCategory =
+        isArabic ? (_categoryAr[category] ?? category) : category;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -561,7 +649,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         boxShadow: [
           BoxShadow(
             blurRadius: 6,
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             offset: const Offset(0, 2),
           ),
         ],
@@ -575,7 +663,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
             Icon(_categoryIcons[category] ?? Icons.circle,
                 color: Colors.teal),
             const SizedBox(width: 12),
-            Text(category,
+            Text(displayCategory,
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 16)),
           ],
@@ -591,6 +679,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                     _selectedSymptoms.contains(symptom);
                 final bool isRelevant =
                     _triageRelevantSymptoms.contains(symptom);
+                final displaySymptom = isArabic
+                    ? (_symptomAr[symptom] ?? symptom)
+                    : symptom;
                 return GestureDetector(
                   onTap: () => _toggleSymptom(symptom),
                   child: Container(
@@ -623,7 +714,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                           const SizedBox(width: 6),
                         ],
                         Text(
-                          symptom,
+                          displaySymptom,
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.teal.shade900
@@ -645,10 +736,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(bool isArabic) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -659,7 +749,9 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            "Pain: ${_nrsPain.toInt()}/10 · ${_selectedSymptoms.length} symptoms",
+            isArabic
+                ? "الألم: ${_nrsPain.toInt()}/10 · ${_selectedSymptoms.length} أعراض"
+                : "Pain: ${_nrsPain.toInt()}/10 · ${_selectedSymptoms.length} symptoms",
             style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
           ElevatedButton(
@@ -679,9 +771,10 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                   )
-                : const Text(
-                    "Get AI Assessment →",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
+                : Text(
+                    isArabic ? "← احصل على التقييم" : "Get AI Assessment →",
+                    style: const TextStyle(
+                        fontSize: 16, color: Colors.white),
                   ),
           ),
         ],

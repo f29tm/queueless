@@ -1,7 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/app_localizer.dart';
 
 class OnlineConsultationScreen extends StatefulWidget {
   const OnlineConsultationScreen({super.key});
@@ -479,13 +480,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final arabic = isArabic;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: Directionality(
-          textDirection: Directionality.of(context),
+    return Directionality(
+      textDirection: AppLocalizer.direction(context),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: SafeArea(
           child: Column(
             children: [
               _buildHeader(),
@@ -507,16 +506,28 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 22),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      child: Center(
-        child: Text(
-          tr("Online Consultation", "استشارة إلكترونية"),
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            tr("Online Consultation", "استشارة إلكترونية"),
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          ),
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -561,7 +572,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _buildTypeStep() {
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Online Consultation", "استشارة إلكترونية"),
@@ -625,13 +636,29 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         for (final doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final uid = (data['uid'] ?? doc.id).toString();
-
           if (uid.isNotEmpty) {
             uniqueDoctors[uid] = doc;
           }
         }
 
-        final doctors = uniqueDoctors.values.toList();
+        // Second pass: deduplicate by name, prefer docs that have nameAr
+        final Map<String, QueryDocumentSnapshot> byName = {};
+        for (final doc in uniqueDoctors.values) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name =
+              (data['name'] ?? '').toString().toLowerCase().trim();
+          if (name.isEmpty) continue;
+          if (!byName.containsKey(name)) {
+            byName[name] = doc;
+          } else {
+            final existing =
+                byName[name]!.data() as Map<String, dynamic>;
+            if (data['nameAr'] != null && existing['nameAr'] == null) {
+              byName[name] = doc;
+            }
+          }
+        }
+        final doctors = byName.values.toList();
 
         if (doctors.isEmpty) {
           return Center(
@@ -644,7 +671,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
         return Column(
           crossAxisAlignment:
-              isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              CrossAxisAlignment.start,
           children: [
             Text(
               tr("Select Doctor", "اختر الطبيب"),
@@ -662,45 +689,62 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
               ),
               style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
             ),
-            const SizedBox(height: 22),
-            ...doctors.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+      ...doctors.map((doc) {
+  final data = doc.data() as Map<String, dynamic>;
 
-              final doctorName = (data['name'] ?? 'Doctor').toString();
-              final specialty = (data['specialty'] ?? '').toString();
-              final department = (data['department'] ?? '').toString();
-              final uid = (data['uid'] ?? doc.id).toString();
+final uid = (data['uid'] ?? doc.id).toString();
 
-              return _selectCard(
-                title: translateDoctorName(doctorName),
-                subtitle:
-                    "${translateDepartment(department)} • ${translateDoctorSpecialty(specialty)}",
-                icon: Icons.person_outline,
-                selected: selectedDoctorUid == uid,
-                onTap: () async {
-                  setState(() {
-                    selectedDoctor = doctorName;
-                    selectedDoctorUid = uid;
-                    selectedDoctorDepartment = department;
-                    selectedDoctorSpecialty = specialty;
-                    selectedDate = null;
-                    selectedTime = null;
-                  });
+final rawName = (data['name'] ?? 'Doctor').toString();
+final doctorName = isArabic
+    ? (data['nameAr'] ?? translateDoctorName(rawName)).toString()
+    : rawName;
 
-                  await _loadBookedSlots(uid);
-                },
-              );
-            }),
-          ],
-        );
-      },
-    );
-  }
+final specialty = isArabic
+    ? (data['specialtyAr'] ?? '').toString()
+    : (data['specialty'] ?? '').toString();
+
+final department = isArabic
+    ? (data['departmentAr'] ?? '').toString()
+    : (data['department'] ?? '').toString();
+
+final originalDoctorName = (data['name'] ?? 'Doctor').toString();
+final originalSpecialty = (data['specialty'] ?? '').toString();
+final originalDepartment = (data['department'] ?? '').toString();
+
+final subtitleText = isArabic
+    ? specialty
+    : "$department • $specialty";
+
+return _selectCard(
+  title: doctorName,
+  subtitle: subtitleText,
+  icon: Icons.person_outline,
+  selected: selectedDoctorUid == uid,
+  onTap: () async {
+    setState(() {
+      selectedDoctor = originalDoctorName;
+      selectedDoctorUid = uid;
+      selectedDoctorDepartment = originalDepartment;
+      selectedDoctorSpecialty = originalSpecialty;
+      selectedDate = null;
+      selectedTime = null;
+    });
+
+    await _loadBookedSlots(uid);
+  },
+);
+}),
+
+],
+);
+},
+);
+}
 
   Widget _buildDateTimeStep() {
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Date & Time", "اختر التاريخ والوقت"),
@@ -727,7 +771,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: availableDates.map((date) {
             final selected = selectedDate == date;
 
@@ -738,7 +782,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                 selectedDate = date;
                 selectedTime = null;
               }),
-              selectedColor: const Color(0xFF0F8B8D).withOpacity(0.18),
+              selectedColor: const Color(0xFF0F8B8D).withValues(alpha: 0.18),
               labelStyle: TextStyle(
                 color: selected
                     ? const Color(0xFF0F8B8D)
@@ -751,7 +795,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment:
-              isArabic ? MainAxisAlignment.end : MainAxisAlignment.start,
+              MainAxisAlignment.start,
           children: [
             Text(
               tr("Available Times", "الأوقات المتاحة"),
@@ -774,7 +818,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
 
@@ -792,7 +836,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                   color: isBooked
                       ? Colors.red.shade50
                       : selected
-                          ? const Color(0xFF0F8B8D).withOpacity(0.18)
+                          ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
                           : isPast
                               ? const Color(0xFFF3F4F6)
                               : Colors.white,
@@ -848,7 +892,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 16),
         Wrap(
           spacing: 16,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: [
             _legendItem(
               Colors.red.shade200,
@@ -871,7 +915,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _legendItem(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      textDirection: Directionality.of(context),
+      textDirection: AppLocalizer.direction(context),
       children: [
         Container(
           width: 12,
@@ -893,7 +937,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _buildSummaryStep() {
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Consultation Summary", "ملخص الاستشارة"),
@@ -921,8 +965,8 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           child: TextField(
             controller: notesController,
             maxLines: 4,
-            textDirection: Directionality.of(context),
-            textAlign: isArabic ? TextAlign.right : TextAlign.left,
+            textDirection: AppLocalizer.direction(context),
+            textAlign: TextAlign.start,
             decoration: InputDecoration(
               hintText: tr("General consultation", "استشارة عامة"),
               contentPadding: const EdgeInsets.all(16),
@@ -940,7 +984,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           ),
           child: Column(
             crossAxisAlignment:
-                isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                CrossAxisAlignment.start,
             children: [
               Text(
                 tr("Consultation Details", "تفاصيل الاستشارة"),
@@ -1003,20 +1047,20 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
-          textDirection: Directionality.of(context),
+          textDirection: AppLocalizer.direction(context),
           children: [
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xFF0F8B8D).withOpacity(0.12)
+                    ? const Color(0xFF0F8B8D).withValues(alpha: 0.12)
                     : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1032,11 +1076,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
             Expanded(
               child: Column(
                 crossAxisAlignment:
-                    isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                    textAlign: TextAlign.start,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -1046,7 +1090,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                    textAlign: TextAlign.start,
                     style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
                   ),
                 ],
@@ -1064,14 +1108,14 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        textDirection: Directionality.of(context),
+        textDirection: AppLocalizer.direction(context),
         children: [
           Icon(icon, color: const Color(0xFF0F8B8D), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               value,
-              textAlign: isArabic ? TextAlign.right : TextAlign.left,
+              textAlign: TextAlign.start,
               style: const TextStyle(fontSize: 16, color: Color(0xFF111827)),
             ),
           ),
@@ -1090,13 +1134,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
-        textDirection: Directionality.of(context),
         children: [
           Container(
-            margin: EdgeInsets.only(
-              right: isArabic ? 0 : 12,
-              left: isArabic ? 12 : 0,
-            ),
+            margin: const EdgeInsets.only(right: 12),
             child: OutlinedButton(
               onPressed: previousStep,
               style: OutlinedButton.styleFrom(
@@ -1104,9 +1144,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                 padding: const EdgeInsets.all(16),
                 side: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
-              child: Icon(
-                isArabic ? Icons.arrow_forward : Icons.arrow_back,
-                color: const Color(0xFF374151),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFF374151),
               ),
             ),
           ),

@@ -1,4 +1,4 @@
-
+﻿
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,14 +24,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-return Scaffold(
+return Directionality(
+  textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+  child: Scaffold(
   backgroundColor: const Color(0xFFF5F7FA),
   body: SafeArea(
     child: Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Column(
         crossAxisAlignment:
-            isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
 
@@ -70,6 +72,7 @@ return Scaffold(
         ],
       ),
     ),
+  ),
   ),
 );
   }
@@ -152,7 +155,7 @@ Widget _buildTabs(String uid) {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -240,7 +243,7 @@ Widget _buildTabs(String uid) {
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             return _AppointmentCard(
@@ -286,7 +289,7 @@ Widget _buildTabs(String uid) {
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             return _ConsultationCard(
@@ -401,32 +404,46 @@ Future<void> _confirmCancelRecord({
   required String patientName,
   required String scheduledDate,
   required String scheduledTime,
+  required bool isArabic,
 }) async {
+  final String dialogTitle = isArabic
+      ? (itemType == 'appointment' ? 'إلغاء الموعد' : 'إلغاء الاستشارة')
+      : 'Cancel $itemType';
+
+  final String dialogBody = isArabic
+      ? (itemType == 'appointment'
+          ? 'هل أنت متأكد من إلغاء هذا الموعد؟ سيتم إشعار الطبيب.'
+          : 'هل أنت متأكد من إلغاء هذه الاستشارة؟ سيتم إشعار الطبيب.')
+      : 'Are you sure you want to cancel this $itemType? The doctor will be notified.';
+
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: Text('Cancel $itemType'),
-        content: Text(
-          'Are you sure you want to cancel this $itemType? The doctor will be notified.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+    builder: (ctx) {
+      return Directionality(
+        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F8B8D),
+          title: Text(dialogTitle),
+          content: Text(dialogBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(isArabic ? 'لا' : 'No'),
             ),
-            child: const Text('Confirm',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F8B8D),
+              ),
+              child: Text(
+                isArabic ? 'تأكيد' : 'Confirm',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       );
     },
   );
@@ -462,10 +479,11 @@ Future<void> _confirmCancelRecord({
   }
 
   if (context.mounted) {
+    final snackMsg = isArabic
+        ? (itemType == 'appointment' ? 'تم إلغاء الموعد' : 'تم إلغاء الاستشارة')
+        : '${itemType[0].toUpperCase()}${itemType.substring(1)} cancelled';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(
-              '${itemType[0].toUpperCase()}${itemType.substring(1)} cancelled')),
+      SnackBar(content: Text(snackMsg)),
     );
   }
 }
@@ -493,8 +511,7 @@ class _AppointmentCard extends StatelessWidget {
     final String hospital = (data['hospital'] ?? 'Dubai Hospital').toString();
     final String department =
         (data['department'] ?? 'General Medicine').toString();
-    final String doctorName =
-        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+    final String doctorName = (data['doctorName'] ?? 'Doctor').toString();
     final String doctorId = (data['doctorUid'] ?? '').toString();
     final String reason = (data['reason'] ?? 'Regular check up').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
@@ -504,29 +521,32 @@ class _AppointmentCard extends StatelessWidget {
 
     final String displayHospital =
         isArabic ? _translateHospital(hospital) : hospital;
-
     final String displayDepartment =
         isArabic ? _translateDepartment(department) : department;
-
-    final String displayDoctorName =
-        isArabic ? doctorName.replaceFirst('Dr.', 'د.') : doctorName;
-
-    final String displayReason =
-        isArabic ? _translateReason(reason) : reason;
-
-    final String displayTime =
-        isArabic ? _translateTime(time) : time;
-
+    final String displayReason = isArabic ? _translateReason(reason) : reason;
+    final String displayTime = isArabic ? _translateTime(time) : time;
     final String displayDate =
         isArabic ? _translateAppointmentDate(date) : date;
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(patientId).get(),
+    return FutureBuilder<List<DocumentSnapshot>>(
+      future: Future.wait([
+        FirebaseFirestore.instance.collection('users').doc(patientId).get(),
+        FirebaseFirestore.instance.collection('users').doc(doctorId).get(),
+      ]),
       builder: (context, snapshot) {
-        final patientName =
-            (snapshot.data?.data() as Map<String, dynamic>?)?['name']
-                as String? ??
-            'Patient';
+        final patientData =
+            snapshot.data?[0].data() as Map<String, dynamic>?;
+        final doctorData =
+            snapshot.data?[1].data() as Map<String, dynamic>?;
+
+        final patientName = patientData?['name'] as String? ?? 'Patient';
+
+        final rawDoctorName = isArabic
+            ? (doctorData?['nameAr'] ?? doctorData?['name'] ?? doctorName).toString()
+            : (doctorData?['name'] ?? doctorName).toString();
+        final displayDoctorName = isArabic
+            ? rawDoctorName.replaceAll('Dr.', 'د.').replaceAll('Dr ', 'د. ')
+            : rawDoctorName;
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -535,7 +555,7 @@ class _AppointmentCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -543,7 +563,7 @@ class _AppointmentCard extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment:
-                isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,7 +571,7 @@ class _AppointmentCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       displayHospital,
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -567,7 +587,7 @@ class _AppointmentCard extends StatelessWidget {
 
               Row(
                 mainAxisAlignment:
-                    isArabic ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    MainAxisAlignment.start,
                 children: [
                   const Icon(
                     Icons.local_hospital_outlined,
@@ -589,7 +609,7 @@ class _AppointmentCard extends StatelessWidget {
               const SizedBox(height: 14),
 
               Wrap(
-                alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+                alignment: WrapAlignment.start,
                 spacing: 16,
                 runSpacing: 10,
                 children: [
@@ -622,7 +642,7 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment:
-                      isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       isArabic ? "السبب" : "REASON",
@@ -633,12 +653,10 @@ class _AppointmentCard extends StatelessWidget {
                         color: Color(0xFF6B7280),
                       ),
                     ),
-
                     const SizedBox(height: 6),
-
                     Text(
                       displayReason,
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         fontSize: 16,
                         color: Color(0xFF111827),
@@ -657,14 +675,13 @@ class _AppointmentCard extends StatelessWidget {
                       isArabic
                           ? "تم الحجز ${_formatBookedDate(bookedAt, isArabic)}"
                           : "Booked ${_formatBookedDate(bookedAt, isArabic)}",
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         color: Color(0xFF9CA3AF),
                         fontSize: 14,
                       ),
                     ),
                   ),
-
                   if (status.toLowerCase() == 'scheduled')
                     IconButton(
                       onPressed: () async {
@@ -676,6 +693,7 @@ class _AppointmentCard extends StatelessWidget {
                           doctorId: doctorId,
                           patientName: patientName,
                           scheduledDate: date,
+                          isArabic: isArabic,
                           scheduledTime: time,
                         );
                       },
@@ -762,17 +780,21 @@ class _AppointmentCard extends StatelessWidget {
       "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
     ];
 
-    if (isArabic) {
-      return "${dt.day} ${arMonths[dt.month - 1]} ${dt.year}";
-    }
-
-    return "${enMonths[dt.month - 1]} ${dt.day}, ${dt.year}";
+    return isArabic
+        ? "${dt.day} ${arMonths[dt.month - 1]} ${dt.year}"
+        : "${enMonths[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
 
   String _translateHospital(String value) {
     switch (value.toLowerCase()) {
-      case 'nmc specialty hospital':
-        return 'مستشفى إن إم سي التخصصي';
+      case 'nmc royal hospital khalifa city, abu dhabi':
+        return 'مستشفى إن إم سي رويال خليفة سيتي، أبوظبي';
+      case 'nmc specialty hospital, al ain':
+        return 'مستشفى إن إم سي التخصصي، العين';
+      case 'nmc specialty hospital, abu dhabi':
+        return 'مستشفى إن إم سي التخصصي، أبوظبي';
+      case 'nmc royal hospital sharjah':
+        return 'مستشفى إن إم سي رويال، الشارقة';
       case 'dubai hospital':
         return 'مستشفى دبي';
       default:
@@ -782,10 +804,34 @@ class _AppointmentCard extends StatelessWidget {
 
   String _translateDepartment(String value) {
     switch (value.toLowerCase()) {
-      case 'gastroenterology':
-        return 'أمراض الجهاز الهضمي';
+      case 'emergency medicine':
+        return 'طب الطوارئ';
       case 'cardiology':
         return 'أمراض القلب';
+      case 'dermatology':
+        return 'الأمراض الجلدية';
+      case 'ent':
+        return 'الأنف والأذن والحنجرة';
+      case 'internal medicine':
+        return 'الطب الباطني';
+      case 'ophthalmology':
+        return 'طب العيون';
+      case 'gastroenterology':
+        return 'أمراض الجهاز الهضمي';
+      case 'neuroscience':
+        return 'علوم الأعصاب';
+      case 'paediatrics':
+      case 'pediatrics':
+        return 'طب الأطفال';
+      case 'pulmonology':
+        return 'أمراض الرئة';
+      case 'dentistry':
+        return 'طب الأسنان';
+      case 'family medicine':
+        return 'طب الأسرة';
+      case 'orthopaedics':
+      case 'orthopedics':
+        return 'العظام';
       case 'general medicine':
         return 'الطب العام';
       default:
@@ -829,9 +875,7 @@ class _AppointmentCard extends StatelessWidget {
   }
 
   String _translateTime(String value) {
-    return value
-        .replaceAll('AM', 'صباحاً')
-        .replaceAll('PM', 'مساءً');
+    return value.replaceAll('AM', 'صباحاً').replaceAll('PM', 'مساءً');
   }
 }
 
@@ -857,7 +901,7 @@ class _ConsultationCard extends StatelessWidget {
 
     final String type = (data['consultationType'] ?? 'Video Call').toString();
     final String doctorName =
-        (data['doctorName'] ?? 'Dr. Ahmed Al Rashid').toString();
+        (data['doctorName'] ?? 'Doctor').toString();
     final String doctorId = (data['doctorUid'] ?? '').toString();
     final String notes = (data['notes'] ?? 'General consultation').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
@@ -866,19 +910,31 @@ class _ConsultationCard extends StatelessWidget {
     final String patientId = (data['patientId'] ?? '').toString();
 
     final String displayType = isArabic ? _translateType(type) : type;
-    final String displayDoctorName =
-        isArabic ? doctorName.replaceFirst('Dr.', 'د.') : doctorName;
     final String displayNotes = isArabic ? _translateNotes(notes) : notes;
     final String displayDate = isArabic ? _translateAppointmentDate(date) : date;
     final String displayTime = isArabic ? _translateTime(time) : time;
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(patientId).get(),
+    return FutureBuilder<List<DocumentSnapshot>>(
+      future: Future.wait([
+        FirebaseFirestore.instance.collection('users').doc(patientId).get(),
+        FirebaseFirestore.instance.collection('users').doc(doctorId).get(),
+      ]),
       builder: (context, snapshot) {
+        final patientData =
+            snapshot.data?[0].data() as Map<String, dynamic>?;
+
+        final doctorData =
+            snapshot.data?[1].data() as Map<String, dynamic>?;
+
         final patientName =
-            (snapshot.data?.data() as Map<String, dynamic>?)?['name']
-                as String? ??
-            'Patient';
+            patientData?['name'] as String? ?? 'Patient';
+
+        final rawDoctorName = isArabic
+            ? (doctorData?['nameAr'] ?? doctorData?['name'] ?? doctorName).toString()
+            : (doctorData?['name'] ?? doctorName).toString();
+        final displayDoctorName = isArabic
+            ? rawDoctorName.replaceAll('Dr.', 'د.').replaceAll('Dr ', 'د. ')
+            : rawDoctorName;
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -887,7 +943,7 @@ class _ConsultationCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -895,7 +951,7 @@ class _ConsultationCard extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment:
-                isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -903,7 +959,7 @@ class _ConsultationCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       isArabic ? "استشارة إلكترونية" : "Online Consultation",
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -919,7 +975,7 @@ class _ConsultationCard extends StatelessWidget {
 
               Row(
                 mainAxisAlignment:
-                    isArabic ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    MainAxisAlignment.start,
                 children: [
                   const Icon(
                     Icons.video_call_outlined,
@@ -941,7 +997,7 @@ class _ConsultationCard extends StatelessWidget {
               const SizedBox(height: 14),
 
               Wrap(
-                alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+                alignment: WrapAlignment.start,
                 spacing: 16,
                 runSpacing: 10,
                 children: [
@@ -974,7 +1030,7 @@ class _ConsultationCard extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment:
-                      isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       isArabic ? "الملاحظات" : "NOTES",
@@ -985,12 +1041,10 @@ class _ConsultationCard extends StatelessWidget {
                         color: Color(0xFF6B7280),
                       ),
                     ),
-
                     const SizedBox(height: 6),
-
                     Text(
                       displayNotes,
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         fontSize: 16,
                         color: Color(0xFF111827),
@@ -1009,14 +1063,13 @@ class _ConsultationCard extends StatelessWidget {
                       isArabic
                           ? "تم الحجز ${_formatBookedDate(bookedAt, isArabic)}"
                           : "Booked ${_formatBookedDate(bookedAt, isArabic)}",
-                      textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
                         color: Color(0xFF9CA3AF),
                         fontSize: 14,
                       ),
                     ),
                   ),
-
                   if (status.toLowerCase() == 'scheduled')
                     IconButton(
                       onPressed: () async {
@@ -1028,6 +1081,7 @@ class _ConsultationCard extends StatelessWidget {
                           doctorId: doctorId,
                           patientName: patientName,
                           scheduledDate: date,
+                          isArabic: isArabic,
                           scheduledTime: time,
                         );
                       },
@@ -1114,19 +1168,20 @@ class _ConsultationCard extends StatelessWidget {
       "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
     ];
 
-    if (isArabic) {
-      return "${dt.day} ${arMonths[dt.month - 1]} ${dt.year}";
-    }
-
-    return "${enMonths[dt.month - 1]} ${dt.day}, ${dt.year}";
+    return isArabic
+        ? "${dt.day} ${arMonths[dt.month - 1]} ${dt.year}"
+        : "${enMonths[dt.month - 1]} ${dt.day}, ${dt.year}";
   }
 
   String _translateType(String value) {
     switch (value.toLowerCase()) {
       case 'video call':
         return 'مكالمة فيديو';
+      case 'phone call':
+        return 'مكالمة هاتفية';
       case 'voice call':
         return 'مكالمة صوتية';
+      case 'text chat':
       case 'chat':
         return 'محادثة نصية';
       default:
@@ -1170,8 +1225,6 @@ class _ConsultationCard extends StatelessWidget {
   }
 
   String _translateTime(String value) {
-    return value
-        .replaceAll('AM', 'صباحاً')
-        .replaceAll('PM', 'مساءً');
+    return value.replaceAll('AM', 'صباحاً').replaceAll('PM', 'مساءً');
   }
 }

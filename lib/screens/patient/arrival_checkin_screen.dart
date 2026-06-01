@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../utils/app_localizer.dart';
 
 class ArrivalCheckInScreen extends StatefulWidget {
   final String? queueDocId;
@@ -65,11 +66,16 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
   }
 
   Future<void> _confirmArrival() async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     if (_resolvedDocId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-              "No pending triage found. Complete symptom assessment first."),
+            isArabic
+                ? "لا يوجد طلب فرز معلق. أكمل تقييم الأعراض أولاً."
+                : "No pending triage found. Complete symptom assessment first.",
+          ),
         ),
       );
       return;
@@ -103,7 +109,8 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           .orderBy('priorityNumber')
           .orderBy('createdAt')
           .get();
-      final index = waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
+      final index =
+          waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
       final patientsAhead = index < 0 ? 0 : index;
 
       // APQ estimate: only patients ahead in line with equal-or-higher
@@ -140,9 +147,15 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      final isArabicErr =
+          Localizations.localeOf(context).languageCode == 'ar';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Check-in failed. Please try again at reception."),
+        SnackBar(
+          content: Text(
+            isArabicErr
+                ? "فشل تسجيل الوصول. يرجى المحاولة مرة أخرى عند الاستقبال."
+                : "Check-in failed. Please try again at reception.",
+          ),
         ),
       );
     } finally {
@@ -171,17 +184,33 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: _confirmed ? _buildSuccessState() : _buildPreConfirmState(),
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return Directionality(
+      textDirection: AppLocalizer.direction(context),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF5F7FA),
+          elevation: 0,
+          foregroundColor: Colors.black87,
+          title: Text(
+            isArabic ? 'تسجيل الوصول' : 'Check In',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17),
+          ),
+        ),
+        body: SafeArea(
+          child: _confirmed
+              ? _buildSuccessState(isArabic)
+              : _buildPreConfirmState(isArabic),
+        ),
       ),
     );
   }
 
   // ── POST-CONFIRM ────────────────────────────────────────────────────────────
 
-  Widget _buildSuccessState() {
+  Widget _buildSuccessState(bool isArabic) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -198,17 +227,23 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               child: Icon(Icons.check_circle,
                   color: Colors.green.shade600, size: 64),
             ),
+
             const SizedBox(height: 28),
-            const Text(
-              "You're checked in!",
-              style: TextStyle(
+
+            Text(
+              isArabic ? "تم تسجيل وصولك!" : "You're checked in!",
+              style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 12),
+
             Text(
-              "A nurse will see you shortly. Please take a seat in the waiting area.",
+              isArabic
+                  ? "ستتم رؤيتك من قِبَل ممرضة قريباً. يرجى الجلوس في منطقة الانتظار."
+                  : "A nurse will see you shortly. Please take a seat in the waiting area.",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -216,7 +251,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 height: 1.5,
               ),
             ),
+
             const SizedBox(height: 24),
+
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -227,9 +264,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               ),
               child: Column(
                 children: [
-                  const Text(
-                    "Your Queue Number",
-                    style: TextStyle(
+                  Text(
+                    isArabic ? "رقم طابورك" : "Your Queue Number",
+                    style: const TextStyle(
                       color: Colors.teal,
                       fontWeight: FontWeight.w600,
                     ),
@@ -249,15 +286,22 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     children: [
                       Expanded(
                         child: _queueInfo(
-                          "Position",
-                          _waitPosition == null ? "-" : "#$_waitPosition",
+                          isArabic ? "الترتيب" : "Position",
+                          _waitPosition == null
+                              ? "-"
+                              : "#$_waitPosition",
+                          isArabic,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _queueInfo(
                           "Estimated Wait",
-                          _estimatedWaitText,
+                          _estimatedWaitMinutes == null
+                              ? "-"
+                              : _estimatedWaitMinutes == 0
+                                  ? "Next"
+                                  : "$_estimatedWaitMinutes min",
                         ),
                       ),
                     ],
@@ -278,7 +322,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 40),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -291,9 +337,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text(
-                  "Back to Home",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+                child: Text(
+                  isArabic ? "العودة للرئيسية" : "Back to Home",
+                  style: const TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
             ),
@@ -303,7 +349,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
     );
   }
 
-  Widget _queueInfo(String label, String value) {
+  Widget _queueInfo(String label, String value, bool isArabic) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -332,35 +378,36 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
 
   // ── PRE-CONFIRM ─────────────────────────────────────────────────────────────
 
-  Widget _buildPreConfirmState() {
+  Widget _buildPreConfirmState(bool isArabic) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          const Text(
-            "I Have Arrived",
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          Text(
+            isArabic ? "لقد وصلت" : "I Have Arrived",
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 20),
 
-          const Text(
-            "Already at the hospital? Check in here to skip the reception queue.",
-            style: TextStyle(fontSize: 15, color: Colors.grey),
+          Text(
+            isArabic
+                ? "وصلت إلى المستشفى؟ سجّل وصولك هنا لتجاوز طابور الاستقبال."
+                : "Already at the hospital? Check in here to skip the reception queue.",
+            style: const TextStyle(fontSize: 15, color: Colors.grey),
           ),
 
           const SizedBox(height: 40),
 
-          // Location icon
           Center(
             child: Container(
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.teal.withOpacity(0.3),
+                  color: Colors.teal.withValues(alpha: 0.3),
                   width: 4,
                 ),
               ),
@@ -368,7 +415,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.teal.withOpacity(0.15),
+                  color: Colors.teal.withValues(alpha: 0.15),
                 ),
                 child: const Icon(
                   Icons.location_on,
@@ -381,7 +428,6 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
 
           const SizedBox(height: 30),
 
-          // Confirm arrival button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -395,7 +441,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     )
                   : const Icon(Icons.pan_tool, size: 22),
               label: Text(
-                _isConfirming ? "Checking in…" : "I Have Arrived",
+                _isConfirming
+                    ? (isArabic ? "جارٍ التسجيل…" : "Checking in…")
+                    : (isArabic ? "لقد وصلت" : "I Have Arrived"),
                 style: const TextStyle(fontSize: 18),
               ),
               style: ElevatedButton.styleFrom(
@@ -412,7 +460,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
 
           Center(
             child: Text(
-              "Tap to manually check in at the hospital",
+              isArabic
+                  ? "اضغط للتسجيل يدوياً عند وصولك للمستشفى"
+                  : "Tap to manually check in at the hospital",
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           ),
@@ -422,11 +472,11 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           Row(
             children: [
               Expanded(child: Divider(color: Colors.grey.shade300)),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
-                  "OR",
-                  style: TextStyle(
+                  isArabic ? "أو" : "OR",
+                  style: const TextStyle(
                       color: Colors.grey, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -446,7 +496,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.12),
+                    color: Colors.grey.withValues(alpha: 0.12),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -455,21 +505,25 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.gps_fixed, color: Colors.teal),
-                      SizedBox(width: 12),
+                      const Icon(Icons.gps_fixed, color: Colors.teal),
+                      const SizedBox(width: 12),
                       Text(
-                        "Auto-Detect Location",
-                        style: TextStyle(
+                        isArabic
+                            ? "الكشف التلقائي عن الموقع"
+                            : "Auto-Detect Location",
+                        style: const TextStyle(
                             fontSize: 17, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    "Enable GPS to automatically detect when you're near the hospital for instant check-in.",
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    isArabic
+                        ? "فعّل GPS ليتم اكتشاف وصولك تلقائياً عند اقترابك من المستشفى."
+                        : "Enable GPS to automatically detect when you're near the hospital for instant check-in.",
+                    style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -478,13 +532,13 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                       onPressed: null,
                       icon: const Icon(Icons.location_searching,
                           color: Colors.teal),
-                      label: const Text(
-                        "Coming Soon",
-                        style: TextStyle(color: Colors.teal),
+                      label: Text(
+                        isArabic ? "قريباً" : "Coming Soon",
+                        style: const TextStyle(color: Colors.teal),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: Colors.teal.withOpacity(0.4)),
+                            color: Colors.teal.withValues(alpha: 0.4)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -502,12 +556,14 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.teal.withOpacity(0.1),
+              color: Colors.teal.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text(
-              "Use this when you arrive at the hospital after completing your symptom assessment. No need to wait at the reception desk.",
-              style: TextStyle(color: Colors.black87, height: 1.4),
+            child: Text(
+              isArabic
+                  ? "استخدم هذا الخيار عند وصولك للمستشفى بعد إكمال تقييم الأعراض. لا حاجة للانتظار عند طاولة الاستقبال."
+                  : "Use this when you arrive at the hospital after completing your symptom assessment. No need to wait at the reception desk.",
+              style: const TextStyle(color: Colors.black87, height: 1.4),
             ),
           ),
 

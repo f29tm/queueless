@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/chatbot_service.dart';
+import '../../utils/app_localizer.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -14,22 +15,35 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
   bool _isLoading = false;
+  bool _welcomeAdded = false;
 
-  static const List<String> _quickReplies = [
+  static const List<String> _quickRepliesEn = [
     'What does my triage result mean?',
     'How long will I wait?',
     'What happens when I arrive?',
     'What should I bring to the hospital?',
   ];
 
+  static const List<String> _quickRepliesAr = [
+    'ماذا تعني نتيجة الفرز؟',
+    'كم سأنتظر؟',
+    'ماذا يحدث عند وصولي للمستشفى؟',
+    'ماذا يجب أن أحضر معي؟',
+  ];
+
   @override
-  void initState() {
-    super.initState();
-    _messages.add(const _ChatMessage(
-      text:
-          'Hello! I\'m your QueueLess assistant. I can help you understand your triage result, explain what to expect at the hospital, or answer any questions you have. How can I help you today?',
-      isUser: false,
-    ));
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_welcomeAdded) {
+      _welcomeAdded = true;
+      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+      _messages.add(_ChatMessage(
+        text: isArabic
+            ? 'مرحباً! أنا مساعدك في QueueLess. يمكنني مساعدتك في فهم نتيجة الفرز الخاصة بك، وشرح ما تتوقعه في المستشفى، أو الإجابة على أي أسئلة لديك. كيف يمكنني مساعدتك اليوم؟'
+            : 'Hello! I\'m your QueueLess assistant. I can help you understand your triage result, explain what to expect at the hospital, or answer any questions you have. How can I help you today?',
+        isUser: false,
+      ));
+    }
   }
 
   @override
@@ -42,6 +56,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Future<void> _send(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _isLoading) return;
+
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     _controller.clear();
     setState(() {
@@ -62,9 +78,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(const _ChatMessage(
-            text:
-                'Sorry, I\'m having trouble connecting right now. Please check your internet connection and try again.',
+          _messages.add(_ChatMessage(
+            text: isArabic
+                ? 'عذراً، أواجه صعوبة في الاتصال الآن. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
+                : 'Sorry, I\'m having trouble connecting right now. Please check your internet connection and try again.',
             isUser: false,
           ));
           _isLoading = false;
@@ -88,61 +105,68 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      appBar: AppBar(
-        backgroundColor: Colors.teal,
-        elevation: 0,
-        title: const Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.smart_toy, color: Colors.white, size: 20),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'QueueLess Assistant',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return Directionality(
+      textDirection: AppLocalizer.direction(context),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F6FA),
+        appBar: AppBar(
+          backgroundColor: Colors.teal,
+          elevation: 0,
+          title: Row(
+            children: [
+              const CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.white24,
+                child: Icon(Icons.smart_toy, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isArabic ? 'مساعد QueueLess' : 'QueueLess Assistant',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Powered by Gemini',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                ],
+                    Text(
+                      isArabic ? 'مدعوم بـ Gemini' : 'Powered by Gemini',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          automaticallyImplyLeading: false,
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                itemCount: _messages.length + (_isLoading ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _messages.length) {
+                    return _buildLoadingBubble();
+                  }
+                  return _buildBubble(_messages[index]);
+                },
               ),
             ),
+            if (!_isLoading && _messages.length == 1)
+              _buildQuickReplies(isArabic),
+            _buildInputBar(isArabic),
           ],
         ),
-        automaticallyImplyLeading: false,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _messages.length + (_isLoading ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return _buildLoadingBubble();
-                }
-                final msg = _messages[index];
-                return _buildBubble(msg);
-              },
-            ),
-          ),
-          if (!_isLoading && _messages.length == 1) _buildQuickReplies(),
-          _buildInputBar(),
-        ],
       ),
     );
   }
@@ -166,7 +190,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: Colors.black.withValues(alpha: 0.07),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -189,7 +213,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.only(
@@ -200,7 +225,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: Colors.black.withValues(alpha: 0.07),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -216,26 +241,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildQuickReplies() {
+  Widget _buildQuickReplies(bool isArabic) {
+    final replies = isArabic ? _quickRepliesAr : _quickRepliesEn;
+
     return Container(
       color: const Color(0xFFF5F6FA),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Quick questions:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            isArabic ? 'أسئلة سريعة:' : 'Quick questions:',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: _quickReplies.map((q) {
+            children: replies.map((q) {
               return ActionChip(
                 label: Text(q, style: const TextStyle(fontSize: 12)),
-                backgroundColor: Colors.teal.withOpacity(0.1),
-                side: BorderSide(color: Colors.teal.withOpacity(0.3)),
+                backgroundColor: Colors.teal.withValues(alpha: 0.1),
+                side: BorderSide(
+                    color: Colors.teal.withValues(alpha: 0.3)),
                 onPressed: () => _send(q),
               );
             }).toList(),
@@ -246,14 +274,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildInputBar() {
+  Widget _buildInputBar(bool isArabic) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -266,14 +294,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               controller: _controller,
               minLines: 1,
               maxLines: 4,
+              textDirection: AppLocalizer.direction(context),
+              textAlign: TextAlign.start,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Ask me anything…',
+                hintText: isArabic ? 'اسألني أي شيء…' : 'Ask me anything…',
                 hintStyle: const TextStyle(color: Colors.grey),
                 filled: true,
                 fillColor: const Color(0xFFF5F6FA),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,

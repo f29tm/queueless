@@ -76,13 +76,18 @@ class _QueueLessAppState extends State<QueueLessApp> {
         ],
 
         builder: (context, child) {
-          return Directionality(
-            textDirection: _locale.languageCode == 'ar'
-                ? TextDirection.rtl
-                : TextDirection.ltr,
-            child: child!,
-          );
-        },
+  final isArabic = _locale.languageCode == 'ar';
+
+  return Directionality(
+    textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+    child: MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: MediaQuery.of(context).textScaler,
+      ),
+      child: child ?? const SizedBox(),
+    ),
+  );
+},
 
         home: AuthGate(onLanguageChanged: changeLanguage),
 

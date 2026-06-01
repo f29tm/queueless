@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../providers/auth_provider.dart';
 import '../login_screen.dart';
+import 'privacy_screen.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Future<void> Function(String)? onLanguageChanged;
@@ -28,7 +30,7 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment:
-                isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                CrossAxisAlignment.start,
             children: [
               Text(
                 isArabic ? "الملف الشخصي" : "Profile",
@@ -45,7 +47,7 @@ class ProfileScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.15),
+                      color: Colors.grey.withValues(alpha: 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -165,11 +167,21 @@ class ProfileScreen extends StatelessWidget {
               _buildSettingsItem(
                 icon: Icons.lock_outline,
                 label: isArabic ? "الخصوصية" : "Privacy",
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PrivacyScreen()),
+                ),
               ),
 
               _buildSettingsItem(
                 icon: Icons.help_outline,
                 label: isArabic ? "المساعدة والدعم" : "Help & Support",
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const HelpSupportScreen()),
+                ),
               ),
 
               const SizedBox(height: 30),
@@ -218,7 +230,10 @@ class ProfileScreen extends StatelessWidget {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (sheetContext, setModalState) {
-            return Container(
+            return Directionality(
+              textDirection:
+                  isArabic ? TextDirection.rtl : TextDirection.ltr,
+              child: Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
               decoration: BoxDecoration(
@@ -226,7 +241,7 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -248,7 +263,7 @@ class ProfileScreen extends StatelessWidget {
 
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: Colors.teal.withOpacity(0.12),
+                    backgroundColor: Colors.teal.withValues(alpha: 0.12),
                     child: const Icon(Icons.language, color: Colors.teal, size: 30),
                   ),
 
@@ -337,7 +352,8 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                 ],
               ),
-            );
+            ),
+          );
           },
         );
       },
@@ -361,7 +377,7 @@ class ProfileScreen extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.teal.withOpacity(0.10) : Colors.grey.shade50,
+          color: isSelected ? Colors.teal.withValues(alpha: 0.10) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? Colors.teal : Colors.grey.shade200,
@@ -446,7 +462,7 @@ Widget _buildSettingsItem({
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 5,
             offset: const Offset(0, 3),
           ),

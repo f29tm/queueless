@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class MedicationTrackerScreen extends StatelessWidget {
   const MedicationTrackerScreen({super.key});
@@ -108,7 +108,7 @@ class MedicationTrackerScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             blurRadius: 6,
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             offset: const Offset(0, 3),
           ),
         ],
@@ -120,7 +120,7 @@ class MedicationTrackerScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.medication_liquid, color: color),
@@ -187,7 +187,7 @@ class MedicationTrackerScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             blurRadius: 6,
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             offset: const Offset(0, 3),
           ),
         ],

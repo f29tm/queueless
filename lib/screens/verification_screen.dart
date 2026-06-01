@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:queueless/screens/patient/patient_hub_screen.dart';
 import 'package:queueless/screens/staff/staff_hub_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/email_sender.dart';
@@ -161,9 +160,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
         // reset flow — caller handles navigation
       } else {
         if (widget.role == 'patient') {
-          Navigator.pushAndRemoveUntil(
+          Navigator.pushNamedAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const PatientHubScreen()),
+            '/patient-hub',
             (route) => false,
           );
         } else {

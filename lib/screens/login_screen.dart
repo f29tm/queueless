@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 import 'staff/staff_login_screen.dart';
-import 'patient/patient_hub_screen.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -148,9 +147,8 @@ const SizedBox(height: 12),
                                   );
                                   return;
                                 }
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                      builder: (_) => const PatientHubScreen()),
+                                Navigator.of(context).pushNamedAndRemoveUntil(
+                                  '/patient-hub',
                                   (route) => false,
                                 );
                               } finally {

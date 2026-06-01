@@ -1,7 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/app_localizer.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -499,13 +500,11 @@ await showDialog(
 
   @override
   Widget build(BuildContext context) {
-    final arabic = isArabic;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: Directionality(
-          textDirection: Directionality.of(context),
+    return Directionality(
+      textDirection: AppLocalizer.direction(context),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: SafeArea(
           child: Column(
             children: [
               _buildHeader(),
@@ -527,25 +526,41 @@ await showDialog(
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 22),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(
-            translateHospital(selectedHospital ?? tr("Book Appointment", "حجز موعد")),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                translateHospital(
+                    selectedHospital ?? tr("Book Appointment", "حجز موعد")),
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr("Book Appointment", "حجز موعد"),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            tr("Book Appointment", "حجز موعد"),
-            style: const TextStyle(
-              fontSize: 15,
-              color: Color(0xFF6B7280),
-              fontWeight: FontWeight.w500,
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ],
@@ -595,7 +610,7 @@ await showDialog(
 
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Department", "اختر القسم"),
@@ -658,17 +673,32 @@ await showDialog(
 
         for (final doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
-
           if (data['role'] == 'doctor') {
             final uid = (data['uid'] ?? doc.id).toString();
-
             if (uid.isNotEmpty) {
               uniqueDoctors[uid] = doc;
             }
           }
         }
 
-        final doctors = uniqueDoctors.values.toList();
+        // Second pass: deduplicate by name, prefer docs that have nameAr
+        final Map<String, QueryDocumentSnapshot> byName = {};
+        for (final doc in uniqueDoctors.values) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name =
+              (data['name'] ?? '').toString().toLowerCase().trim();
+          if (name.isEmpty) continue;
+          if (!byName.containsKey(name)) {
+            byName[name] = doc;
+          } else {
+            final existing =
+                byName[name]!.data() as Map<String, dynamic>;
+            if (data['nameAr'] != null && existing['nameAr'] == null) {
+              byName[name] = doc;
+            }
+          }
+        }
+        final doctors = byName.values.toList();
 
 if (doctors.isEmpty) {
   return Center(
@@ -683,7 +713,7 @@ if (doctors.isEmpty) {
 
 return Column(
   crossAxisAlignment:
-      isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      CrossAxisAlignment.start,
   children: [
     Text(
       tr("Select Doctor", "اختر الطبيب"),
@@ -708,48 +738,50 @@ return Column(
 
     const SizedBox(height: 22),
 
-    ...doctors.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
+   ...doctors.map((doc) {
+  final data = doc.data() as Map<String, dynamic>;
 
-      final doctorName = (data['name'] ?? 'Doctor').toString();
-      final specialty = (data['specialty'] ?? '').toString();
-      final uid = (data['uid'] ?? doc.id).toString();
+  final uid = (data['uid'] ?? doc.id).toString();
 
-      final displayDoctorName =
-          isArabic ? translateDoctorName(doctorName) : doctorName;
+  final doctorName = isArabic
+      ? (data['nameAr'] ?? data['name'] ?? 'طبيب').toString()
+      : (data['name'] ?? 'Doctor').toString();
 
-      final displaySpecialty =
-          isArabic ? translateDoctorSpecialty(specialty) : specialty;
+  final specialty = isArabic
+      ? (data['specialtyAr'] ?? data['specialty'] ?? '').toString()
+      : (data['specialty'] ?? '').toString();
 
-           return _selectCard(
-        title: displayDoctorName,
-        subtitle: displaySpecialty,
-        selected: selectedDoctorUid == uid,
-        icon: Icons.person_outline,
-        onTap: () async {
-          setState(() {
-            selectedDoctor = doctorName;
-            selectedDoctorUid = uid;
-            selectedDoctorSpecialty = specialty;
-            selectedDate = null;
-            selectedTime = null;
-          });
+  final originalDoctorName = (data['name'] ?? 'Doctor').toString();
+  final originalSpecialty = (data['specialty'] ?? '').toString();
 
-          await _loadBookedSlots(uid);
-        },
-      );
-    }).toList(),
+  return _selectCard(
+    title: doctorName,
+    subtitle: specialty,
+    selected: selectedDoctorUid == uid,
+    icon: Icons.person_outline,
+    onTap: () async {
+      setState(() {
+        selectedDoctor = originalDoctorName;
+        selectedDoctorUid = uid;
+        selectedDoctorSpecialty = originalSpecialty;
+        selectedDate = null;
+        selectedTime = null;
+      });
+
+      await _loadBookedSlots(uid);
+    },
+  );
+}),
   ],
 );
       },
     );
-}
-
+  }
 
   Widget _buildDateTimeStep() {
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Date & Time", "اختر التاريخ والوقت"),
@@ -776,7 +808,7 @@ return Column(
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: availableDates.map((date) {
             final selected = selectedDate == date;
 
@@ -787,7 +819,7 @@ return Column(
                 selectedDate = date;
                 selectedTime = null;
               }),
-              selectedColor: const Color(0xFF0F8B8D).withOpacity(0.18),
+              selectedColor: const Color(0xFF0F8B8D).withValues(alpha: 0.18),
               labelStyle: TextStyle(
                 color: selected
                     ? const Color(0xFF0F8B8D)
@@ -800,7 +832,7 @@ return Column(
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment:
-              isArabic ? MainAxisAlignment.end : MainAxisAlignment.start,
+              MainAxisAlignment.start,
           children: [
             Text(
               tr("Available Times", "الأوقات المتاحة"),
@@ -823,7 +855,7 @@ return Column(
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
 
@@ -841,7 +873,7 @@ return Column(
                   color: isBooked
                       ? Colors.red.shade50
                       : selected
-                          ? const Color(0xFF0F8B8D).withOpacity(0.18)
+                          ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
                           : isPast
                               ? const Color(0xFFF3F4F6)
                               : Colors.white,
@@ -897,7 +929,7 @@ return Column(
         const SizedBox(height: 16),
         Wrap(
           spacing: 16,
-          alignment: isArabic ? WrapAlignment.end : WrapAlignment.start,
+          alignment: WrapAlignment.start,
           children: [
             _legendItem(Colors.red.shade200, tr("Already booked", "محجوز مسبقاً")),
             _legendItem(Colors.grey.shade300, tr("Time passed", "انتهى الوقت")),
@@ -911,7 +943,7 @@ return Column(
   Widget _legendItem(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      textDirection: Directionality.of(context),
+      textDirection: AppLocalizer.direction(context),
       children: [
         Container(
           width: 12,
@@ -933,7 +965,7 @@ return Column(
   Widget _buildReasonSummaryStep() {
     return Column(
       crossAxisAlignment:
-          isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Text(
           tr("Reason for Visit", "سبب الزيارة"),
@@ -961,8 +993,8 @@ return Column(
           child: TextField(
             controller: reasonController,
             maxLines: 4,
-            textDirection: Directionality.of(context),
-            textAlign: isArabic ? TextAlign.right : TextAlign.left,
+            textDirection: AppLocalizer.direction(context),
+            textAlign: TextAlign.start,
             decoration: InputDecoration(
               hintText: tr("Regular check up", "فحص طبي دوري"),
               contentPadding: const EdgeInsets.all(16),
@@ -980,7 +1012,7 @@ return Column(
           ),
           child: Column(
             crossAxisAlignment:
-                isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                CrossAxisAlignment.start,
             children: [
               Text(
                 tr("Appointment Summary", "ملخص الموعد"),
@@ -1030,20 +1062,20 @@ return Column(
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
-          textDirection: Directionality.of(context),
+          textDirection: AppLocalizer.direction(context),
           children: [
             Container(
               padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xFF0F8B8D).withOpacity(0.12)
+                    ? const Color(0xFF0F8B8D).withValues(alpha: 0.12)
                     : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -1056,11 +1088,11 @@ return Column(
             Expanded(
               child: Column(
                 crossAxisAlignment:
-                    isArabic ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                    textAlign: TextAlign.start,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -1070,7 +1102,7 @@ return Column(
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                    textAlign: TextAlign.start,
                     style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF6B7280),
@@ -1091,14 +1123,14 @@ return Column(
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        textDirection: Directionality.of(context),
+        textDirection: AppLocalizer.direction(context),
         children: [
           Icon(icon, color: const Color(0xFF0F8B8D), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               value,
-              textAlign: isArabic ? TextAlign.right : TextAlign.left,
+              textAlign: TextAlign.start,
               style: const TextStyle(fontSize: 16, color: Color(0xFF111827)),
             ),
           ),
@@ -1117,13 +1149,9 @@ return Column(
         border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
-        textDirection: Directionality.of(context),
         children: [
           Container(
-            margin: EdgeInsets.only(
-              right: isArabic ? 0 : 12,
-              left: isArabic ? 12 : 0,
-            ),
+            margin: const EdgeInsets.only(right: 12),
             child: OutlinedButton(
               onPressed: previousStep,
               style: OutlinedButton.styleFrom(
@@ -1131,9 +1159,9 @@ return Column(
                 padding: const EdgeInsets.all(16),
                 side: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
-              child: Icon(
-                isArabic ? Icons.arrow_forward : Icons.arrow_back,
-                color: const Color(0xFF374151),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFF374151),
               ),
             ),
           ),
