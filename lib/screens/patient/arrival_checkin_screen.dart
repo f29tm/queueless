@@ -294,18 +294,16 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _queueInfo(
-                          "Estimated Wait",
-                          _estimatedWaitMinutes == null
-                              ? "-"
-                              : _estimatedWaitMinutes == 0
-                                  ? "Next"
-                                  : "$_estimatedWaitMinutes min",
-                        ),
-                      ),
+               Expanded(
+  child: _queueInfo(
+    isArabic ? "وقت الانتظار المتوقع" : "Estimated Wait",
+    _estimatedWaitText,
+    isArabic,
+  ),
+),
                     ],
                   ),
+
                   if (_showLowPriorityNote) ...[
                     const SizedBox(height: 10),
                     Align(
