@@ -85,6 +85,19 @@ class NotificationService {
   //  PATIENT-FACING NOTIFICATIONS  (doctor/nurse → patient)
   // ══════════════════════════════════════════════════════════════════════════
 
+  Future<bool> isNotificationsEnabled(String userId) async {
+    final doc = await _firestore.collection('users').doc(userId).get();
+    final data = doc.data();
+    return data?['notificationsEnabled'] as bool? ?? true;
+  }
+
+  Future<void> setNotificationsEnabled(String userId, bool enabled) async {
+    await _firestore.collection('users').doc(userId).set(
+      {'notificationsEnabled': enabled},
+      SetOptions(merge: true),
+    );
+  }
+
   Future<void> notifyAppointmentCancelled({
     required String patientId,
     required String appointmentId,
@@ -92,6 +105,7 @@ class NotificationService {
     required String appointmentDate,
     required String reason,
   }) async {
+    if (!await isNotificationsEnabled(patientId)) return;
     await _notifRef(patientId).add({
       'type': NotificationType.appointmentCancelled.name,
       'title': 'Appointment Cancelled',
@@ -117,20 +131,25 @@ class NotificationService {
     required String doctorName,
     required String scheduledTime,
     required String reason,
+    String consultationType = '',
   }) async {
+    if (!await isNotificationsEnabled(patientId)) return;
+    final typeLabel = _consultationTypeLabel(consultationType);
+    final typeLabelAr = _consultationTypeLabelAr(consultationType);
     await _notifRef(patientId).add({
       'type': NotificationType.consultationCancelled.name,
       'title': 'Consultation Cancelled',
       'body':
-          '$doctorName has cancelled your online consultation scheduled at $scheduledTime.',
+          '$doctorName has cancelled your $typeLabel consultation scheduled at $scheduledTime.',
       'titleAr': 'تم إلغاء الاستشارة',
       'bodyAr':
-          'قام $doctorName بإلغاء استشارتك الإلكترونية المحددة في $scheduledTime.',
+          'قام $doctorName بإلغاء استشارتك $typeLabelAr المحددة في $scheduledTime.',
       'metadata': {
         'consultationId': consultationId,
         'doctorName': doctorName,
         'scheduledTime': scheduledTime,
         'reason': reason,
+        'consultationType': consultationType,
       },
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
@@ -144,6 +163,7 @@ class NotificationService {
     required String nurseName,
     required String reason,
   }) async {
+    if (!await isNotificationsEnabled(patientId)) return;
     final oldAr = _triageLevelAr(oldLevel);
     final newAr = _triageLevelAr(newLevel);
     await _notifRef(patientId).add({
@@ -170,6 +190,7 @@ class NotificationService {
     required int position,
     required int estimatedWaitMinutes,
   }) async {
+    if (!await isNotificationsEnabled(patientId)) return;
     await _notifRef(patientId).add({
       'type': NotificationType.queueUpdate.name,
       'title': 'Queue Update',
@@ -256,7 +277,23 @@ class NotificationService {
     await _notifRef(userId).doc(notificationId).delete();
   }
 
-  // ─── Helper ───────────────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  static String _consultationTypeLabel(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('video')) return 'video';
+    if (t.contains('phone') || t.contains('call')) return 'phone';
+    if (t.contains('text') || t.contains('chat')) return 'text';
+    return 'online';
+  }
+
+  static String _consultationTypeLabelAr(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('video')) return 'المرئية';
+    if (t.contains('phone') || t.contains('call')) return 'الهاتفية';
+    if (t.contains('text') || t.contains('chat')) return 'النصية';
+    return 'الإلكترونية';
+  }
+
   static String _triageLevelAr(String level) {
     switch (level.toUpperCase()) {
       case 'EMERGENCY':

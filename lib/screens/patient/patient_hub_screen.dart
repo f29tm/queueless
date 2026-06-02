@@ -358,15 +358,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
       onPressed: () => _showLanguageSheet(context, isArabic),
     ),
 
-    /// PROFILE ICON
-    IconButton(
-      icon: const Icon(Icons.person_outline),
-      onPressed: () {
-        setState(() {
-          _selectedIndex = 3;
-        });
-      },
-    ),
   ],
 ),
 

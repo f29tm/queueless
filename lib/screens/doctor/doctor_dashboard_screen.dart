@@ -969,6 +969,7 @@ class ConsultationCard extends StatelessWidget {
         doctorName: doctorName,
         scheduledTime: "$date at $time",
         reason: cancelReason,
+        consultationType: type,
       );
     }
   }

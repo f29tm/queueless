@@ -1,13 +1,14 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
 import '../login_screen.dart';
 import 'privacy_screen.dart';
 import 'help_support_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final Future<void> Function(String)? onLanguageChanged;
 
   const ProfileScreen({
@@ -16,9 +17,46 @@ class ProfileScreen extends StatelessWidget {
   });
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _notificationsEnabled = true;
+  bool _loadingNotifPref = true;
+  final _notifService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationPreference();
+  }
+
+  Future<void> _loadNotificationPreference() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final uid = auth.currentUser?.uid;
+    if (uid == null) {
+      setState(() => _loadingNotifPref = false);
+      return;
+    }
+    final enabled = await _notifService.isNotificationsEnabled(uid);
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = enabled;
+        _loadingNotifPref = false;
+      });
+    }
+  }
+
+  Future<void> _toggleNotifications(bool value, String uid) async {
+    setState(() => _notificationsEnabled = value);
+    await _notifService.setNotificationsEnabled(uid, value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final uid = auth.currentUser?.uid ?? '';
 
     final String displayName = auth.userName ?? "User";
     final String displayEmail = auth.currentUser?.email ?? "No email";
@@ -29,8 +67,7 @@ class ProfileScreen extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 isArabic ? "الملف الشخصي" : "Profile",
@@ -151,10 +188,12 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              _buildSettingsItem(
+              _buildToggleItem(
                 icon: Icons.notifications_none,
                 label: isArabic ? "الإشعارات" : "Notifications",
-                value: isArabic ? "مفعلة" : "Enabled",
+                value: _notificationsEnabled,
+                loading: _loadingNotifPref,
+                onChanged: uid.isNotEmpty ? (v) => _toggleNotifications(v, uid) : null,
               ),
 
               _buildSettingsItem(
@@ -169,8 +208,7 @@ class ProfileScreen extends StatelessWidget {
                 label: isArabic ? "الخصوصية" : "Privacy",
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const PrivacyScreen()),
+                  MaterialPageRoute(builder: (_) => const PrivacyScreen()),
                 ),
               ),
 
@@ -179,8 +217,7 @@ class ProfileScreen extends StatelessWidget {
                 label: isArabic ? "المساعدة والدعم" : "Help & Support",
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const HelpSupportScreen()),
+                  MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
                 ),
               ),
 
@@ -231,129 +268,120 @@ class ProfileScreen extends StatelessWidget {
         return StatefulBuilder(
           builder: (sheetContext, setModalState) {
             return Directionality(
-              textDirection:
-                  isArabic ? TextDirection.rtl : TextDirection.ltr,
+              textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
               child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 45,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(20),
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                  ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 45,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
 
-                  const SizedBox(height: 18),
+                    const SizedBox(height: 18),
 
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.teal.withValues(alpha: 0.12),
-                    child: const Icon(Icons.language, color: Colors.teal, size: 30),
-                  ),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.teal.withValues(alpha: 0.12),
+                      child: const Icon(Icons.language, color: Colors.teal, size: 30),
+                    ),
 
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                  Text(
-                    isArabic ? "اختر لغة التطبيق" : "Choose App Language",
-                    style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
-                  ),
+                    Text(
+                      isArabic ? "اختر لغة التطبيق" : "Choose App Language",
+                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+                    ),
 
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
 
-                  Text(
-                    isArabic
-                        ? "يمكنك تغيير اللغة في أي وقت من الإعدادات"
-                        : "You can change the language anytime from settings",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                  ),
+                    Text(
+                      isArabic
+                          ? "يمكنك تغيير اللغة في أي وقت من الإعدادات"
+                          : "You can change the language anytime from settings",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  _languageOption(
-                    title: "English",
-                    subtitle: "Use QueueLess in English",
-                    flag: "🇬🇧",
-                    value: "en",
-                    selectedLanguage: selectedLanguage,
-                    onTap: () {
-                      setModalState(() {
-                        selectedLanguage = "en";
-                      });
-                    },
-                  ),
+                    _languageOption(
+                      title: "English",
+                      subtitle: "Use QueueLess in English",
+                      flag: "🇬🇧",
+                      value: "en",
+                      selectedLanguage: selectedLanguage,
+                      onTap: () => setModalState(() => selectedLanguage = "en"),
+                    ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  _languageOption(
-                    title: "العربية",
-                    subtitle: "استخدم QueueLess باللغة العربية",
-                    flag: "🇦🇪",
-                    value: "ar",
-                    selectedLanguage: selectedLanguage,
-                    onTap: () {
-                      setModalState(() {
-                        selectedLanguage = "ar";
-                      });
-                    },
-                  ),
+                    _languageOption(
+                      title: "العربية",
+                      subtitle: "استخدم QueueLess باللغة العربية",
+                      flag: "🇦🇪",
+                      value: "ar",
+                      selectedLanguage: selectedLanguage,
+                      onTap: () => setModalState(() => selectedLanguage = "ar"),
+                    ),
 
-                  const SizedBox(height: 22),
+                    const SizedBox(height: 22),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(sheetContext);
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(sheetContext);
 
-                        if (onLanguageChanged == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Language function is not connected"),
-                            ),
-                          );
-                          return;
-                        }
+                          if (widget.onLanguageChanged == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Language function is not connected"),
+                              ),
+                            );
+                            return;
+                          }
 
-                        await onLanguageChanged!(selectedLanguage);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          await widget.onLanguageChanged!(selectedLanguage);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          isArabic ? "تطبيق اللغة" : "Apply Language",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      child: Text(
-                        isArabic ? "تطبيق اللغة" : "Apply Language",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 10),
-                ],
+                    const SizedBox(height: 10),
+                  ],
+                ),
               ),
-            ),
-          );
+            );
           },
         );
       },
@@ -442,6 +470,51 @@ Widget _buildCounter(String number, String label) {
         style: const TextStyle(color: Colors.grey, fontSize: 13),
       ),
     ],
+  );
+}
+
+Widget _buildToggleItem({
+  required IconData icon,
+  required String label,
+  required bool value,
+  required bool loading,
+  ValueChanged<bool>? onChanged,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withValues(alpha: 0.08),
+          blurRadius: 5,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: Colors.teal),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 15)),
+        ),
+        loading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
+              )
+            : Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: Colors.teal,
+                activeTrackColor: Colors.teal.withValues(alpha: 0.5),
+              ),
+      ],
+    ),
   );
 }
 
