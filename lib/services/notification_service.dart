@@ -14,6 +14,8 @@ class AppNotification {
   final NotificationType type;
   final String title;
   final String body;
+  final String titleAr;
+  final String bodyAr;
   final Map<String, dynamic> metadata;
   final bool isRead;
   final DateTime createdAt;
@@ -23,10 +25,18 @@ class AppNotification {
     required this.type,
     required this.title,
     required this.body,
+    this.titleAr = '',
+    this.bodyAr = '',
     required this.metadata,
     required this.isRead,
     required this.createdAt,
   });
+
+  String localizedTitle(bool isArabic) =>
+      isArabic && titleAr.isNotEmpty ? titleAr : title;
+
+  String localizedBody(bool isArabic) =>
+      isArabic && bodyAr.isNotEmpty ? bodyAr : body;
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -38,9 +48,12 @@ class AppNotification {
       ),
       title: data['title'] ?? '',
       body: data['body'] ?? '',
+      titleAr: data['titleAr'] ?? '',
+      bodyAr: data['bodyAr'] ?? '',
       metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
       isRead: data['isRead'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt:
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
@@ -48,13 +61,11 @@ class AppNotification {
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ─── Shared collection reference for any user ─────────────────────────────
   CollectionReference _notifRef(String userId) => _firestore
       .collection('users')
       .doc(userId)
       .collection('notifications');
 
-  // ─── Stream: all notifications (newest first) ─────────────────────────────
   Stream<List<AppNotification>> notificationsStream(String userId) {
     return _notifRef(userId)
         .orderBy('createdAt', descending: true)
@@ -63,7 +74,6 @@ class NotificationService {
             snap.docs.map((d) => AppNotification.fromFirestore(d)).toList());
   }
 
-  // ─── Stream: unread count only (for badge) ────────────────────────────────
   Stream<int> unreadCountStream(String userId) {
     return _notifRef(userId)
         .where('isRead', isEqualTo: false)
@@ -72,10 +82,9 @@ class NotificationService {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  //  PATIENT-FACING NOTIFICATIONS  (doctor → patient)
+  //  PATIENT-FACING NOTIFICATIONS  (doctor/nurse → patient)
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ─── Doctor cancels appointment → notify patient ──────────────────────────
   Future<void> notifyAppointmentCancelled({
     required String patientId,
     required String appointmentId,
@@ -86,7 +95,11 @@ class NotificationService {
     await _notifRef(patientId).add({
       'type': NotificationType.appointmentCancelled.name,
       'title': 'Appointment Cancelled',
-      'body': '$doctorName has cancelled your appointment on $appointmentDate.',
+      'body':
+          '$doctorName has cancelled your appointment on $appointmentDate.',
+      'titleAr': 'تم إلغاء الموعد',
+      'bodyAr':
+          'قام $doctorName بإلغاء موعدك بتاريخ $appointmentDate.',
       'metadata': {
         'appointmentId': appointmentId,
         'doctorName': doctorName,
@@ -98,7 +111,6 @@ class NotificationService {
     });
   }
 
-  // ─── Doctor cancels consultation → notify patient ─────────────────────────
   Future<void> notifyConsultationCancelled({
     required String patientId,
     required String consultationId,
@@ -111,6 +123,9 @@ class NotificationService {
       'title': 'Consultation Cancelled',
       'body':
           '$doctorName has cancelled your online consultation scheduled at $scheduledTime.',
+      'titleAr': 'تم إلغاء الاستشارة',
+      'bodyAr':
+          'قام $doctorName بإلغاء استشارتك الإلكترونية المحددة في $scheduledTime.',
       'metadata': {
         'consultationId': consultationId,
         'doctorName': doctorName,
@@ -122,7 +137,6 @@ class NotificationService {
     });
   }
 
-  // ─── Nurse overrides triage → notify patient ──────────────────────────────
   Future<void> notifyTriageOverride({
     required String patientId,
     required String oldLevel,
@@ -130,11 +144,16 @@ class NotificationService {
     required String nurseName,
     required String reason,
   }) async {
+    final oldAr = _triageLevelAr(oldLevel);
+    final newAr = _triageLevelAr(newLevel);
     await _notifRef(patientId).add({
       'type': NotificationType.triageOverride.name,
       'title': 'Triage Level Updated',
       'body':
           'Your triage level has been changed from $oldLevel to $newLevel by $nurseName.',
+      'titleAr': 'تم تحديث مستوى الفرز',
+      'bodyAr':
+          'تم تغيير مستوى الفرز الخاص بك من $oldAr إلى $newAr بواسطة $nurseName.',
       'metadata': {
         'oldLevel': oldLevel,
         'newLevel': newLevel,
@@ -146,7 +165,6 @@ class NotificationService {
     });
   }
 
-  // ─── Queue position update → notify patient ───────────────────────────────
   Future<void> notifyQueueUpdate({
     required String patientId,
     required int position,
@@ -157,6 +175,9 @@ class NotificationService {
       'title': 'Queue Update',
       'body':
           'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.',
+      'titleAr': 'تحديث الطابور',
+      'bodyAr':
+          'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.',
       'metadata': {
         'position': position,
         'estimatedWaitMinutes': estimatedWaitMinutes,
@@ -170,7 +191,6 @@ class NotificationService {
   //  DOCTOR-FACING NOTIFICATIONS  (patient → doctor)
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ─── Patient cancels appointment → notify doctor ──────────────────────────
   Future<void> notifyDoctorAppointmentCancelled({
     required String doctorId,
     required String appointmentId,
@@ -192,7 +212,6 @@ class NotificationService {
     });
   }
 
-  // ─── Patient cancels consultation → notify doctor ─────────────────────────
   Future<void> notifyDoctorConsultationCancelled({
     required String doctorId,
     required String consultationId,
@@ -232,7 +251,24 @@ class NotificationService {
     await batch.commit();
   }
 
-  Future<void> deleteNotification(String userId, String notificationId) async {
+  Future<void> deleteNotification(
+      String userId, String notificationId) async {
     await _notifRef(userId).doc(notificationId).delete();
+  }
+
+  // ─── Helper ───────────────────────────────────────────────────────────────
+  static String _triageLevelAr(String level) {
+    switch (level.toUpperCase()) {
+      case 'EMERGENCY':
+        return 'طارئ';
+      case 'MODERATE':
+      case 'URGENT':
+        return 'عاجل';
+      case 'LOW':
+      case 'NON-URGENT':
+        return 'غير عاجل';
+      default:
+        return level;
+    }
   }
 }

@@ -1,7 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/app_localizer.dart';
 
 class OnlineConsultationScreen extends StatefulWidget {
   const OnlineConsultationScreen({super.key});
@@ -27,6 +28,10 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   bool loadingSlots = false;
 
   final TextEditingController notesController = TextEditingController();
+
+  bool get isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  String tr(String en, String ar) => isArabic ? ar : en;
 
   final List<Map<String, dynamic>> consultationTypes = [
     {
@@ -66,9 +71,139 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     super.dispose();
   }
 
+  String translateConsultationType(String value) {
+    if (!isArabic) return value;
+
+    switch (value.toLowerCase()) {
+      case 'video call':
+        return 'مكالمة فيديو';
+      case 'phone call':
+        return 'مكالمة هاتفية';
+      case 'text chat':
+        return 'محادثة نصية';
+      default:
+        return value;
+    }
+  }
+
+  String translateConsultationSubtitle(String value) {
+    if (!isArabic) return value;
+
+    switch (value.toLowerCase()) {
+      case 'face-to-face with a doctor via video':
+        return 'تحدث مع الطبيب عبر الفيديو';
+      case 'speak with a doctor over the phone':
+        return 'تحدث مع الطبيب عبر الهاتف';
+      case 'message a doctor in real time':
+        return 'راسل الطبيب مباشرة';
+      default:
+        return value;
+    }
+  }
+
+  String translateDoctorName(String name) {
+    if (!isArabic) return name;
+
+    String result = name;
+    result = result.replaceAll('Dr.', 'د.');
+    result = result.replaceAll('Dr ', 'د. ');
+    return result;
+  }
+
+  String translateDepartment(String department) {
+    if (!isArabic) return department;
+
+    switch (department.toLowerCase()) {
+      case 'emergency medicine':
+        return 'طب الطوارئ';
+      case 'cardiology':
+        return 'أمراض القلب';
+      case 'dermatology':
+        return 'الأمراض الجلدية';
+      case 'ent':
+        return 'الأنف والأذن والحنجرة';
+      case 'internal medicine':
+        return 'الطب الباطني';
+      case 'ophthalmology':
+        return 'طب العيون';
+      case 'gastroenterology':
+        return 'أمراض الجهاز الهضمي';
+      case 'neuroscience':
+        return 'علوم الأعصاب';
+      case 'paediatrics':
+      case 'pediatrics':
+        return 'طب الأطفال';
+      case 'pulmonology':
+        return 'أمراض الرئة';
+      case 'dentistry':
+        return 'طب الأسنان';
+      case 'family medicine':
+        return 'طب الأسرة';
+      case 'orthopaedics':
+      case 'orthopedics':
+        return 'العظام';
+      case 'general medicine':
+        return 'الطب العام';
+      default:
+        return department;
+    }
+  }
+
+  String translateDoctorSpecialty(String specialty) {
+    if (!isArabic) return specialty;
+
+    switch (specialty.toLowerCase()) {
+      case 'consultant emergency medicine':
+        return 'استشاري طب الطوارئ';
+      case 'chair of emergency medicine':
+        return 'رئيس قسم طب الطوارئ';
+      case 'emergency medicine':
+        return 'طب الطوارئ';
+      case 'cardiology':
+        return 'أمراض القلب';
+      case 'gastroenterology':
+        return 'أمراض الجهاز الهضمي';
+      case 'internal medicine':
+        return 'الطب الباطني';
+      case 'general medicine':
+        return 'الطب العام';
+      default:
+        return specialty;
+    }
+  }
+
+  String translateDate(String value) {
+    if (!isArabic) return value;
+
+    return value
+        .replaceAll('Sat', 'السبت')
+        .replaceAll('Sun', 'الأحد')
+        .replaceAll('Mon', 'الاثنين')
+        .replaceAll('Tue', 'الثلاثاء')
+        .replaceAll('Wed', 'الأربعاء')
+        .replaceAll('Thu', 'الخميس')
+        .replaceAll('Fri', 'الجمعة')
+        .replaceAll('Jan', 'يناير')
+        .replaceAll('Feb', 'فبراير')
+        .replaceAll('Mar', 'مارس')
+        .replaceAll('Apr', 'أبريل')
+        .replaceAll('May', 'مايو')
+        .replaceAll('Jun', 'يونيو')
+        .replaceAll('Jul', 'يوليو')
+        .replaceAll('Aug', 'أغسطس')
+        .replaceAll('Sep', 'سبتمبر')
+        .replaceAll('Oct', 'أكتوبر')
+        .replaceAll('Nov', 'نوفمبر')
+        .replaceAll('Dec', 'ديسمبر');
+  }
+
+  String translateTime(String value) {
+    if (!isArabic) return value;
+    return value.replaceAll('AM', 'صباحاً').replaceAll('PM', 'مساءً');
+  }
+
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   DateTime _parseDateTime(String dateLabel, String timeLabel) {
@@ -76,22 +211,23 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     final date = DateFormat('MMM d').parse(datePart);
     final time = DateFormat('hh:mm a').parse(timeLabel);
     final now = DateTime.now();
+
     final year = (date.month < now.month ||
             (date.month == now.month && date.day < now.day))
         ? now.year + 1
         : now.year;
+
     return DateTime(year, date.month, date.day, time.hour, time.minute);
   }
 
   bool _isSelectedConsultationInPast() {
     if (selectedDate == null || selectedTime == null) return false;
-    return _parseDateTime(selectedDate!, selectedTime!)
-        .isBefore(DateTime.now());
+    return _parseDateTime(selectedDate!, selectedTime!).isBefore(DateTime.now());
   }
 
-  // ── Load booked slots for selected doctor ─────────────────────────────────
   Future<void> _loadBookedSlots(String doctorUid) async {
     setState(() => loadingSlots = true);
+
     try {
       final snap = await FirebaseFirestore.instance
           .collection('consultations')
@@ -100,14 +236,17 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           .get();
 
       final slots = <String>{};
+
       for (final doc in snap.docs) {
         final data = doc.data();
         final date = data['date'] as String?;
         final time = data['time'] as String?;
+
         if (date != null && time != null) {
           slots.add('${doctorUid}_${date}_$time');
         }
       }
+
       setState(() {
         bookedSlots = slots;
         loadingSlots = false;
@@ -119,20 +258,34 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   bool _isSlotBooked(String time) {
     if (selectedDoctorUid == null || selectedDate == null) return false;
-    return bookedSlots
-        .contains('${selectedDoctorUid}_${selectedDate}_$time');
+    return bookedSlots.contains('${selectedDoctorUid}_${selectedDate}_$time');
   }
 
-  // ── Firestore transaction booking ─────────────────────────────────────────
   Future<void> _confirmConsultation() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) { _showSnack("No logged in user found."); return; }
-    if (selectedType == null || selectedDoctorUid == null ||
-        selectedDate == null || selectedTime == null) {
-      _showSnack("Please complete all consultation steps."); return;
+
+    if (user == null) {
+      _showSnack(tr("No logged in user found.", "لا يوجد مستخدم مسجل الدخول."));
+      return;
     }
+
+    if (selectedType == null ||
+        selectedDoctorUid == null ||
+        selectedDate == null ||
+        selectedTime == null) {
+      _showSnack(tr(
+        "Please complete all consultation steps.",
+        "يرجى إكمال جميع خطوات الاستشارة.",
+      ));
+      return;
+    }
+
     if (_isSelectedConsultationInPast()) {
-      _showSnack("Selected consultation time has already passed."); return;
+      _showSnack(tr(
+        "Selected consultation time has already passed.",
+        "وقت الاستشارة المحدد قد مضى بالفعل.",
+      ));
+      return;
     }
 
     setState(() => isSaving = true);
@@ -150,9 +303,12 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
             .where('status', isEqualTo: 'scheduled')
             .get();
 
-        if (existingSnap.docs.isNotEmpty) throw Exception('SLOT_TAKEN');
+        if (existingSnap.docs.isNotEmpty) {
+          throw Exception('SLOT_TAKEN');
+        }
 
         final notes = notesController.text.trim();
+
         final consultationData = <String, dynamic>{
           'consultationId': consultationRef.id,
           'patientId': user.uid,
@@ -166,7 +322,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           'status': 'scheduled',
           'createdAt': FieldValue.serverTimestamp(),
         };
-        if (notes.isNotEmpty) consultationData['notes'] = notes;
+
+        if (notes.isNotEmpty) {
+          consultationData['notes'] = notes;
+        }
+
         transaction.set(consultationRef, consultationData);
       });
 
@@ -177,12 +337,16 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         barrierDismissible: false,
         builder: (_) => AlertDialog(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28)),
-          title: const Text("Consultation Booked",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          title: Text(
+            tr("Consultation Booked", "تم حجز الاستشارة"),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Text(
-            "Your $selectedType with $selectedDoctor on $selectedDate "
-            "at $selectedTime has been confirmed.",
+            isArabic
+                ? "تم تأكيد ${translateConsultationType(selectedType ?? '')} مع ${translateDoctorName(selectedDoctor ?? '')} بتاريخ ${translateDate(selectedDate ?? '')} الساعة ${translateTime(selectedTime ?? '')}."
+                : "Your $selectedType with $selectedDoctor on $selectedDate at $selectedTime has been confirmed.",
             style: const TextStyle(fontSize: 16, height: 1.4),
           ),
           actions: [
@@ -196,10 +360,13 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0F8B8D),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24)),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 ),
-                child: const Text("OK",
-                    style: TextStyle(color: Colors.white)),
+                child: Text(
+                  tr("OK", "حسناً"),
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -210,19 +377,26 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         if (selectedDoctorUid != null) {
           await _loadBookedSlots(selectedDoctorUid!);
         }
+
         setState(() => currentStep = 2);
+
         if (mounted) {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-              title: const Text("Slot No Longer Available",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              content: const Text(
-                "This time slot was just booked by another patient. "
-                "Please select a different time.",
-                style: TextStyle(fontSize: 15, height: 1.4),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: Text(
+                tr("Slot No Longer Available", "الموعد لم يعد متاحاً"),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Text(
+                tr(
+                  "This time slot was just booked by another patient. Please select a different time.",
+                  "تم حجز هذا الوقت من قبل مريض آخر. يرجى اختيار وقت مختلف.",
+                ),
+                style: const TextStyle(fontSize: 15, height: 1.4),
               ),
               actions: [
                 SizedBox(
@@ -232,10 +406,13 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0F8B8D),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24)),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                     ),
-                    child: const Text("Choose Another Time",
-                        style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      tr("Choose Another Time", "اختيار وقت آخر"),
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               ],
@@ -243,7 +420,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           );
         }
       } else {
-        _showSnack("Booking failed: $e");
+        _showSnack(tr("Booking failed: $e", "فشل الحجز: $e"));
       }
     } finally {
       if (mounted) setState(() => isSaving = false);
@@ -252,21 +429,45 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   void nextStep() {
     if (currentStep == 0 && selectedType == null) {
-      _showSnack("Please select a consultation type."); return;
+      _showSnack(tr(
+        "Please select a consultation type.",
+        "يرجى اختيار نوع الاستشارة.",
+      ));
+      return;
     }
+
     if (currentStep == 1 && selectedDoctorUid == null) {
-      _showSnack("Please select a doctor."); return;
+      _showSnack(tr("Please select a doctor.", "يرجى اختيار الطبيب."));
+      return;
     }
+
     if (currentStep == 2 && (selectedDate == null || selectedTime == null)) {
-      _showSnack("Please select date and time."); return;
+      _showSnack(tr(
+        "Please select date and time.",
+        "يرجى اختيار التاريخ والوقت.",
+      ));
+      return;
     }
+
     if (currentStep == 2 && _isSelectedConsultationInPast()) {
-      _showSnack("Selected consultation time has already passed."); return;
+      _showSnack(tr(
+        "Selected consultation time has already passed.",
+        "وقت الاستشارة المحدد قد مضى بالفعل.",
+      ));
+      return;
     }
+
     if (currentStep == 2 && _isSlotBooked(selectedTime!)) {
-      _showSnack("This slot is already booked. Please choose another."); return;
+      _showSnack(tr(
+        "This slot is already booked. Please choose another.",
+        "هذا الموعد محجوز بالفعل. يرجى اختيار موعد آخر.",
+      ));
+      return;
     }
-    if (currentStep < 3) setState(() => currentStep++);
+
+    if (currentStep < 3) {
+      setState(() => currentStep++);
+    }
   }
 
   void previousStep() {
@@ -279,21 +480,24 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildProgress(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                child: _buildStepContent(),
+    return Directionality(
+      textDirection: AppLocalizer.direction(context),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildProgress(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                  child: _buildStepContent(),
+                ),
               ),
-            ),
-            _buildBottomButtons(),
-          ],
+              _buildBottomButtons(),
+            ],
+          ),
         ),
       ),
     );
@@ -302,18 +506,28 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 22),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      child: const Center(
-        child: Text(
-          "Online Consultation",
-          style: TextStyle(
-              fontSize: 19, fontWeight: FontWeight.w700),
-        ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            tr("Online Consultation", "استشارة إلكترونية"),
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          ),
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -325,14 +539,13 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(4, (index) {
           final active = index <= currentStep;
+
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: active
-                  ? const Color(0xFF0F8B8D)
-                  : const Color(0xFFE5E7EB),
+              color: active ? const Color(0xFF0F8B8D) : const Color(0xFFE5E7EB),
               borderRadius: BorderRadius.circular(12),
             ),
           );
@@ -343,35 +556,55 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   Widget _buildStepContent() {
     switch (currentStep) {
-      case 0: return _buildTypeStep();
-      case 1: return _buildDoctorStep();
-      case 2: return _buildDateTimeStep();
-      case 3: return _buildSummaryStep();
-      default: return const SizedBox();
+      case 0:
+        return _buildTypeStep();
+      case 1:
+        return _buildDoctorStep();
+      case 2:
+        return _buildDateTimeStep();
+      case 3:
+        return _buildSummaryStep();
+      default:
+        return const SizedBox();
     }
   }
 
   Widget _buildTypeStep() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
-        const Text("Online Consultation",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                color: Color(0xFF111827))),
+        Text(
+          tr("Online Consultation", "استشارة إلكترونية"),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF111827),
+          ),
+        ),
         const SizedBox(height: 6),
-        const Text("Connect with a healthcare professional from anywhere",
-            style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+        Text(
+          tr(
+            "Connect with a healthcare professional from anywhere",
+            "تواصل مع طبيب مختص من أي مكان",
+          ),
+          style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+        ),
         const SizedBox(height: 22),
-        const Text("Consultation Type",
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+        Text(
+          tr("Consultation Type", "نوع الاستشارة"),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         const SizedBox(height: 16),
-        ...consultationTypes.map((type) => _selectCard(
-          title: type["title"],
-          subtitle: type["subtitle"],
-          icon: type["icon"],
-          selected: selectedType == type["title"],
-          onTap: () => setState(() => selectedType = type["title"]),
-        )),
+        ...consultationTypes.map(
+          (type) => _selectCard(
+            title: translateConsultationType(type["title"]),
+            subtitle: translateConsultationSubtitle(type["subtitle"]),
+            icon: type["icon"],
+            selected: selectedType == type["title"],
+            onTap: () => setState(() => selectedType = type["title"]),
+          ),
+        ),
       ],
     );
   }
@@ -384,94 +617,172 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           .get(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(child: Text("Error loading doctors: ${snapshot.error}",
-              style: const TextStyle(fontSize: 15, color: Colors.red)));
+          return Center(
+            child: Text(
+              isArabic
+                  ? "حدث خطأ أثناء تحميل الأطباء: ${snapshot.error}"
+                  : "Error loading doctors: ${snapshot.error}",
+              style: const TextStyle(fontSize: 15, color: Colors.red),
+            ),
+          );
         }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         final Map<String, QueryDocumentSnapshot> uniqueDoctors = {};
+
         for (final doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final uid = (data['uid'] ?? doc.id).toString();
-          if (uid.isNotEmpty) uniqueDoctors[uid] = doc;
+          if (uid.isNotEmpty) {
+            uniqueDoctors[uid] = doc;
+          }
         }
-        final doctors = uniqueDoctors.values.toList();
+
+        // Second pass: deduplicate by name, prefer docs that have nameAr
+        final Map<String, QueryDocumentSnapshot> byName = {};
+        for (final doc in uniqueDoctors.values) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name =
+              (data['name'] ?? '').toString().toLowerCase().trim();
+          if (name.isEmpty) continue;
+          if (!byName.containsKey(name)) {
+            byName[name] = doc;
+          } else {
+            final existing =
+                byName[name]!.data() as Map<String, dynamic>;
+            if (data['nameAr'] != null && existing['nameAr'] == null) {
+              byName[name] = doc;
+            }
+          }
+        }
+        final doctors = byName.values.toList();
 
         if (doctors.isEmpty) {
-          return const Center(child: Text("No doctors found.",
-              style: TextStyle(fontSize: 16)));
+          return Center(
+            child: Text(
+              tr("No doctors found.", "لا يوجد أطباء حالياً."),
+              style: const TextStyle(fontSize: 16),
+            ),
+          );
         }
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
-            const Text("Select Doctor",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827))),
+            Text(
+              tr("Select Doctor", "اختر الطبيب"),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
             const SizedBox(height: 6),
-            const Text("Choose a doctor for your consultation",
-                style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
-            const SizedBox(height: 22),
-            ...doctors.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final doctorName = data['name'] ?? 'Doctor';
-              final specialty = data['specialty'] ?? '';
-              final department = data['department'] ?? '';
-              final uid = (data['uid'] ?? doc.id).toString();
+            Text(
+              tr(
+                "Choose a doctor for your consultation",
+                "اختر الطبيب المناسب للاستشارة",
+              ),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+            ),
+      ...doctors.map((doc) {
+  final data = doc.data() as Map<String, dynamic>;
 
-              return _selectCard(
-                title: doctorName,
-                subtitle: "$department • $specialty",
-                icon: Icons.person_outline,
-                selected: selectedDoctorUid == uid,
-                onTap: () async {
-                  setState(() {
-                    selectedDoctor = doctorName;
-                    selectedDoctorUid = uid;
-                    selectedDoctorDepartment = department;
-                    selectedDoctorSpecialty = specialty;
-                    selectedDate = null;
-                    selectedTime = null;
-                  });
-                  await _loadBookedSlots(uid);
-                },
-              );
-            }),
-          ],
-        );
-      },
-    );
-  }
+final uid = (data['uid'] ?? doc.id).toString();
+
+final rawName = (data['name'] ?? 'Doctor').toString();
+final doctorName = isArabic
+    ? (data['nameAr'] ?? translateDoctorName(rawName)).toString()
+    : rawName;
+
+final specialty = isArabic
+    ? (data['specialtyAr'] ?? '').toString()
+    : (data['specialty'] ?? '').toString();
+
+final department = isArabic
+    ? (data['departmentAr'] ?? '').toString()
+    : (data['department'] ?? '').toString();
+
+final originalDoctorName = (data['name'] ?? 'Doctor').toString();
+final originalSpecialty = (data['specialty'] ?? '').toString();
+final originalDepartment = (data['department'] ?? '').toString();
+
+final subtitleText = isArabic
+    ? specialty
+    : "$department • $specialty";
+
+return _selectCard(
+  title: doctorName,
+  subtitle: subtitleText,
+  icon: Icons.person_outline,
+  selected: selectedDoctorUid == uid,
+  onTap: () async {
+    setState(() {
+      selectedDoctor = originalDoctorName;
+      selectedDoctorUid = uid;
+      selectedDoctorDepartment = originalDepartment;
+      selectedDoctorSpecialty = originalSpecialty;
+      selectedDate = null;
+      selectedTime = null;
+    });
+
+    await _loadBookedSlots(uid);
+  },
+);
+}),
+
+],
+);
+},
+);
+}
 
   Widget _buildDateTimeStep() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
-        const Text("Select Date & Time",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                color: Color(0xFF111827))),
+        Text(
+          tr("Select Date & Time", "اختر التاريخ والوقت"),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF111827),
+          ),
+        ),
         const SizedBox(height: 6),
-        const Text("Choose your preferred consultation slot",
-            style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+        Text(
+          tr(
+            "Choose your preferred consultation slot",
+            "اختر وقت الاستشارة المناسب لك",
+          ),
+          style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+        ),
         const SizedBox(height: 22),
-        const Text("Available Dates",
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        Text(
+          tr("Available Dates", "التواريخ المتاحة"),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 10,
           runSpacing: 10,
+          alignment: WrapAlignment.start,
           children: availableDates.map((date) {
             final selected = selectedDate == date;
+
             return ChoiceChip(
-              label: Text(date),
+              label: Text(translateDate(date)),
               selected: selected,
               onSelected: (_) => setState(() {
                 selectedDate = date;
                 selectedTime = null;
               }),
-              selectedColor: const Color(0xFF0F8B8D).withOpacity(0.18),
+              selectedColor: const Color(0xFF0F8B8D).withValues(alpha: 0.18),
               labelStyle: TextStyle(
                 color: selected
                     ? const Color(0xFF0F8B8D)
@@ -483,15 +794,22 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         ),
         const SizedBox(height: 24),
         Row(
+          mainAxisAlignment:
+              MainAxisAlignment.start,
           children: [
-            const Text("Available Times",
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(
+              tr("Available Times", "الأوقات المتاحة"),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
             if (loadingSlots) ...[
               const SizedBox(width: 10),
               const SizedBox(
-                width: 14, height: 14,
+                width: 14,
+                height: 14,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Color(0xFF0F8B8D)),
+                  strokeWidth: 2,
+                  color: Color(0xFF0F8B8D),
+                ),
               ),
             ],
           ],
@@ -500,23 +818,25 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         Wrap(
           spacing: 10,
           runSpacing: 10,
+          alignment: WrapAlignment.start,
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
+
             final isPast = selectedDate != null &&
                 _parseDateTime(selectedDate!, time).isBefore(DateTime.now());
+
             final isBooked = _isSlotBooked(time);
             final disabled = isPast || isBooked;
 
             return GestureDetector(
               onTap: disabled ? null : () => setState(() => selectedTime = time),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: isBooked
                       ? Colors.red.shade50
                       : selected
-                          ? const Color(0xFF0F8B8D).withOpacity(0.18)
+                          ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
                           : isPast
                               ? const Color(0xFFF3F4F6)
                               : Colors.white,
@@ -533,7 +853,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      time,
+                      translateTime(time),
                       style: TextStyle(
                         color: isBooked
                             ? Colors.red.shade300
@@ -543,19 +863,26 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                                     ? const Color(0xFF0F8B8D)
                                     : const Color(0xFF111827),
                         fontWeight: FontWeight.w600,
-                        decoration: isBooked || isPast
-                            ? TextDecoration.lineThrough
-                            : null,
+                        decoration:
+                            isBooked || isPast ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     if (isBooked)
-                      Text("Booked",
-                          style: TextStyle(
-                              fontSize: 10, color: Colors.red.shade300)),
+                      Text(
+                        tr("Booked", "محجوز"),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.red.shade300,
+                        ),
+                      ),
                     if (isPast && !isBooked)
-                      Text("Passed",
-                          style: TextStyle(
-                              fontSize: 10, color: Colors.grey.shade400)),
+                      Text(
+                        tr("Passed", "منتهي"),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -565,10 +892,20 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         const SizedBox(height: 16),
         Wrap(
           spacing: 16,
+          alignment: WrapAlignment.start,
           children: [
-            _legendItem(Colors.red.shade200, "Already booked"),
-            _legendItem(Colors.grey.shade300, "Time passed"),
-            _legendItem(const Color(0xFF0F8B8D), "Your selection"),
+            _legendItem(
+              Colors.red.shade200,
+              tr("Already booked", "محجوز مسبقاً"),
+            ),
+            _legendItem(
+              Colors.grey.shade300,
+              tr("Time passed", "انتهى الوقت"),
+            ),
+            _legendItem(
+              const Color(0xFF0F8B8D),
+              tr("Your selection", "اختيارك"),
+            ),
           ],
         ),
       ],
@@ -578,28 +915,46 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   Widget _legendItem(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
+      textDirection: AppLocalizer.direction(context),
       children: [
         Container(
-          width: 12, height: 12,
+          width: 12,
+          height: 12,
           decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(3))),
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
         const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+        ),
       ],
     );
   }
 
   Widget _buildSummaryStep() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
-        const Text("Consultation Summary",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                color: Color(0xFF111827))),
+        Text(
+          tr("Consultation Summary", "ملخص الاستشارة"),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF111827),
+          ),
+        ),
         const SizedBox(height: 6),
-        const Text("Add optional notes for the doctor",
-            style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+        Text(
+          tr(
+            "Add optional notes for the doctor",
+            "أضف ملاحظات اختيارية للطبيب",
+          ),
+          style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+        ),
         const SizedBox(height: 18),
         Container(
           decoration: BoxDecoration(
@@ -610,9 +965,11 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           child: TextField(
             controller: notesController,
             maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: "General consultation",
-              contentPadding: EdgeInsets.all(16),
+            textDirection: AppLocalizer.direction(context),
+            textAlign: TextAlign.start,
+            decoration: InputDecoration(
+              hintText: tr("General consultation", "استشارة عامة"),
+              contentPadding: const EdgeInsets.all(16),
               border: InputBorder.none,
             ),
           ),
@@ -626,19 +983,42 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
-              const Text("Consultation Details",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F8B8D))),
+              Text(
+                tr("Consultation Details", "تفاصيل الاستشارة"),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F8B8D),
+                ),
+              ),
               const SizedBox(height: 14),
-              _summaryItem(Icons.chat_bubble_outline, selectedType ?? ""),
-              _summaryItem(Icons.person_outline, selectedDoctor ?? ""),
-              _summaryItem(Icons.medical_services_outlined,
-                  selectedDoctorDepartment ?? ""),
-              _summaryItem(Icons.badge_outlined, selectedDoctorSpecialty ?? ""),
-              _summaryItem(Icons.calendar_today_outlined, selectedDate ?? ""),
-              _summaryItem(Icons.access_time_outlined, selectedTime ?? ""),
+              _summaryItem(
+                Icons.chat_bubble_outline,
+                translateConsultationType(selectedType ?? ""),
+              ),
+              _summaryItem(
+                Icons.person_outline,
+                translateDoctorName(selectedDoctor ?? ""),
+              ),
+              _summaryItem(
+                Icons.medical_services_outlined,
+                translateDepartment(selectedDoctorDepartment ?? ""),
+              ),
+              _summaryItem(
+                Icons.badge_outlined,
+                translateDoctorSpecialty(selectedDoctorSpecialty ?? ""),
+              ),
+              _summaryItem(
+                Icons.calendar_today_outlined,
+                translateDate(selectedDate ?? ""),
+              ),
+              _summaryItem(
+                Icons.access_time_outlined,
+                translateTime(selectedTime ?? ""),
+              ),
             ],
           ),
         ),
@@ -666,38 +1046,53 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
             width: selected ? 1.8 : 1,
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03),
-                blurRadius: 8, offset: const Offset(0, 3))
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: Row(
+          textDirection: AppLocalizer.direction(context),
           children: [
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xFF0F8B8D).withOpacity(0.12)
+                    ? const Color(0xFF0F8B8D).withValues(alpha: 0.12)
                     : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, size: 28,
-                  color: selected
-                      ? const Color(0xFF0F8B8D)
-                      : const Color(0xFF6B7280)),
+              child: Icon(
+                icon,
+                size: 28,
+                color: selected
+                    ? const Color(0xFF0F8B8D)
+                    : const Color(0xFF6B7280),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111827))),
+                  Text(
+                    title,
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: const TextStyle(fontSize: 14,
-                          color: Color(0xFF6B7280))),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                  ),
                 ],
               ),
             ),
@@ -713,11 +1108,17 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
+        textDirection: AppLocalizer.direction(context),
         children: [
           Icon(icon, color: const Color(0xFF0F8B8D), size: 20),
           const SizedBox(width: 10),
-          Expanded(child: Text(value,
-              style: const TextStyle(fontSize: 16, color: Color(0xFF111827)))),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.start,
+              style: const TextStyle(fontSize: 16, color: Color(0xFF111827)),
+            ),
+          ),
         ],
       ),
     );
@@ -725,6 +1126,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   Widget _buildBottomButtons() {
     final bool isLastStep = currentStep == 3;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       decoration: const BoxDecoration(
@@ -742,7 +1144,10 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                 padding: const EdgeInsets.all(16),
                 side: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF374151)),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFF374151),
+              ),
             ),
           ),
           Expanded(
@@ -757,17 +1162,27 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
                 disabledBackgroundColor: const Color(0xFF0F8B8D),
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30)),
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
               child: isSaving
                   ? const SizedBox(
-                      height: 22, width: 22,
+                      height: 22,
+                      width: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2.4, color: Colors.white))
+                        strokeWidth: 2.4,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(
-                      isLastStep ? "Confirm Booking" : "Next",
-                      style: const TextStyle(color: Colors.white,
-                          fontSize: 18, fontWeight: FontWeight.w700),
+                      isLastStep
+                          ? tr("Confirm Booking", "تأكيد الحجز")
+                          : tr("Next", "التالي"),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
             ),
           ),

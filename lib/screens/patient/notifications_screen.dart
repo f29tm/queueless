@@ -1,4 +1,4 @@
-
+﻿
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -58,81 +58,96 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     }
   }
 
-  String _relativeTime(DateTime dt) {
+  String _relativeTime(DateTime dt, bool isArabic) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inSeconds < 60) return isArabic ? 'للتو' : 'Just now';
+    if (diff.inMinutes < 60) {
+      return isArabic ? 'منذ ${diff.inMinutes} د' : '${diff.inMinutes}m ago';
+    }
+    if (diff.inHours < 24) {
+      return isArabic ? 'منذ ${diff.inHours} س' : '${diff.inHours}h ago';
+    }
+    if (diff.inDays < 7) {
+      return isArabic ? 'منذ ${diff.inDays} ي' : '${diff.inDays}d ago';
+    }
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
   // ─── Long press menu ───────────────────────────────────────────────────────
   void _showLongPressMenu(
       BuildContext context, AppNotification notif, String patientId) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+        return Directionality(
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              if (!notif.isRead)
+                if (!notif.isRead)
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFE8F5E9),
+                      child: Icon(Icons.mark_email_read_outlined,
+                          color: Colors.green),
+                    ),
+                    title: Text(
+                      isArabic ? 'تعليم كمقروء' : 'Mark as read',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _service.markAsRead(patientId, notif.id);
+                    },
+                  ),
+                if (notif.isRead)
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFFFF3E0),
+                      child: Icon(Icons.mark_email_unread_outlined,
+                          color: Colors.orange),
+                    ),
+                    title: Text(
+                      isArabic ? 'تعليم كغير مقروء' : 'Mark as unread',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      FirestoreHelper.markAsUnread(patientId, notif.id);
+                    },
+                  ),
                 ListTile(
                   leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE8F5E9),
-                    child: Icon(Icons.mark_email_read_outlined,
-                        color: Colors.green),
+                    backgroundColor: Color(0xFFFFEBEE),
+                    child: Icon(Icons.delete_outline, color: Colors.red),
                   ),
-                  title: const Text('Mark as read',
-                      style: TextStyle(fontWeight: FontWeight.w500)),
+                  title: Text(
+                    isArabic ? 'حذف' : 'Delete',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
-                    _service.markAsRead(patientId, notif.id);
+                    _service.deleteNotification(patientId, notif.id);
                   },
                 ),
-              if (notif.isRead)
-                ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFFF3E0),
-                    child: Icon(Icons.mark_email_unread_outlined,
-                        color: Colors.orange),
-                  ),
-                  title: const Text('Mark as unread',
-                      style: TextStyle(fontWeight: FontWeight.w500)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Update isRead to false
-                    FirestoreHelper.markAsUnread(patientId, notif.id);
-                  },
-                ),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFEBEE),
-                  child: Icon(Icons.delete_outline, color: Colors.red),
-                ),
-                title: const Text('Delete',
-                    style: TextStyle(fontWeight: FontWeight.w500)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _service.deleteNotification(patientId, notif.id);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -143,6 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   void _showDetails(
       BuildContext context, AppNotification notif, String patientId) {
     _service.markAsRead(patientId, notif.id);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     showModalBottomSheet(
       context: context,
@@ -151,65 +167,75 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       ),
       builder: (_) {
         final color = _colorFor(notif.type);
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: color.withOpacity(0.15),
-                    child: Icon(_iconFor(notif.type), color: color),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      notif.title,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold),
+        return Directionality(
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: color.withValues(alpha: 0.15),
+                      child: Icon(_iconFor(notif.type), color: color),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        notif.localizedTitle(isArabic),
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(notif.localizedBody(isArabic),
+                    style:
+                        const TextStyle(fontSize: 15, color: Colors.black87)),
+                const SizedBox(height: 16),
+                if (notif.metadata.containsKey('reason')) ...[
+                  _metaRow(Icons.info_outline,
+                      isArabic ? 'السبب' : 'Reason',
+                      notif.metadata['reason']),
+                  const SizedBox(height: 8),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Text(notif.body,
-                  style:
-                      const TextStyle(fontSize: 15, color: Colors.black87)),
-              const SizedBox(height: 16),
-              if (notif.metadata.containsKey('reason')) ...[
-                _metaRow(Icons.info_outline, 'Reason',
-                    notif.metadata['reason']),
+                if (notif.metadata.containsKey('doctorName')) ...[
+                  _metaRow(Icons.person_outline,
+                      isArabic ? 'الطبيب' : 'Doctor',
+                      '${notif.metadata['doctorName']}'),
+                  const SizedBox(height: 8),
+                ],
+                if (notif.metadata.containsKey('nurseName')) ...[
+                  _metaRow(Icons.person_outline,
+                      isArabic ? 'الممرضة' : 'Nurse',
+                      notif.metadata['nurseName']),
+                  const SizedBox(height: 8),
+                ],
+                if (notif.metadata.containsKey('appointmentDate')) ...[
+                  _metaRow(Icons.calendar_today,
+                      isArabic ? 'التاريخ' : 'Date',
+                      notif.metadata['appointmentDate']),
+                  const SizedBox(height: 8),
+                ],
+                if (notif.metadata.containsKey('scheduledTime')) ...[
+                  _metaRow(Icons.access_time,
+                      isArabic ? 'الوقت' : 'Time',
+                      notif.metadata['scheduledTime']),
+                  const SizedBox(height: 8),
+                ],
                 const SizedBox(height: 8),
+                Text(
+                  isArabic
+                      ? 'تم الاستلام ${_relativeTime(notif.createdAt, true)}'
+                      : 'Received ${_relativeTime(notif.createdAt, false)}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
               ],
-              if (notif.metadata.containsKey('doctorName')) ...[
-                _metaRow(Icons.person_outline, 'Doctor',
-                    '${notif.metadata['doctorName']}'),
-                const SizedBox(height: 8),
-              ],
-              if (notif.metadata.containsKey('nurseName')) ...[
-                _metaRow(Icons.person_outline, 'Nurse',
-                    notif.metadata['nurseName']),
-                const SizedBox(height: 8),
-              ],
-              if (notif.metadata.containsKey('appointmentDate')) ...[
-                _metaRow(Icons.calendar_today, 'Date',
-                    notif.metadata['appointmentDate']),
-                const SizedBox(height: 8),
-              ],
-              if (notif.metadata.containsKey('scheduledTime')) ...[
-                _metaRow(Icons.access_time, 'Time',
-                    notif.metadata['scheduledTime']),
-                const SizedBox(height: 8),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                'Received ${_relativeTime(notif.createdAt)}',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         );
       },
@@ -233,6 +259,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   // ─── Notification tile ─────────────────────────────────────────────────────
   Widget _notifTile(
       AppNotification notif, String patientId, BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final color = _colorFor(notif.type);
 
     return Dismissible(
@@ -252,25 +279,27 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: notif.isRead ? Colors.white : color.withOpacity(0.06),
+            color: notif.isRead ? Colors.white : color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: notif.isRead
                 ? null
-                : Border.all(color: color.withOpacity(0.25), width: 1),
+                : Border.all(color: color.withValues(alpha: 0.25), width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
+            textDirection:
+                isArabic ? TextDirection.rtl : TextDirection.ltr,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 child: Icon(_iconFor(notif.type), color: color, size: 20),
               ),
               const SizedBox(width: 12),
@@ -282,7 +311,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       children: [
                         Expanded(
                           child: Text(
-                            notif.title,
+                            notif.localizedTitle(isArabic),
                             style: TextStyle(
                               fontWeight: notif.isRead
                                   ? FontWeight.w500
@@ -292,7 +321,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           ),
                         ),
                         Text(
-                          _relativeTime(notif.createdAt),
+                          _relativeTime(notif.createdAt, isArabic),
                           style: const TextStyle(
                               color: Colors.grey, fontSize: 11),
                         ),
@@ -300,7 +329,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      notif.body,
+                      notif.localizedBody(isArabic),
                       style: const TextStyle(
                           color: Colors.black54, fontSize: 13),
                       maxLines: 2,
@@ -344,7 +373,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   // ─── List view ─────────────────────────────────────────────────────────────
   Widget _buildList(List<AppNotification> notifications, String patientId) {
     if (notifications.isEmpty) {
-      return _emptyState('No notifications here');
+      final isArabic =
+          Localizations.localeOf(context).languageCode == 'ar';
+      return _emptyState(
+          isArabic ? 'لا توجد إشعارات هنا' : 'No notifications here');
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -358,58 +390,67 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget build(BuildContext context) {
     final patientId =
         Provider.of<AuthProvider>(context, listen: false).userId ?? '';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
-      appBar: AppBar(
-        title: const Text('Notifications',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () => _service.markAllAsRead(patientId),
-            child: const Text('Mark all read',
-                style: TextStyle(color: Colors.teal)),
+    return Directionality(
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F8FB),
+        appBar: AppBar(
+          title: Text(
+            isArabic ? 'الإشعارات' : 'Notifications',
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.teal,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.teal,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Unread'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          actions: [
+            TextButton(
+              onPressed: () => _service.markAllAsRead(patientId),
+              child: Text(
+                isArabic ? 'تعليم الكل كمقروء' : 'Mark all read',
+                style: const TextStyle(color: Colors.teal),
+              ),
+            ),
           ],
-        ),
-      ),
-      body: StreamBuilder<List<AppNotification>>(
-        stream: _service.notificationsStream(patientId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final all = snapshot.data ?? [];
-          final unread = all.where((n) => !n.isRead).toList();
-
-          return TabBarView(
+          bottom: TabBar(
             controller: _tabController,
-            children: [
-              // ── All tab ──────────────────────────────────────────
-              all.isEmpty
-                  ? _emptyState('No notifications yet')
-                  : _buildList(all, patientId),
-
-              // ── Unread tab ───────────────────────────────────────
-              unread.isEmpty
-                  ? _emptyState('You\'re all caught up!')
-                  : _buildList(unread, patientId),
+            labelColor: Colors.teal,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.teal,
+            tabs: [
+              Tab(text: isArabic ? 'الكل' : 'All'),
+              Tab(text: isArabic ? 'غير المقروء' : 'Unread'),
             ],
-          );
-        },
+          ),
+        ),
+        body: StreamBuilder<List<AppNotification>>(
+          stream: _service.notificationsStream(patientId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final all = snapshot.data ?? [];
+            final unread = all.where((n) => !n.isRead).toList();
+
+            return TabBarView(
+              controller: _tabController,
+              children: [
+                all.isEmpty
+                    ? _emptyState(
+                        isArabic ? 'لا توجد إشعارات بعد' : 'No notifications yet')
+                    : _buildList(all, patientId),
+
+                unread.isEmpty
+                    ? _emptyState(isArabic
+                        ? 'تمت قراءة جميع الإشعارات!'
+                        : 'You\'re all caught up!')
+                    : _buildList(unread, patientId),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
