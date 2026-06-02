@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../login_screen.dart';
 import '../../services/notification_service.dart';
 import 'doctor_notifications_screen.dart';
+import 'doctor_patient_detail_screen.dart';
 
 String _todayLabel() => DateFormat('EEE, MMM d').format(DateTime.now());
 
@@ -314,8 +315,6 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
   Stream<QuerySnapshot> get _stream => FirebaseFirestore.instance
       .collection('queue')
       .where('status', isEqualTo: 'waiting_doctor')
-      .orderBy('finalPriorityNumber')
-      .orderBy('triageCompletedAt')
       .snapshots();
 
   String _effectiveLevel(Map<String, dynamic> data) =>
@@ -385,7 +384,19 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
             ]);
           }
 
-          final docs = snapshot.data!.docs;
+          final docs = snapshot.data!.docs.toList()
+            ..sort((a, b) {
+              final da = a.data() as Map<String, dynamic>;
+              final db = b.data() as Map<String, dynamic>;
+              final pa = (da['finalPriorityNumber'] as num?)?.toInt() ?? 3;
+              final pb = (db['finalPriorityNumber'] as num?)?.toInt() ?? 3;
+              if (pa != pb) return pa.compareTo(pb);
+              final ta = (da['triageCompletedAt'] as Timestamp?)?.toDate() ??
+                  DateTime.now();
+              final tb = (db['triageCompletedAt'] as Timestamp?)?.toDate() ??
+                  DateTime.now();
+              return ta.compareTo(tb);
+            });
           int emergencyCount = 0, urgentCount = 0;
           for (final doc in docs) {
             final level =
@@ -436,16 +447,33 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
                       final borderColor = _levelColor(level);
                       final patientName =
                           data['patientName'] as String? ?? 'Unknown';
+                      final patientId =
+                          data['patientId'] as String? ?? '';
+                      final queueDocId = docs[index].id;
                       final completedAt =
                           data['triageCompletedAt'] as Timestamp?;
-                      final symptoms = (data['symptoms'] as List?)
+                      final symptomList = (data['symptoms'] as List?)
                               ?.map((s) => s.toString())
-                              .join(', ') ??
-                          '';
+                              .toList() ??
+                          [];
+                      final symptoms = symptomList.join(', ');
                       final nurseOverride =
                           data['nurseOverride'] as bool? ?? false;
 
-                      return Container(
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DoctorPatientDetailScreen(
+                              queueDocId: queueDocId,
+                              patientId: patientId,
+                              patientName: patientName,
+                              triageLevel: level,
+                              symptoms: symptomList,
+                            ),
+                          ),
+                        ),
+                        child: Container(
                         margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
@@ -514,7 +542,8 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
                             ],
                           ],
                         ),
-                      );
+                      ),
+                    );
                     },
                   ),
                 ),
@@ -873,6 +902,28 @@ class AppointmentCard extends StatelessWidget {
                     ),
                 ],
               ),
+              if (status.toLowerCase() != 'cancelled') ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => showPrescriptionForm(
+                      context,
+                      patientId: patientId,
+                      patientName: patientName,
+                    ),
+                    icon: const Icon(Icons.medication,
+                        color: Colors.teal, size: 18),
+                    label: const Text('Write Prescription',
+                        style: TextStyle(color: Colors.teal)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.teal),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
