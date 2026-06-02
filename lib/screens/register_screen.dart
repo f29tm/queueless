@@ -273,20 +273,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final hashedId = auth.hashData(_nationalIdController.text.trim());
+    final hashedId    = auth.hashData(_nationalIdController.text.trim());
+    final hashedPhone = auth.hashData(_phoneController.text.trim());
 
     final error = await auth.signUpWithDetails(
       name: _fullNameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
-      phone: _phoneController.text.trim(),
+      phone: hashedPhone,
       extraData: {
         "fullName": _fullNameController.text.trim(),
         "nationalId": hashedId,
         "dob": _dobController.text.trim(),
         "nationality": _nationalityController.text.trim(),
         "gender": selectedGender,
-        "phone": _phoneController.text.trim(),
         "role": "patient",
       },
     );
