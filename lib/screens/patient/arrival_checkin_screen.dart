@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_localizer.dart';
+import '../../services/notification_service.dart';
 
 class ArrivalCheckInScreen extends StatefulWidget {
   final String? queueDocId;
@@ -144,6 +145,33 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           _estimatedWaitText = waitText;
           _showLowPriorityNote = thisLevel == 'LOW';
         });
+      }
+
+      // ── Notifications (best-effort — never block or crash the check-in) ──────
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        final patientName =
+            FirebaseAuth.instance.currentUser?.displayName?.trim() ?? 'A patient';
+        final noAI = existingData?['noAITriage'] == true;
+        final notifService = NotificationService();
+
+        // 1. Tell the patient their queue position and estimated wait.
+        if (uid != null) {
+          await notifService.notifyQueueUpdate(
+            patientId: uid,
+            position: patientsAhead + 1,
+            estimatedWaitMinutes: baseWait,
+          );
+        }
+
+        // 2. Broadcast arrival to all nurses.
+        await notifService.notifyNursePatientArrival(
+          patientName: patientName,
+          queueNumber: queueNumber,
+          reportedSymptoms: !noAI,
+        );
+      } catch (_) {
+        // Notification failure must never surface to the patient.
       }
     } catch (e) {
       if (!mounted) return;

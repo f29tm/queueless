@@ -6,6 +6,7 @@ enum NotificationType {
   consultationCancelled,
   triageOverride,
   queueUpdate,
+  patientArrival,
   reminder,
 }
 
@@ -206,6 +207,48 @@ class NotificationService {
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Broadcast to every staff user with role == 'nurse'.
+  /// Called when a patient flips to waiting_nurse in arrival_checkin_screen.
+  /// Best-effort — caller wraps in try/catch.
+  Future<void> notifyNursePatientArrival({
+    required String patientName,
+    required String queueNumber,
+    required bool reportedSymptoms,
+  }) async {
+    final nursesSnap = await _firestore
+        .collection('users')
+        .where('role', isEqualTo: 'nurse')
+        .get();
+
+    final symptomLine = reportedSymptoms
+        ? 'They submitted a symptom report via the app.'
+        : 'Manual check-in — no symptom report available.';
+    final symptomLineAr = reportedSymptoms
+        ? 'قدّم المريض تقرير أعراض عبر التطبيق.'
+        : 'تسجيل وصول يدوي — لا يوجد تقرير أعراض.';
+
+    final batch = _firestore.batch();
+    for (final doc in nursesSnap.docs) {
+      final nurseId = doc.id;
+      final ref = _notifRef(nurseId).doc();
+      batch.set(ref, {
+        'type': NotificationType.patientArrival.name,
+        'title': 'New Patient Arrived',
+        'body': '$patientName (#$queueNumber) is waiting for triage. $symptomLine',
+        'titleAr': 'وصل مريض جديد',
+        'bodyAr': '$patientName (#$queueNumber) في انتظار الفرز. $symptomLineAr',
+        'metadata': {
+          'patientName': patientName,
+          'queueNumber': queueNumber,
+          'reportedSymptoms': reportedSymptoms,
+        },
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
