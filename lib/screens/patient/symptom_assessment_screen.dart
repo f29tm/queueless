@@ -81,12 +81,9 @@ class SymptomAssessmentScreen extends StatefulWidget {
       _SymptomAssessmentScreenState();
 }
 
-class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
-    with SingleTickerProviderStateMixin {
+class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
   final Set<String> _selectedSymptoms = {};
   final TextEditingController _descriptionController = TextEditingController();
-
-  late TabController _tabController;
 
   double _nrsPain = 0.0;
   int _arrivalMode = 1;
@@ -166,13 +163,11 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _fetchProfile();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -360,35 +355,35 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
               color: Colors.white,
             ),
           ),
-          bottom: TabBar(
-            controller: _tabController,
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
-              Tab(text: isArabic ? "الأعراض" : "Symptoms"),
-              Tab(text: isArabic ? "الوصف" : "Describe"),
-              Tab(text: isArabic ? "التفاصيل" : "Details"),
-            ],
-          ),
         ),
         bottomNavigationBar: _buildBottomBar(isArabic),
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildSymptomsTab(isArabic),
-            _buildDescribeTab(isArabic),
-            _buildDetailsTab(isArabic),
-          ],
+        body: _buildBody(isArabic),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
         ),
       ),
     );
   }
 
-  Widget _buildSymptomsTab(bool isArabic) {
+  Widget _buildBody(bool isArabic) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _sectionHeader(
+          isArabic ? "ما هي أعراضك؟" : "What are your symptoms?",
+        ),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           margin: const EdgeInsets.only(bottom: 12),
@@ -421,34 +416,38 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen>
         ..._symptomCategories.entries.map(
           (e) => _buildCategoryTile(e.key, e.value, isArabic),
         ),
-      ],
-    );
-  }
 
-  Widget _buildDescribeTab(bool isArabic) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: TextField(
-        controller: _descriptionController,
-        maxLines: 8,
-        textAlign: isArabic ? TextAlign.right : TextAlign.left,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          labelText:
-              isArabic ? "صف الأعراض التي تشعر بها" : "Describe your symptoms",
-          alignLabelWithHint: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+        const SizedBox(height: 24),
+
+        _sectionHeader(
+          isArabic
+              ? "صف بكلماتك الخاصة (اختياري)"
+              : "Describe in your own words (optional)",
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _descriptionController,
+          maxLines: 6,
+          textAlign: isArabic ? TextAlign.right : TextAlign.left,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            labelText:
+                isArabic ? "صف الأعراض التي تشعر بها" : "Describe your symptoms",
+            alignLabelWithHint: true,
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
-      ),
-    );
-  }
 
-  Widget _buildDetailsTab(bool isArabic) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
+        const SizedBox(height: 24),
+
+        _sectionHeader(
+          isArabic ? "بعض التفاصيل الإضافية" : "A few more details",
+        ),
+        const SizedBox(height: 16),
         _sectionLabel(isArabic ? "مستوى الألم (NRS)" : "Pain Level (NRS)"),
         const SizedBox(height: 8),
         Container(
