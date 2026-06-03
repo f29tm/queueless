@@ -39,6 +39,8 @@ class _DoctorNotificationsScreenState
         return Icons.swap_vert_circle_outlined;
       case NotificationType.queueUpdate:
         return Icons.queue_outlined;
+      case NotificationType.patientArrival:
+        return Icons.people_alt_outlined;
       case NotificationType.reminder:
         return Icons.alarm_outlined;
     }
@@ -53,6 +55,8 @@ class _DoctorNotificationsScreenState
         return Colors.orange;
       case NotificationType.queueUpdate:
         return Colors.blue;
+      case NotificationType.patientArrival:
+        return Colors.teal;
       case NotificationType.reminder:
         return const Color(0xFF2446B8);
     }
