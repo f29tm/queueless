@@ -49,3 +49,8 @@ lib/config/api_keys.dart
 serviceAccount.json
 *serviceAccount*.json
 firebase-seed/serviceAccountKey.json
+
+# Firebase client config + node deps
+lib/firebase_options.dart
+android/app/google-services.json
+firebase-seed/node_modules/

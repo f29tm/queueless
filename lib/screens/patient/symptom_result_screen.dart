@@ -167,37 +167,8 @@ class SymptomResultScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // CONFIDENCE CARD
-              _card([
-                const Text(
-                  "AI Confidence",
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 15),
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: triageResult.confidence,
-                    backgroundColor: Colors.grey.shade200,
-                    color: _color,
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    "${(triageResult.confidence * 100).toStringAsFixed(1)}%",
-                    style: TextStyle(
-                      color: _color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 20),
+              // AI Confidence card removed — confidence/entropy are internal
+              // signals and must never be surfaced to the patient.
 
                 // WAIT TIME INFO CARD
                 _card([
