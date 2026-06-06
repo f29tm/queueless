@@ -513,7 +513,7 @@ class _AppointmentCard extends StatelessWidget {
         (data['department'] ?? 'General Medicine').toString();
     final String doctorName = (data['doctorName'] ?? 'Doctor').toString();
     final String doctorId = (data['doctorUid'] ?? '').toString();
-    final String reason = (data['reason'] ?? 'Regular check up').toString();
+    final String reason = (data['reason'] ?? '').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
     final String time = (data['time'] ?? '04:00 PM').toString();
@@ -631,40 +631,42 @@ class _AppointmentCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              if (reason.isNotEmpty) ...[
+                const SizedBox(height: 16),
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isArabic ? "السبب" : "REASON",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 0.6,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF6B7280),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isArabic ? "السبب" : "REASON",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      displayReason,
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF111827),
+                      const SizedBox(height: 6),
+                      Text(
+                        displayReason,
+                        textAlign: TextAlign.start,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 16),
 
@@ -903,7 +905,7 @@ class _ConsultationCard extends StatelessWidget {
     final String doctorName =
         (data['doctorName'] ?? 'Doctor').toString();
     final String doctorId = (data['doctorUid'] ?? '').toString();
-    final String notes = (data['notes'] ?? 'General consultation').toString();
+    final String notes = (data['notes'] ?? '').toString();
     final String status = (data['status'] ?? 'scheduled').toString();
     final String date = (data['date'] ?? 'Thu, Feb 26').toString();
     final String time = (data['time'] ?? '04:00 PM').toString();
@@ -1019,40 +1021,42 @@ class _ConsultationCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              if (notes.isNotEmpty) ...[
+                const SizedBox(height: 16),
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isArabic ? "الملاحظات" : "NOTES",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 0.6,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF6B7280),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isArabic ? "الملاحظات" : "NOTES",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      displayNotes,
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF111827),
+                      const SizedBox(height: 6),
+                      Text(
+                        displayNotes,
+                        textAlign: TextAlign.start,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 16),
 
