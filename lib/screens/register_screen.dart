@@ -329,25 +329,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   end: Alignment.bottomCenter,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F2),
-                      borderRadius: BorderRadius.circular(20),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2F2F2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Image.asset("assets/images/logo.png",
+                              width: 70, height: 70),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          "Create Your Account",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                    child: Image.asset("assets/images/logo.png",
-                        width: 70, height: 70),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    "Create Your Account",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold),
+                  Positioned(
+                    top: 40,
+                    left: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LoginScreen()),
+                      ),
+                    ),
                   ),
                 ],
               ),

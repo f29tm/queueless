@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 import 'staff/staff_login_screen.dart';
@@ -18,6 +19,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   bool obscurePassword = true;
   bool _isLoading = false;
+  String? _emailFieldError;
+  String? _passwordFieldError;
+
+  @override
+  void initState() {
+    super.initState();
+    emailController.addListener(() {
+      if (_emailFieldError != null) setState(() => _emailFieldError = null);
+    });
+    passwordController.addListener(() {
+      if (_passwordFieldError != null) setState(() => _passwordFieldError = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,12 +122,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: emailController,
                     icon: Icons.email_outlined,
                     hint: "Email Address",
+                    error: _emailFieldError,
                   ),
 
                   const SizedBox(height: 16),
 
                   // ✅ Password
-                  _passwordField(),
+                  _passwordField(error: _passwordFieldError),
 
                   const SizedBox(height: 24),
 
@@ -134,6 +156,13 @@ const SizedBox(height: 12),
                       onPressed: _isLoading
                           ? null
                           : () async {
+                              // Empty-field guards — no API call needed
+                              if (passwordController.text.trim().isEmpty) {
+                                setState(() => _passwordFieldError =
+                                    "Please enter your password.");
+                                return;
+                              }
+
                               setState(() => _isLoading = true);
                               try {
                                 final error = await auth.signIn(
@@ -142,11 +171,47 @@ const SizedBox(height: 12),
                                 );
                                 if (!context.mounted) return;
                                 if (error != null) {
+                                  if (error.contains('user-not-found') ||
+                                      error.contains('invalid-credential')) {
+                                    final query = await FirebaseFirestore
+                                        .instance
+                                        .collection('users')
+                                        .where('email',
+                                            isEqualTo:
+                                                emailController.text.trim())
+                                        .limit(1)
+                                        .get();
+                                    if (!context.mounted) return;
+                                    if (query.docs.isEmpty) {
+                                      setState(() {
+                                        _emailFieldError =
+                                            "Your email is not registered. Please sign up first.";
+                                        _passwordFieldError = null;
+                                      });
+                                      return;
+                                    } else {
+                                      // Email exists — wrong password
+                                      setState(() {
+                                        _emailFieldError = null;
+                                        _passwordFieldError =
+                                            "Incorrect password. Please try again.";
+                                      });
+                                      return;
+                                    }
+                                  }
+                                  setState(() {
+                                    _emailFieldError = null;
+                                    _passwordFieldError = null;
+                                  });
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text(error)),
                                   );
                                   return;
                                 }
+                                setState(() {
+                                  _emailFieldError = null;
+                                  _passwordFieldError = null;
+                                });
                                 Navigator.of(context).pushNamedAndRemoveUntil(
                                   '/patient-hub',
                                   (route) => false,
@@ -251,51 +316,96 @@ const SizedBox(height: 12),
     required TextEditingController controller,
     required IconData icon,
     required String hint,
+    String? error,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F5F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Color(0xFF009688)),
-          hintText: hint,
-          border: InputBorder.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
+            borderRadius: BorderRadius.circular(14),
+            border: error != null ? Border.all(color: Colors.red.shade300) : null,
+          ),
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: const Color(0xFF009688)),
+              hintText: hint,
+              border: InputBorder.none,
+            ),
+          ),
         ),
-      ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 5, left: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    error,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
   // ✅ Password Input
-  Widget _passwordField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F5F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: passwordController,
-        obscureText: obscurePassword,
-        decoration: InputDecoration(
-          prefixIcon:
-              const Icon(Icons.lock_outline, color: Color(0xFF009688)),
-          hintText: "Password",
-          border: InputBorder.none,
-          suffixIcon: IconButton(
-            icon: Icon(
-              obscurePassword ? Icons.visibility_off : Icons.visibility,
-              color: Colors.grey,
+  Widget _passwordField({String? error}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
+            borderRadius: BorderRadius.circular(14),
+            border: error != null ? Border.all(color: Colors.red.shade300) : null,
+          ),
+          child: TextField(
+            controller: passwordController,
+            obscureText: obscurePassword,
+            decoration: InputDecoration(
+              prefixIcon:
+                  const Icon(Icons.lock_outline, color: Color(0xFF009688)),
+              hintText: "Password",
+              border: InputBorder.none,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() => obscurePassword = !obscurePassword);
+                },
+              ),
             ),
-            onPressed: () {
-              setState(() => obscurePassword = !obscurePassword);
-            },
           ),
         ),
-      ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 5, left: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    error,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
