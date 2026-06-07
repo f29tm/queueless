@@ -361,6 +361,9 @@ class AuthProvider with ChangeNotifier {
       await _loadUserData();
 
       return null;
+    } on FirebaseAuthException catch (_) {
+      // Staff ID was found but the password is wrong
+      return "WRONG_PASSWORD";
     } catch (e) {
       return "Invalid Staff ID or password.";
     }

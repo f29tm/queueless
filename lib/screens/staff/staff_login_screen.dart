@@ -18,6 +18,19 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
 
   bool obscurePassword = true;
   bool _isLoading = false;
+  String? _staffIdError;
+  String? _passwordError;
+
+  @override
+  void initState() {
+    super.initState();
+    staffIdController.addListener(() {
+      if (_staffIdError != null) setState(() => _staffIdError = null);
+    });
+    passwordController.addListener(() {
+      if (_passwordError != null) setState(() => _passwordError = null);
+    });
+  }
 
   @override
   void dispose() {
@@ -26,7 +39,32 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
     super.dispose();
   }
 
+  void _showPatientPortalAlert() {
+    setState(() {
+      _staffIdError =
+          "This portal is for authorized staff only. Please use the patient login.";
+      _passwordError = null;
+    });
+  }
+
   Future<void> _login() async {
+    // Empty field guards
+    final idEmpty = staffIdController.text.trim().isEmpty;
+    final passEmpty = passwordController.text.trim().isEmpty;
+    if (idEmpty || passEmpty) {
+      setState(() {
+        _staffIdError = idEmpty ? "Please enter your Staff ID." : null;
+        _passwordError = passEmpty ? "Please enter your password." : null;
+      });
+      return;
+    }
+
+    // If input looks like an email, it's a patient using the wrong portal
+    if (staffIdController.text.trim().contains('@')) {
+      _showPatientPortalAlert();
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -39,15 +77,34 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
       if (!mounted) return;
 
       if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
+        if (error.contains('Staff ID not found')) {
+          setState(() {
+            _staffIdError = "Staff ID not found. Check your ID and try again.";
+            _passwordError = null;
+          });
+        } else if (error == 'WRONG_PASSWORD') {
+          setState(() {
+            _staffIdError = null;
+            _passwordError = "Incorrect password. Please try again.";
+          });
+        } else {
+          setState(() {
+            _staffIdError = null;
+            _passwordError = null;
+          });
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error)));
+        }
         return;
       }
 
       final role = auth.userRole?.toLowerCase().trim();
 
-      if (role == "doctor") {
+      if (role == "patient") {
+        await auth.signOut();
+        if (!mounted) return;
+        _showPatientPortalAlert();
+      } else if (role == "doctor") {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
@@ -157,10 +214,11 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  _input(staffIdController, "Staff ID", Icons.perm_identity),
+                  _input(staffIdController, "Staff ID", Icons.perm_identity,
+                      error: _staffIdError),
                   const SizedBox(height: 16),
 
-                  _passwordField(),
+                  _passwordField(error: _passwordError),
                   const SizedBox(height: 24),
 
                   Center(
@@ -235,49 +293,79 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
     );
   }
 
-  Widget _input(TextEditingController c, String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F5F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: c,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: const Color(0xFF2446B8)),
-          labelText: label,
-          border: InputBorder.none,
+  Widget _input(TextEditingController c, String label, IconData icon,
+      {String? error}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
+            borderRadius: BorderRadius.circular(14),
+            border:
+                error != null ? Border.all(color: Colors.red.shade300) : null,
+          ),
+          child: TextField(
+            controller: c,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: const Color(0xFF2446B8)),
+              labelText: label,
+              border: InputBorder.none,
+            ),
+          ),
         ),
-      ),
+        if (error != null) _errorText(error),
+      ],
     );
   }
 
-  Widget _passwordField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F5F7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: TextField(
-        controller: passwordController,
-        obscureText: obscurePassword,
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF2446B8)),
-          labelText: "Password",
-          border: InputBorder.none,
-          suffixIcon: IconButton(
-            icon: Icon(
-              obscurePassword ? Icons.visibility_off : Icons.visibility,
+  Widget _passwordField({String? error}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
+            borderRadius: BorderRadius.circular(14),
+            border:
+                error != null ? Border.all(color: Colors.red.shade300) : null,
+          ),
+          child: TextField(
+            controller: passwordController,
+            obscureText: obscurePassword,
+            decoration: InputDecoration(
+              prefixIcon:
+                  const Icon(Icons.lock_outline, color: Color(0xFF2446B8)),
+              labelText: "Password",
+              border: InputBorder.none,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscurePassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () => setState(() => obscurePassword = !obscurePassword),
+              ),
             ),
-            onPressed: () {
-              setState(() {
-                obscurePassword = !obscurePassword;
-              });
-            },
           ),
         ),
+        if (error != null) _errorText(error),
+      ],
+    );
+  }
+
+  Widget _errorText(String msg) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 5, left: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 13, color: Colors.red),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(msg,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -333,7 +421,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   email: email,
                 );
 
-                if (!mounted) return;
+                if (!context.mounted) return;
 
                 Navigator.pop(context);
 
