@@ -130,11 +130,11 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       final baseWait = patientsAheadInLane * serviceMinutes;
       final String waitText;
       if (patientsAheadInLane == 0) {
-        waitText = "You're next";
+        waitText = isArabic ? "أنت التالي" : "You're next";
       } else {
         final low = (baseWait * (1 - _rangeSpread)).round();
         final high = (baseWait * (1 + _rangeSpread)).round();
-        waitText = "$low–$high min";
+        waitText = isArabic ? "$low–$high دقيقة" : "$low–$high min";
       }
 
       if (mounted) {
@@ -337,7 +337,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "May increase if emergency patients arrive.",
+                        isArabic
+                            ? "قد يزداد وقت الانتظار عند وصول حالات طارئة."
+                            : "May increase if emergency patients arrive.",
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 12,
