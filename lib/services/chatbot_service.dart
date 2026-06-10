@@ -23,10 +23,6 @@ Guidelines:
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
 
-  static const List<String> _models = ['gemini-2.5-flash'];
-
-  static final int _modelIndex = 0;
-
   final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
 
@@ -34,15 +30,7 @@ Guidelines:
 
   List<Map<String, dynamic>> get history => List.unmodifiable(_history);
 
-  Future<void> listAvailableModels() async {
-    final uri = Uri.parse('$_baseUrl?key=${ApiKeys.gemini}');
-    final response = await _client.get(uri);
-    print('Available Gemini models: ${response.body}');
-  }
-
   Future<String> sendMessage(String text) async {
-    if (_modelIndex == 0) await listAvailableModels();
-
     _history.add({
       'role': 'user',
       'parts': [
@@ -51,9 +39,6 @@ Guidelines:
     });
 
     try {
-      print('Calling Gemini with key length: ${ApiKeys.gemini.length}');
-      print('Trying model: gemini-2.5-flash');
-
       final uri = Uri.parse(
         '$_baseUrl/gemini-2.5-flash:generateContent?key=${ApiKeys.gemini}',
       );
@@ -75,8 +60,6 @@ Guidelines:
       );
 
       if (response.statusCode != 200) {
-        print('Gemini HTTP error: ${response.statusCode}');
-        print('Gemini response body: ${response.body}');
         _history.removeLast();
         throw Exception(
           'Gemini API error ${response.statusCode}: ${response.body}',
@@ -106,7 +89,6 @@ Guidelines:
 
       return reply;
     } catch (e) {
-      print('Gemini error: $e');
       rethrow;
     }
   }
