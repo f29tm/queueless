@@ -122,17 +122,6 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
     _dismissBanner();
   }
 
-  String _symptomsText(dynamic raw) {
-    if (raw is List) {
-      final items = raw
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      if (items.isNotEmpty) return items.join(', ');
-    }
-    return 'None selected';
-  }
-
   Widget _buildNewPatientBanner() {
     return Material(
       color: const Color(0xFF2446B8),
@@ -180,11 +169,151 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
         .snapshots();
   }
 
-  Color _priorityColor(String priority) {
-    if (priority == "EMERGENCY") return Colors.red;
-    if (priority == "MODERATE") return Colors.orange;
-    if (priority == "PENDING") return Colors.grey;
-    return Colors.green;
+  // Left-border / badge colour by triage level (nurse palette).
+  Color _triageColor(String level) {
+    switch (level) {
+      case 'EMERGENCY':
+        return const Color(0xFFC62828);
+      case 'MODERATE':
+        return const Color(0xFFE65100);
+      case 'LOW':
+        return const Color(0xFF2E7D32);
+      default:
+        return const Color(0xFF2E7D32);
+    }
+  }
+
+  String _sexLabel(int? v) {
+    if (v == 1) return 'Male';
+    if (v == 2) return 'Female';
+    return '—';
+  }
+
+  // Minutes since arrival, derived from the queue doc's arrivedAt Timestamp.
+  String? _waitingText(dynamic arrivedAt) {
+    if (arrivedAt is Timestamp) {
+      final mins = DateTime.now().difference(arrivedAt.toDate()).inMinutes;
+      if (mins < 1) return 'Waiting <1 min';
+      return 'Waiting $mins min';
+    }
+    return null;
+  }
+
+  // Arrival-mode icon + label. Ambulance arrivals are shown in red.
+  Widget _arrivalInfo(int? mode) {
+    final IconData icon;
+    final String label;
+    switch (mode) {
+      case 1:
+        icon = Icons.directions_walk;
+        label = 'Walk-in';
+        break;
+      case 2:
+        icon = Icons.local_hospital;
+        label = 'Ambulance';
+        break;
+      case 3:
+        icon = Icons.directions_car;
+        label = 'Car';
+        break;
+      case 4:
+        icon = Icons.directions_bus;
+        label = 'Transit';
+        break;
+      case 5:
+        icon = Icons.assignment;
+        label = 'Referred';
+        break;
+      default:
+        icon = Icons.help_outline;
+        label = '—';
+    }
+    final color = mode == 2 ? const Color(0xFFC62828) : Colors.grey.shade600;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: color,
+            fontWeight: mode == 2 ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _signalChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _painChip(int? nrs) {
+    if (nrs == null) return _signalChip('Pain: —', Colors.grey);
+    final Color color;
+    if (nrs <= 3) {
+      color = const Color(0xFF2E7D32);
+    } else if (nrs <= 6) {
+      color = const Color(0xFFE65100);
+    } else {
+      color = const Color(0xFFC62828);
+    }
+    return _signalChip('Pain: $nrs/10', color);
+  }
+
+  Widget _mentalChip(int? v) {
+    final String label;
+    switch (v) {
+      case 1:
+        label = 'Alert';
+        break;
+      case 2:
+        label = 'Verbal';
+        break;
+      case 3:
+        label = 'Pain Response';
+        break;
+      case 4:
+        label = 'Unresponsive';
+        break;
+      default:
+        return _signalChip('Mental: —', Colors.grey);
+    }
+    final color = (v != null && v >= 3)
+        ? const Color(0xFFC62828)
+        : Colors.grey.shade700;
+    return _signalChip(label, color);
+  }
+
+  Widget _aiChip(num? confidence) {
+    if (confidence == null) return _signalChip('No AI', Colors.grey);
+    final pct = (confidence * 100).toStringAsFixed(0);
+    final Color color;
+    if (confidence >= 0.8) {
+      color = const Color(0xFF2E7D32);
+    } else if (confidence >= 0.6) {
+      color = const Color(0xFFE65100);
+    } else {
+      color = const Color(0xFFC62828);
+    }
+    return _signalChip('AI $pct%', color);
   }
 
   Future<void> _openVitalsDialog(DocumentSnapshot doc) async {
@@ -273,91 +402,249 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    ...patients.map((patient) {
+                    ...patients.asMap().entries.map((entry) {
+                      final position = entry.key + 1;
+                      final patient = entry.value;
                       final data = patient.data() as Map<String, dynamic>;
-                      final patientName =
-                          data['patientName'] ?? 'Unknown Patient';
-                      final triageLevel = data['triageLevel'] ?? 'LOW';
-                      final symptoms = data['symptoms'] ?? [];
-                      final description =
-                          data['description'] ?? 'No description';
-                      final isManual = data['noAITriage'] == true;
 
-                      return Container(
+                      final isManual = data['noAITriage'] == true;
+                      final triageLevel =
+                          (data['triageLevel'] as String?) ?? 'LOW';
+                      final borderColor = isManual
+                          ? Colors.blueGrey
+                          : _triageColor(triageLevel);
+
+                      final patientName =
+                          (data['patientName'] as String?) ?? 'Unknown Patient';
+                      final deferred = data['deferred'] == true;
+                      final waitingText = _waitingText(data['arrivedAt']);
+
+                      final s1 =
+                          data['stage1Inputs'] as Map<String, dynamic>? ??
+                              const {};
+                      final age = (s1['age'] as num?)?.toInt();
+                      final sex = (s1['sex'] as num?)?.toInt();
+                      final ageSexText =
+                          "${age?.toString() ?? '—'}  ·  ${_sexLabel(sex)}";
+                      final arrivalMode = (s1['arrival_mode'] as num?)?.toInt();
+
+                      final description =
+                          (data['description'] as String?)?.trim();
+                      final chiefComplaint =
+                          (s1['chief_complaint'] as String?)?.trim();
+                      final String complaintText;
+                      if (description != null && description.isNotEmpty) {
+                        complaintText = description;
+                      } else if (chiefComplaint != null &&
+                          chiefComplaint.isNotEmpty) {
+                        complaintText = chiefComplaint;
+                      } else if (isManual) {
+                        complaintText =
+                            'Manual check-in — no prior symptom assessment';
+                      } else {
+                        complaintText = 'No description provided';
+                      }
+
+                      return Card(
+                        elevation: 2,
                         margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border(
-                            left: BorderSide(
-                              color: _priorityColor(triageLevel),
-                              width: 5,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: borderColor, width: 4),
                             ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                          child: InkWell(
+                            onTap: () => _openVitalsDialog(patient),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const CircleAvatar(
-                                  backgroundColor: Color(0xFF2446B8),
-                                  child:
-                                      Icon(Icons.person, color: Colors.white),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    patientName,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                // ── Row 1 — header strip ──
+                                Container(
+                                  width: double.infinity,
+                                  color: borderColor.withValues(alpha: 0.15),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: borderColor,
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          isManual ? 'MANUAL' : triageLevel,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        "#$position",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (deferred) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            border: Border.all(
+                                                color: Colors.amber.shade400),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                  Icons.warning_amber_rounded,
+                                                  size: 13,
+                                                  color:
+                                                      Colors.amber.shade800),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                "REVIEW",
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      Colors.amber.shade800,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (waitingText != null)
+                                          const SizedBox(width: 8),
+                                      ],
+                                      if (waitingText != null)
+                                        Text(
+                                          waitingText,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                _priorityBadge(
-                                    triageLevel, isManual),
+
+                                // ── Body ──
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Row 2 — patient identity
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  patientName,
+                                                  style: const TextStyle(
+                                                    fontSize: 17,
+                                                    fontWeight:
+                                                        FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  ageSexText,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors
+                                                        .grey.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _arrivalInfo(arrivalMode),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Row 3 — chief complaint
+                                      Text(
+                                        complaintText,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontStyle: FontStyle.italic,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Row 4 — key clinical signals
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          _painChip((s1['nrs_pain'] as num?)
+                                              ?.toInt()),
+                                          _mentalChip((s1['mental'] as num?)
+                                              ?.toInt()),
+                                          _aiChip(
+                                              data['confidence'] as num?),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Row 5 — action
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () =>
+                                              _openVitalsDialog(patient),
+                                          icon: const Icon(Icons.play_arrow,
+                                              size: 18),
+                                          label: const Text("Start Vitals"),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF2446B8),
+                                            foregroundColor: Colors.white,
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 18,
+                                                    vertical: 10),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-                            if (!isManual) ...[
-                              Text(
-                                "Symptoms: ${_symptomsText(symptoms)}",
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Description: $description",
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ] else
-                              const Text(
-                                "Manual check-in — no prior symptom assessment",
-                                style: TextStyle(
-                                    color: Colors.grey,
-                                    fontStyle: FontStyle.italic),
-                              ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _openVitalsDialog(patient),
-                                icon: const Icon(Icons.monitor_heart),
-                                label: const Text(
-                                    "Record Vitals & Run AI Triage"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2446B8),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 13),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       );
                     }),
@@ -396,24 +683,6 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
     );
   }
 
-  Widget _priorityBadge(String priority, bool isManual) {
-    final color = _priorityColor(priority);
-    final label = isManual ? 'Manual' : priority;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
 }
 
 // ===================== VITALS SHEET =====================
