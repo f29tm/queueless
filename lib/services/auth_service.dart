@@ -34,7 +34,6 @@ class AuthService {
 
       return result;
     } catch (e) {
-      print('Sign up error: $e');
       rethrow;
     }
   }
@@ -51,7 +50,6 @@ class AuthService {
       );
       return result;
     } catch (e) {
-      print('Sign in error: $e');
       rethrow;
     }
   }
@@ -61,7 +59,6 @@ class AuthService {
     try {
       await _auth.currentUser?.sendEmailVerification();
     } catch (e) {
-      print('Email verification error: $e');
       rethrow;
     }
   }
@@ -77,7 +74,6 @@ class AuthService {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
-      print('Password reset error: $e');
       rethrow;
     }
   }
@@ -87,7 +83,6 @@ class AuthService {
     try {
       await _auth.signOut();
     } catch (e) {
-      print('Sign out error: $e');
       rethrow;
     }
   }
@@ -97,7 +92,6 @@ class AuthService {
     try {
       return await _db.collection('users').doc(uid).get();
     } catch (e) {
-      print('Get user data error: $e');
       return null;
     }
   }
