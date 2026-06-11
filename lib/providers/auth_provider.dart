@@ -1,226 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:crypto/crypto.dart';
-// import 'dart:convert';
-
-// class AuthProvider with ChangeNotifier {
-//   final FirebaseAuth _auth = FirebaseAuth.instance;
-//   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-//   User? currentUser;
-//   String? userRole;
-//   String? userName;
-
-//   AuthProvider() {
-//     _auth.authStateChanges().listen((user) async {
-//       currentUser = user;
-
-//       if (user != null) {
-//         await _loadUserData();
-//       } else {
-//         userRole = null;
-//         userName = null;
-//       }
-
-//       notifyListeners();
-//     });
-//   }
-
-// String? get userId => currentUser?.uid;
-
-//   // ✅ PATIENT SIGN-UP
-//   Future<String?> signUpWithDetails({
-//     required String name,
-//     required String email,
-//     required String password,
-//     required String phone,
-//     required Map<String, dynamic> extraData,
-//   }) async {
-//     try {
-//       UserCredential cred = await _auth.createUserWithEmailAndPassword(
-//         email: email.trim(),
-//         password: password.trim(),
-//       );
-
-//       currentUser = cred.user;
-
-//       Map<String, dynamic> userData = {
-//         "uid": currentUser!.uid,
-//         "name": name,
-//         "email": email.trim(),
-//         "phone": phone,
-//         "role": "patient",
-//         "emailVerified": false,
-//         "createdAt": Timestamp.now(),
-//       };
-
-//       userData.addAll(extraData);
-
-//       await _firestore.collection("users").doc(currentUser!.uid).set(userData);
-
-//       await currentUser!.sendEmailVerification();
-
-//       await _auth.signOut();
-
-//       currentUser = null;
-//       userRole = null;
-//       userName = null;
-
-//       return null;
-//     } catch (e) {
-//       return e.toString();
-//     }
-//   }
-
-//   // ✅ PATIENT LOGIN
-//   Future<String?> signIn({
-//     required String email,
-//     required String password,
-//   }) async {
-//     try {
-//       UserCredential cred = await _auth.signInWithEmailAndPassword(
-//         email: email.trim(),
-//         password: password.trim(),
-//       );
-
-//       currentUser = cred.user;
-
-//       await currentUser!.reload();
-//       currentUser = _auth.currentUser;
-
-//       if (currentUser != null && !currentUser!.emailVerified) {
-//         await _auth.signOut();
-//         currentUser = null;
-//         userRole = null;
-//         userName = null;
-//         return "Please verify your email before logging in.";
-//       }
-
-//       await _syncEmailVerification();
-//       await _loadUserData();
-
-//       return null;
-//     } catch (e) {
-//       return e.toString();
-//     }
-//   }
-
-//   // ✅ STAFF LOGIN
-//   Future<String?> staffSignIn({
-//     required String staffId,
-//     required String password,
-//   }) async {
-//     try {
-//       final query = await _firestore
-//           .collection("users")
-//           .where("staffId", isEqualTo: staffId)
-//           .limit(1)
-//           .get();
-
-//       if (query.docs.isEmpty) {
-//         return "Staff ID not found.";
-//       }
-
-//       final data = query.docs.first.data();
-//       final email = data["email"];
-
-//       UserCredential cred = await _auth.signInWithEmailAndPassword(
-//         email: email,
-//         password: password,
-//       );
-
-//       currentUser = cred.user;
-
-//       await _loadUserData();
-
-//       return null;
-//     } catch (e) {
-//       return "Invalid Staff ID or password.";
-//     }
-//   }
-
-//   // ✅ LOAD USER DATA
-//   Future<void> _loadUserData() async {
-//     if (currentUser == null) return;
-
-//     final doc = await _firestore.collection("users").doc(currentUser!.uid).get();
-
-//     userRole = doc.data()?["role"];
-//     userName = doc.data()?["name"] ?? doc.data()?["fullName"];
-//   }
-
-//   // ✅ SYNC EMAIL
-//   Future<void> _syncEmailVerification() async {
-//     if (currentUser == null) return;
-
-//     await currentUser!.reload();
-//     currentUser = _auth.currentUser;
-
-//     await _firestore.collection("users").doc(currentUser!.uid).update({
-//       "emailVerified": currentUser!.emailVerified,
-//     });
-//   }
-
-//   // ✅ RESEND EMAIL
-//   Future<void> resendEmailVerification() async {
-//     if (currentUser != null && !currentUser!.emailVerified) {
-//       await currentUser!.sendEmailVerification();
-//     }
-//   }
-
-//   // ✅ LOGOUT
-//   Future<void> signOut() async {
-//     await _auth.signOut();
-//     currentUser = null;
-//     userRole = null;
-//     userName = null;
-//     notifyListeners();
-//   }
-
-//   // ✅ ✅ FIXED PASSWORD RESET (IMPORTANT)
-//   Future<void> sendPasswordResetEmail(String email) async {
-//     await _auth.sendPasswordResetEmail(email: email);
-//   }
-
-//   // ✅ STAFF RESET
-//   Future<String?> staffResetPassword({
-//     required String staffId,
-//     required String email,
-//   }) async {
-//     try {
-//       final query = await _firestore
-//           .collection("users")
-//           .where("staffId", isEqualTo: staffId)
-//           .where("role", isEqualTo: "staff")
-//           .get();
-
-//       if (query.docs.isEmpty) {
-//         return "Staff ID not found.";
-//       }
-
-//       final data = query.docs.first.data();
-
-//       if (data["email"] != email) {
-//         return "Email does not match this Staff ID.";
-//       }
-
-//       await _auth.sendPasswordResetEmail(email: email);
-
-//       return null;
-//     } catch (e) {
-//       return e.toString();
-//     }
-//   }
-
-//   // ✅ HASH FUNCTION
-//   String hashData(String input) {
-//     final bytes = utf8.encode(input);
-//     final hash = sha256.convert(bytes);
-//     return hash.toString();
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -338,18 +115,16 @@ class AuthProvider with ChangeNotifier {
     required String password,
   }) async {
     try {
-      final query = await _firestore
-          .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .limit(1)
+      final lookupDoc = await _firestore
+          .collection("staff_lookup")
+          .doc(staffId)
           .get();
 
-      if (query.docs.isEmpty) {
+      if (!lookupDoc.exists) {
         return "Staff ID not found.";
       }
 
-      final data = query.docs.first.data();
-      final email = data["email"];
+      final email = lookupDoc.data()?["email"];
 
       UserCredential cred = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -419,19 +194,18 @@ class AuthProvider with ChangeNotifier {
     required String email,
   }) async {
     try {
-      final query = await _firestore
-          .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .where("role", isEqualTo: "staff")
+      final lookupDoc = await _firestore
+          .collection("staff_lookup")
+          .doc(staffId)
           .get();
 
-      if (query.docs.isEmpty) {
+      if (!lookupDoc.exists) {
         return "Staff ID not found.";
       }
 
-      final data = query.docs.first.data();
+      final storedEmail = lookupDoc.data()?["email"];
 
-      if (data["email"] != email) {
+      if (storedEmail != email) {
         return "Email does not match this Staff ID.";
       }
 

@@ -103,38 +103,44 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
         'arrivedAt': FieldValue.serverTimestamp(),
       });
 
-      final waiting = await FirebaseFirestore.instance
-          .collection('queue')
-          .where('queueType', isEqualTo: 'nurse')
-          .where('status', isEqualTo: 'waiting_nurse')
-          .orderBy('priorityNumber')
-          .orderBy('createdAt')
-          .get();
-      final index =
-          waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
-      final patientsAhead = index < 0 ? 0 : index;
-
-      // APQ estimate: only patients ahead in line with equal-or-higher
-      // priority contribute to this patient's in-lane wait.
+      // Mark confirmed immediately — position calc is best-effort
+      int patientsAhead = 0;
+      int baseWait = 0;
+      String waitText = '-';
       final thisLevel = _normalizeLevel(existingData?['triageLevel']);
-      final myPriority = _priorityRank(thisLevel);
-      int patientsAheadInLane = 0;
-      for (int i = 0; i < patientsAhead; i++) {
-        final aheadData = waiting.docs[i].data();
-        final aheadPriority =
-            (aheadData['priorityNumber'] as num?)?.toInt() ?? 3;
-        if (aheadPriority <= myPriority) patientsAheadInLane++;
-      }
 
-      final serviceMinutes = _serviceMinutes[thisLevel] ?? 20;
-      final baseWait = patientsAheadInLane * serviceMinutes;
-      final String waitText;
-      if (patientsAheadInLane == 0) {
-        waitText = "You're next";
-      } else {
-        final low = (baseWait * (1 - _rangeSpread)).round();
-        final high = (baseWait * (1 + _rangeSpread)).round();
-        waitText = "$low–$high min";
+      try {
+        final waiting = await FirebaseFirestore.instance
+            .collection('queue')
+            .where('queueType', isEqualTo: 'nurse')
+            .where('status', isEqualTo: 'waiting_nurse')
+            .orderBy('priorityNumber')
+            .orderBy('createdAt')
+            .get();
+        final index =
+            waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
+        patientsAhead = index < 0 ? 0 : index;
+
+        final myPriority = _priorityRank(thisLevel);
+        int patientsAheadInLane = 0;
+        for (int i = 0; i < patientsAhead; i++) {
+          final aheadData = waiting.docs[i].data();
+          final aheadPriority =
+              (aheadData['priorityNumber'] as num?)?.toInt() ?? 3;
+          if (aheadPriority <= myPriority) patientsAheadInLane++;
+        }
+
+        final serviceMinutes = _serviceMinutes[thisLevel] ?? 20;
+        baseWait = patientsAheadInLane * serviceMinutes;
+        if (patientsAheadInLane == 0) {
+          waitText = "You're next";
+        } else {
+          final low = (baseWait * (1 - _rangeSpread)).round();
+          final high = (baseWait * (1 + _rangeSpread)).round();
+          waitText = "$low–$high min";
+        }
+      } catch (_) {
+        // Position query failed — check-in still succeeded
       }
 
       if (mounted) {
