@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../services/encryption_service.dart';
 import '../../utils/app_localizer.dart';
 
 class OnlineConsultationScreen extends StatefulWidget {
@@ -309,6 +310,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
         final notes = notesController.text.trim();
 
+        // Write non-sensitive fields inside the transaction
         final consultationData = <String, dynamic>{
           'consultationId': consultationRef.id,
           'patientId': user.uid,
@@ -323,12 +325,19 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
           'createdAt': FieldValue.serverTimestamp(),
         };
 
-        if (notes.isNotEmpty) {
-          consultationData['notes'] = notes;
-        }
-
         transaction.set(consultationRef, consultationData);
+
+        return notes;
       });
+
+      // Encrypt and write the notes separately after the transaction
+      final notes = notesController.text.trim();
+      if (notes.isNotEmpty) {
+        await EncryptionService.saveConsultationNotes(
+          docId: consultationRef.id,
+          data: {'notes': notes},
+        );
+      }
 
       if (!mounted) return;
 

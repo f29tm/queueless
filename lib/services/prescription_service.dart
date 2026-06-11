@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'encryption_service.dart';
 
 class Prescription {
   // Standard dose hours by frequency
@@ -155,11 +156,12 @@ class PrescriptionService {
     final endDate = durationDays > 0 ? startDate.add(Duration(days: durationDays)) : null;
     final totalDoses = durationDays > 0 ? timesPerDay * durationDays : 0;
 
-    await _col.add({
+    // Generate doc ref so we can write non-sensitive and sensitive fields separately
+    final ref = _col.doc();
+
+    await ref.set({
       'patientId': patientId,
       'patientName': patientName,
-      'medicationName': medicationName,
-      'dosageInstructions': dosageInstructions,
       'timesPerDay': timesPerDay,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': endDate != null ? Timestamp.fromDate(endDate) : null,
@@ -170,6 +172,15 @@ class PrescriptionService {
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // Encrypt sensitive medication fields via Cloud Function
+    await EncryptionService.savePrescription(
+      docId: ref.id,
+      data: {
+        'medicationName': medicationName,
+        'dosageInstructions': dosageInstructions,
+      },
+    );
   }
 
   Future<void> markDoseTaken(String prescriptionId) async {
