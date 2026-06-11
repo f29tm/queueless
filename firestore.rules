@@ -24,7 +24,11 @@ service cloud.firestore {
         allow read: if request.auth != null &&
           request.auth.uid == userId;
 
-        allow write: if request.auth != null && (
+        // Any authenticated user can push a notification to another user
+        // (e.g. patient cancels → writes to doctor's subcollection).
+        allow create: if request.auth != null;
+
+        allow update, delete: if request.auth != null && (
           request.auth.uid == userId || isStaff()
         );
       }
