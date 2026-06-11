@@ -343,7 +343,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "May increase if emergency patients arrive.",
+                        isArabic
+                            ? "قد يزداد وقت الانتظار عند وصول حالات طارئة."
+                            : "May increase if emergency patients arrive.",
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 12,

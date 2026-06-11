@@ -50,6 +50,10 @@ serviceAccount.json
 *serviceAccount*.json
 firebase-seed/serviceAccountKey.json
 
+# Local Firestore debug scripts - load service-account keys, never commit
+get_queue.py
+inspect_staff_fields.py
+
 # Firebase client config + node deps
 lib/firebase_options.dart
 android/app/google-services.json
