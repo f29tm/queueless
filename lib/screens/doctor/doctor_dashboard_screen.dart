@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../login_screen.dart';
+import '../../services/encryption_service.dart';
 import '../../services/notification_service.dart';
 import 'doctor_notifications_screen.dart';
 import 'doctor_patient_detail_screen.dart';
@@ -1034,8 +1035,19 @@ class ConsultationCard extends StatelessWidget {
                       color: Color(0xFF2446B8),
                       fontWeight: FontWeight.bold)),
               if (notes.isNotEmpty)
-                Text(notes,
-                    style: const TextStyle(color: Colors.grey)),
+                FutureBuilder<String>(
+                  future: (':'.allMatches(notes).length == 2)
+                      ? EncryptionService.getDecryptedData(
+                          collection: 'consultations',
+                          docId: docId,
+                          fields: ['notes'],
+                        ).then((d) => (d['notes'] as String?) ?? notes)
+                      : Future.value(notes),
+                  builder: (_, snap) => Text(
+                    snap.data ?? notes,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
               const SizedBox(height: 14),
               Row(
                 children: [

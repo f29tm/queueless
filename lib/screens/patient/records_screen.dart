@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../services/encryption_service.dart';
 import '../../services/notification_service.dart';
 
 class RecordsScreen extends StatefulWidget {
@@ -1045,12 +1046,24 @@ class _ConsultationCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        displayNotes,
-                        textAlign: TextAlign.start,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF111827),
+                      FutureBuilder<String>(
+                        future: (':'.allMatches(notes).length == 2)
+                            ? EncryptionService.getDecryptedData(
+                                collection: 'consultations',
+                                docId: consultationId,
+                                fields: ['notes'],
+                              ).then((d) {
+                                final dec = (d['notes'] as String?) ?? notes;
+                                return isArabic ? _translateNotes(dec) : dec;
+                              })
+                            : Future.value(displayNotes),
+                        builder: (_, snap) => Text(
+                          snap.data ?? displayNotes,
+                          textAlign: TextAlign.start,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF111827),
+                          ),
                         ),
                       ),
                     ],
