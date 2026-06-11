@@ -40,6 +40,17 @@ class Prescription {
     required this.active,
   });
 
+  Prescription copyWith({String? medicationName, String? dosageInstructions}) {
+    return Prescription(
+      id: id, patientId: patientId, patientName: patientName,
+      medicationName: medicationName ?? this.medicationName,
+      dosageInstructions: dosageInstructions ?? this.dosageInstructions,
+      timesPerDay: timesPerDay, startDate: startDate, endDate: endDate,
+      prescribedByUid: prescribedByUid, prescribedByName: prescribedByName,
+      totalDoses: totalDoses, doseTakenLog: doseTakenLog, active: active,
+    );
+  }
+
   factory Prescription.fromFirestore(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
     return Prescription(
@@ -125,18 +136,37 @@ class Prescription {
 class PrescriptionService {
   final _col = FirebaseFirestore.instance.collection('prescriptions');
 
-  // Client-side sort avoids needing a composite Firestore index
+  // Client-side sort avoids needing a composite Firestore index.
+  // asyncMap decrypts sensitive fields for each prescription after loading.
   Stream<List<Prescription>> streamForPatient(String patientId) {
     return _col
         .where('patientId', isEqualTo: patientId)
         .snapshots()
-        .map((s) {
-      final list = s.docs
+        .asyncMap((s) async {
+      final raw = s.docs
           .map(Prescription.fromFirestore)
           .where((p) => p.active)
           .toList();
-      list.sort((a, b) => b.startDate.compareTo(a.startDate));
-      return list;
+
+      final decrypted = await Future.wait(raw.map((p) async {
+        if (':'.allMatches(p.medicationName).length != 2) return p;
+        try {
+          final d = await EncryptionService.getDecryptedData(
+            collection: 'prescriptions',
+            docId: p.id,
+            fields: ['medicationName', 'dosageInstructions'],
+          );
+          return p.copyWith(
+            medicationName: d['medicationName'] as String? ?? p.medicationName,
+            dosageInstructions: d['dosageInstructions'] as String? ?? p.dosageInstructions,
+          );
+        } catch (_) {
+          return p;
+        }
+      }));
+
+      decrypted.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return decrypted;
     });
   }
 
