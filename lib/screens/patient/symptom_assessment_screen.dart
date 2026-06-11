@@ -178,12 +178,14 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
     if (uid == null) return;
 
     try {
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // Decrypt dob and gender via Cloud Function (they are AES-256 encrypted)
+      final data = await EncryptionService.getDecryptedData(
+        collection: 'users',
+        docId: uid,
+        fields: ['dob', 'gender'],
+      );
 
-      final data = doc.data();
-
-      if (data != null && mounted) {
+      if (mounted) {
         setState(() {
           _patientName = data['name'] as String?;
 
