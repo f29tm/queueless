@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/triage_service.dart';
+import '../../services/encryption_service.dart';
 import 'symptom_result_screen.dart';
 import '../../utils/app_localizer.dart';
 
@@ -288,15 +289,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
 
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      final ref = await FirebaseFirestore.instance.collection('queue').add({
+      // Generate doc ref first so we have the ID before writing
+      final ref = FirebaseFirestore.instance.collection('queue').doc();
+
+      // Write non-sensitive operational fields directly
+      await ref.set({
         'patientId': uid,
         'patientName': _patientName ?? 'Unknown',
         'queueType': 'pre_arrival',
         'status': 'pre_arrival',
         'priorityNumber': result.priorityNumber,
         'triageLevel': result.triageLevel,
-        'symptoms': _selectedSymptoms.toList(),
-        'description': description,
         'aiPrediction': result.prediction,
         'confidence': result.confidence,
         'deferred': result.deferred,
@@ -305,6 +308,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         'stage1Inputs': request.toJson(),
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Write sensitive text fields encrypted via Cloud Function
+      await EncryptionService.saveSymptomData(
+        docId: ref.id,
+        data: {
+          'patientId': uid,
+          'symptoms': _selectedSymptoms.join(', '),
+          'description': description,
+          'chiefComplaint': chiefComplaint,
+        },
+      );
 
       if (!mounted) return;
 

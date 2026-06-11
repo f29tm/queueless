@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import '../services/encryption_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -36,6 +37,7 @@ class AuthProvider with ChangeNotifier {
     required String password,
     required String phone,
     required Map<String, dynamic> extraData,
+    Map<String, dynamic>? sensitiveData,
   }) async {
     try {
       UserCredential cred = await _auth.createUserWithEmailAndPassword(
@@ -61,6 +63,14 @@ class AuthProvider with ChangeNotifier {
       userData.addAll(extraData);
 
       await _firestore.collection("users").doc(currentUser!.uid).set(userData);
+
+      // Encrypt sensitive PII fields via Cloud Function before signing out
+      if (sensitiveData != null) {
+        await EncryptionService.saveUserPII(
+          uid: currentUser!.uid,
+          data: sensitiveData,
+        );
+      }
 
       await currentUser!.sendEmailVerification();
 

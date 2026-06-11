@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../services/encryption_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/triage_service.dart';
 import '../staff/staff_login_screen.dart';
@@ -428,8 +429,13 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                           "${age?.toString() ?? '—'}  ·  ${_sexLabel(sex)}";
                       final arrivalMode = (s1['arrival_mode'] as num?)?.toInt();
 
-                      final description =
+                      final rawDesc =
                           (data['description'] as String?)?.trim();
+                      // Skip encrypted values — they're decrypted on detail open
+                      final description = (rawDesc != null &&
+                              ':'.allMatches(rawDesc).length == 2)
+                          ? null
+                          : rawDesc;
                       final chiefComplaint =
                           (s1['chief_complaint'] as String?)?.trim();
                       final String complaintText;
@@ -711,6 +717,35 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   bool _finalizing = false;
   TriageResult? _stage2Result;
   String? _finalPrediction;
+
+  String? _decryptedDescription;
+  List<String> _decryptedSymptoms = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDecryptedFields();
+  }
+
+  Future<void> _loadDecryptedFields() async {
+    try {
+      final decrypted = await EncryptionService.getDecryptedData(
+        collection: 'queue',
+        docId: widget.doc.id,
+        fields: ['symptoms', 'description', 'chiefComplaint'],
+      );
+      if (!mounted) return;
+      final rawSymptoms = decrypted['symptoms'];
+      setState(() {
+        _decryptedDescription = decrypted['description'] as String?;
+        _decryptedSymptoms = rawSymptoms is String && rawSymptoms.isNotEmpty
+            ? rawSymptoms.split(', ').where((s) => s.isNotEmpty).toList()
+            : [];
+      });
+    } catch (_) {
+      // If decryption fails (e.g. old unencrypted data), keep defaults
+    }
+  }
 
   @override
   void dispose() {
@@ -1036,17 +1071,19 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       );
     }
 
-    final rawSymptoms = data['symptoms'];
-    final symptoms = rawSymptoms is List
-        ? rawSymptoms
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
-        : <String>[];
+    // Use decrypted values loaded in initState; fall back to raw if still loading
+    final symptoms = _decryptedSymptoms.isNotEmpty
+        ? _decryptedSymptoms
+        : () {
+            final raw = data['symptoms'];
+            return raw is List
+                ? raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+                : <String>[];
+          }();
 
-    final description = (data['description'] as String?)?.trim();
-    final descText =
-        (description == null || description.isEmpty) ? "—" : description;
+    final descText = (_decryptedDescription != null && _decryptedDescription!.isNotEmpty)
+        ? _decryptedDescription!
+        : "—";
 
     final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
     final pain = s1['nrs_pain'] as num?;

@@ -1,0 +1,15 @@
+{
+  "name": "queueless-functions",
+  "description": "QueueLess encryption proxy — AES-256-GCM via Secret Manager",
+  "scripts": {
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^6.0.0"
+  }
+}
