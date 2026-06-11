@@ -66,14 +66,25 @@ exports.saveSymptomData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   return { success: true };
 });
 
-// ─── saveConsultationNotes — called by doctor/nurse ──────────────────────────
+// ─── saveConsultationNotes — called by patient (booking notes) or doctor/nurse
 exports.saveConsultationNotes = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
   const { docId, data } = req.data;
 
   const userSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
-  const isStaff = ['nurse', 'doctor', 'staff'].includes(userSnap.data()?.role);
-  if (!isStaff) throw new HttpsError('permission-denied', 'Staff only');
+  const role = userSnap.data()?.role;
+  const isStaff = ['nurse', 'doctor', 'staff'].includes(role);
+  const isPatient = role === 'patient';
+
+  if (!isStaff && !isPatient) throw new HttpsError('permission-denied', 'Access denied');
+
+  // Patients can only write notes to their own consultations
+  if (isPatient) {
+    const snap = await admin.firestore().collection('consultations').doc(docId).get();
+    if (!snap.exists || snap.data().patientId !== req.auth.uid) {
+      throw new HttpsError('permission-denied', 'Not your consultation');
+    }
+  }
 
   const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
   const encrypted = encryptFields(data, ['notes', 'diagnosis', 'symptoms'], key);
