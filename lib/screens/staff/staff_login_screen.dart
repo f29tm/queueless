@@ -373,78 +373,89 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   void _showStaffResetDialog(BuildContext context) {
     final resetStaffIdController = TextEditingController();
     final emailController = TextEditingController();
+    String? staffIdError;
+    String? emailError;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Reset Staff Password"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Enter your Staff ID and Email"),
-              const SizedBox(height: 10),
-              TextField(
-                controller: resetStaffIdController,
-                decoration: const InputDecoration(
-                  hintText: "Staff ID",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  hintText: "Email",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final staffId = resetStaffIdController.text.trim();
-                final email = emailController.text.trim();
-
-                if (staffId.isEmpty || email.isEmpty) return;
-
-                final error = await Provider.of<AuthProvider>(
-                  context,
-                  listen: false,
-                ).staffResetPassword(
-                  staffId: staffId,
-                  email: email,
-                );
-
-                if (!context.mounted) return;
-
-                Navigator.pop(context);
-
-                if (error == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Password reset email sent."),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Reset Staff Password"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Enter your Staff ID and Email"),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: resetStaffIdController,
+                    decoration: InputDecoration(
+                      hintText: "Staff ID",
+                      border: const OutlineInputBorder(),
+                      errorText: staffIdError,
                     ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(error)));
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF009688),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      hintText: "Email",
+                      border: const OutlineInputBorder(),
+                      errorText: emailError,
+                    ),
+                  ),
+                ],
               ),
-              child: const Text(
-                "Send",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final staffId = resetStaffIdController.text.trim();
+                    final email = emailController.text.trim();
+
+                    setState(() {
+                      staffIdError = staffId.isEmpty ? 'Please enter your Staff ID' : null;
+                      emailError = email.isEmpty ? 'Please enter your email address' : null;
+                    });
+
+                    if (staffId.isEmpty || email.isEmpty) return;
+
+                    final navigator = Navigator.of(context);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+                    final error = await authProvider.staffResetPassword(
+                      staffId: staffId,
+                      email: email,
+                    );
+
+                    navigator.pop();
+
+                    if (error == null) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text("Password reset email sent."),
+                        ),
+                      );
+                    } else {
+                      messenger.showSnackBar(SnackBar(content: Text(error)));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2446B8),
+                  ),
+                  child: const Text(
+                    "Send",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
