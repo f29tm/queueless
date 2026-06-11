@@ -30,6 +30,14 @@ class EncryptionService {
     await _fn('saveConsultationNotes').call({'docId': docId, 'data': data});
   }
 
+  // ─── Appointment: save encrypted reason ─────────────────────────────────
+  static Future<void> saveAppointmentData({
+    required String docId,
+    required Map<String, dynamic> data,
+  }) async {
+    await _fn('saveAppointmentData').call({'docId': docId, 'data': data});
+  }
+
   // ─── Doctor: save encrypted prescription ────────────────────────────────
   static Future<void> savePrescription({
     required String docId,

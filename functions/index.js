@@ -109,12 +109,26 @@ exports.savePrescription = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => 
   return { success: true };
 });
 
+// ─── saveAppointmentData — called by patient when booking an appointment ────
+exports.saveAppointmentData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
+  const { docId, data } = req.data;
+
+  if (data.patientId !== req.auth.uid) throw new HttpsError('permission-denied', 'UID mismatch');
+
+  const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
+  const encrypted = encryptFields(data, ['reason'], key);
+
+  await admin.firestore().collection('appointments').doc(docId).set(encrypted, { merge: true });
+  return { success: true };
+});
+
 // ─── getDecryptedData — read + decrypt for authorized caller ─────────────────
 exports.getDecryptedData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
   const { collection, docId, fields } = req.data;
 
-  const ALLOWED = ['users', 'queue', 'consultations', 'prescriptions'];
+  const ALLOWED = ['users', 'queue', 'consultations', 'prescriptions', 'appointments'];
   if (!ALLOWED.includes(collection)) throw new HttpsError('invalid-argument', 'Unknown collection');
 
   const snap = await admin.firestore().collection(collection).doc(docId).get();

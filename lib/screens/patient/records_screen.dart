@@ -656,12 +656,24 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        displayReason,
-                        textAlign: TextAlign.start,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF111827),
+                      FutureBuilder<String>(
+                        future: (':'.allMatches(reason).length == 2)
+                            ? EncryptionService.getDecryptedData(
+                                collection: 'appointments',
+                                docId: appointmentId,
+                                fields: ['reason'],
+                              ).then((d) {
+                                final dec = (d['reason'] as String?) ?? reason;
+                                return isArabic ? _translateReason(dec) : dec;
+                              })
+                            : Future.value(displayReason),
+                        builder: (_, snap) => Text(
+                          snap.data ?? displayReason,
+                          textAlign: TextAlign.start,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF111827),
+                          ),
                         ),
                       ),
                     ],
