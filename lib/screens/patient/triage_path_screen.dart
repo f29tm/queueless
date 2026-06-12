@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_localizer.dart';
+import '../../services/notification_service.dart';
 
 class TriagePathScreen extends StatefulWidget {
   const TriagePathScreen({super.key});
@@ -38,19 +39,31 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
       final queueNumber =
           'Q${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
 
+      // Immediately place patient in nurse queue — no second check-in needed.
       await FirebaseFirestore.instance.collection('queue').add({
         'patientId': uid,
         'patientName': name,
         'triageLevel': 'PENDING',
         'triageMethod': 'manual',
-        'status': 'pre_arrival',
+        'queueType': 'nurse',
+        'status': 'waiting_nurse',
         'priorityNumber': 3,
         'noAITriage': true,
         'queueNumber': queueNumber,
         'createdAt': FieldValue.serverTimestamp(),
+        'arrivedAt': FieldValue.serverTimestamp(),
         'symptoms': [],
         'chiefComplaint': 'To be assessed by nurse',
       });
+
+      // Notify all nurses (best-effort).
+      try {
+        await NotificationService().notifyNursePatientArrival(
+          patientName: name,
+          queueNumber: queueNumber,
+          reportedSymptoms: false,
+        );
+      } catch (_) {}
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(

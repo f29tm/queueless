@@ -719,6 +719,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   String? _finalPrediction;
 
   String? _decryptedDescription;
+  String? _decryptedChiefComplaint;
   List<String> _decryptedSymptoms = [];
 
   @override
@@ -738,6 +739,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       final rawSymptoms = decrypted['symptoms'];
       setState(() {
         _decryptedDescription = decrypted['description'] as String?;
+        _decryptedChiefComplaint = decrypted['chiefComplaint'] as String?;
         _decryptedSymptoms = rawSymptoms is String && rawSymptoms.isNotEmpty
             ? rawSymptoms.split(', ').where((s) => s.isNotEmpty).toList()
             : [];
@@ -777,9 +779,13 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       );
     }
     final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
+    final rawComplaint = (s1['chief_complaint'] as String?)?.trim() ?? '';
     return Stage1Request(
-      chiefComplaint:
-          (s1['chief_complaint'] ?? 'general complaint') as String,
+      chiefComplaint: _decryptedChiefComplaint?.isNotEmpty == true
+          ? _decryptedChiefComplaint!
+          : rawComplaint.isNotEmpty
+              ? rawComplaint
+              : 'general complaint',
       age: (s1['age'] as num?)?.toInt() ?? 50,
       sex: (s1['sex'] as num?)?.toInt() ?? 1,
       pain: (s1['pain'] as num?)?.toInt() ?? 2,
@@ -870,14 +876,12 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       final db = FirebaseFirestore.instance;
       final batch = db.batch();
 
-      // Queue document — flat vitals + all required fields
+      // Generate the medical-record ref before the batch so we have its ID.
+      final medRecRef = db.collection('medical_records').doc();
+
+      // Queue document — operational/query fields only; vitals are written
+      // encrypted via saveVitalsData after the batch commits.
       batch.update(db.collection('queue').doc(widget.doc.id), {
-        'sbp': sbp,
-        'dbp': dbp,
-        'hr': hr,
-        'rr': rr,
-        'bt': bt,
-        'o2': o2,
         'ktasRn': _ktasRn,
         'stage2AIResult': result.toFirestore(),
         'nurseOverride': nurseOverride,
@@ -893,18 +897,22 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Medical record
-      batch.set(db.collection('medical_records').doc(), {
+      // Medical record skeleton — sensitive clinical fields are written
+      // encrypted via saveMedicalRecord after the batch commits.
+      batch.set(medRecRef, {
         'patientId': patientId,
         'patientName': patientName,
         'type': 'nurse_triage',
-        'stage1Prediction': stage1Prediction,
-        'stage2Prediction': aiPrediction,
-        'finalTriageLevel': finalTriageLevel,
-        'oldTriageLevel': oldTriageLevel,
-        'confidence': result.confidence,
-        'nurseOverride': nurseOverride,
-        'vitalSigns': {
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      // Encrypt and persist vital signs to the queue document.
+      await EncryptionService.saveVitalsData(
+        docId: widget.doc.id,
+        data: {
+          'patientId': patientId,
           'sbp': sbp,
           'dbp': dbp,
           'hr': hr,
@@ -912,11 +920,30 @@ class _VitalsSheetState extends State<_VitalsSheet> {
           'bt': bt,
           'o2': o2,
         },
-        'ktasRn': _ktasRn,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      );
 
-      await batch.commit();
+      // Encrypt and persist clinical assessment fields to the medical record.
+      await EncryptionService.saveMedicalRecord(
+        docId: medRecRef.id,
+        data: {
+          'patientId': patientId,
+          'stage1Prediction': stage1Prediction,
+          'stage2Prediction': aiPrediction,
+          'finalTriageLevel': finalTriageLevel,
+          'oldTriageLevel': oldTriageLevel,
+          'confidence': result.confidence,
+          'nurseOverride': nurseOverride,
+          'vitalSigns': {
+            'sbp': sbp,
+            'dbp': dbp,
+            'hr': hr,
+            'rr': rr,
+            'bt': bt,
+            'o2': o2,
+          },
+          'ktasRn': _ktasRn,
+        },
+      );
 
       // Notify the patient in their own users/{uid}/notifications subcollection
       // (what the patient app reads) when the triage level changed. Friendly

@@ -46,6 +46,30 @@ class EncryptionService {
     await _fn('savePrescription').call({'docId': docId, 'data': data});
   }
 
+  // ─── Nurse: save encrypted vital signs to queue doc ─────────────────────
+  static Future<void> saveVitalsData({
+    required String docId,
+    required Map<String, dynamic> data,
+  }) async {
+    await _fn('saveVitalsData').call({'docId': docId, 'data': data});
+  }
+
+  // ─── Nurse: save encrypted clinical fields to medical_records doc ─────────
+  static Future<void> saveMedicalRecord({
+    required String docId,
+    required Map<String, dynamic> data,
+  }) async {
+    await _fn('saveMedicalRecord').call({'docId': docId, 'data': data});
+  }
+
+  // ─── Notifications: encrypt and write to user's notifications subcollection ─
+  static Future<void> saveNotification({
+    required List<String> userIds,
+    required Map<String, dynamic> data,
+  }) async {
+    await _fn('saveNotification').call({'userIds': userIds, 'data': data});
+  }
+
   // ─── Read + decrypt specific fields from any allowed collection ──────────
   static Future<Map<String, dynamic>> getDecryptedData({
     required String collection,
@@ -55,6 +79,19 @@ class EncryptionService {
     final result = await _fn('getDecryptedData').call({
       'collection': collection,
       'docId': docId,
+      'fields': fields,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
+  // ─── Notifications: decrypt a single notification from subcollection ──────
+  static Future<Map<String, dynamic>> getDecryptedNotification({
+    required String userId,
+    required String notificationId,
+    required List<String> fields,
+  }) async {
+    final result = await _fn('getDecryptedData').call({
+      'docPath': 'users/$userId/notifications/$notificationId',
       'fields': fields,
     });
     return Map<String, dynamic>.from(result.data as Map);

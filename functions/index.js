@@ -62,7 +62,10 @@ exports.saveSymptomData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
   const encrypted = encryptFields(data, ['symptoms', 'description', 'chiefComplaint'], key);
 
-  await admin.firestore().collection('queue').doc(docId).set(encrypted, { merge: true });
+  // Use update() so dot-notation can clear the plaintext chief_complaint
+  // inside stage1Inputs — the encrypted copy is stored in chiefComplaint above.
+  const updatePayload = { ...encrypted, 'stage1Inputs.chief_complaint': '' };
+  await admin.firestore().collection('queue').doc(docId).update(updatePayload);
   return { success: true };
 });
 
@@ -109,6 +112,50 @@ exports.savePrescription = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => 
   return { success: true };
 });
 
+// ─── saveVitalsData — called by nurse after recording vital signs ────────────
+exports.saveVitalsData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
+  const { docId, data } = req.data;
+
+  const userSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
+  const isStaff = ['nurse', 'doctor', 'staff'].includes(userSnap.data()?.role);
+  if (!isStaff) throw new HttpsError('permission-denied', 'Staff only');
+
+  const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
+  const encrypted = encryptFields(data, ['sbp', 'dbp', 'hr', 'rr', 'bt', 'o2'], key);
+
+  await admin.firestore().collection('queue').doc(docId).set(encrypted, { merge: true });
+  return { success: true };
+});
+
+// ─── saveMedicalRecord — called by nurse on triage finalisation ──────────────
+exports.saveMedicalRecord = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
+  const { docId, data } = req.data;
+
+  const userSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
+  const isStaff = ['nurse', 'doctor', 'staff'].includes(userSnap.data()?.role);
+  if (!isStaff) throw new HttpsError('permission-denied', 'Staff only');
+
+  const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
+
+  // Serialise nested map to JSON string so it can be encrypted as a single value
+  const processedData = { ...data };
+  if (processedData.vitalSigns && typeof processedData.vitalSigns === 'object') {
+    processedData.vitalSigns = JSON.stringify(processedData.vitalSigns);
+  }
+
+  const encrypted = encryptFields(
+    processedData,
+    ['stage1Prediction', 'stage2Prediction', 'finalTriageLevel', 'oldTriageLevel',
+     'confidence', 'nurseOverride', 'vitalSigns', 'ktasRn'],
+    key,
+  );
+
+  await admin.firestore().collection('medical_records').doc(docId).set(encrypted, { merge: true });
+  return { success: true };
+});
+
 // ─── saveAppointmentData — called by patient when booking an appointment ────
 exports.saveAppointmentData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
@@ -123,30 +170,70 @@ exports.saveAppointmentData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) 
   return { success: true };
 });
 
+// ─── saveNotification — encrypt notification content and write to subcollection
+exports.saveNotification = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
+  const { userIds, data } = req.data;
+
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new HttpsError('invalid-argument', 'userIds must be a non-empty array');
+  }
+
+  const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
+  const encrypted = encryptFields(data, ['title', 'body', 'titleAr', 'bodyAr'], key);
+  encrypted.createdAt = admin.firestore.FieldValue.serverTimestamp();
+
+  const db = admin.firestore();
+  const batch = db.batch();
+  for (const uid of userIds) {
+    const ref = db.collection('users').doc(uid).collection('notifications').doc();
+    batch.set(ref, encrypted);
+  }
+  await batch.commit();
+  return { success: true };
+});
+
 // ─── getDecryptedData — read + decrypt for authorized caller ─────────────────
 exports.getDecryptedData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Login required');
-  const { collection, docId, fields } = req.data;
+  const { collection, docId, fields, docPath } = req.data;
 
-  const ALLOWED = ['users', 'queue', 'consultations', 'prescriptions', 'appointments'];
-  if (!ALLOWED.includes(collection)) throw new HttpsError('invalid-argument', 'Unknown collection');
+  let snap;
 
-  const snap = await admin.firestore().collection(collection).doc(docId).get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Document not found');
-
-  const docData = snap.data();
-  const isOwner = docData.patientId === req.auth.uid || docData.uid === req.auth.uid;
-  const userSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
-  const isStaff = ['nurse', 'doctor', 'staff'].includes(userSnap.data()?.role);
-
-  if (!isOwner && !isStaff) throw new HttpsError('permission-denied', 'Access denied');
+  if (docPath) {
+    // Subcollection path support — only users/{uid}/... paths are allowed
+    const segments = docPath.split('/');
+    if (segments[0] !== 'users' || segments.length < 4) {
+      throw new HttpsError('invalid-argument', 'Invalid docPath');
+    }
+    const pathUserId = segments[1];
+    const callerSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
+    const isStaff = ['nurse', 'doctor', 'staff'].includes(callerSnap.data()?.role);
+    if (pathUserId !== req.auth.uid && !isStaff) {
+      throw new HttpsError('permission-denied', 'Access denied');
+    }
+    snap = await admin.firestore().doc(docPath).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Document not found');
+  } else {
+    const ALLOWED = ['users', 'queue', 'consultations', 'prescriptions', 'appointments', 'medical_records'];
+    if (!ALLOWED.includes(collection)) throw new HttpsError('invalid-argument', 'Unknown collection');
+    snap = await admin.firestore().collection(collection).doc(docId).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Document not found');
+    const docData = snap.data();
+    const isOwner = docData.patientId === req.auth.uid
+      || docData.uid === req.auth.uid
+      || docId === req.auth.uid; // users/{uid} — doc ID is the owner's UID
+    const callerSnap = await admin.firestore().collection('users').doc(req.auth.uid).get();
+    const isStaff = ['nurse', 'doctor', 'staff'].includes(callerSnap.data()?.role);
+    if (!isOwner && !isStaff) throw new HttpsError('permission-denied', 'Access denied');
+  }
 
   const key = Buffer.from(ENCRYPTION_KEY.value(), 'base64');
-  const result = { ...docData };
+  const result = { ...snap.data() };
 
   for (const f of (fields || [])) {
     if (result[f] && isEncrypted(result[f])) {
-      try { result[f] = decrypt(result[f], key); } catch (_) { /* not encrypted */ }
+      try { result[f] = decrypt(result[f], key); } catch (_) {}
     }
   }
 
