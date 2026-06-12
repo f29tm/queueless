@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/triage_levels.dart';
+import 'encryption_service.dart';
 
 enum NotificationType {
   appointmentCancelled,
@@ -32,6 +33,25 @@ class AppNotification {
     required this.isRead,
     required this.createdAt,
   });
+
+  AppNotification copyWith({
+    String? title,
+    String? body,
+    String? titleAr,
+    String? bodyAr,
+  }) {
+    return AppNotification(
+      id: id,
+      type: type,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      titleAr: titleAr ?? this.titleAr,
+      bodyAr: bodyAr ?? this.bodyAr,
+      metadata: metadata,
+      isRead: isRead,
+      createdAt: createdAt,
+    );
+  }
 
   String localizedTitle(bool isArabic) =>
       isArabic && titleAr.isNotEmpty ? titleAr : title;
@@ -73,10 +93,29 @@ class NotificationService {
     return _notifRef(userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snap) =>
-              snap.docs.map((d) => AppNotification.fromFirestore(d)).toList(),
-        );
+        .asyncMap((snap) async {
+          final raw =
+              snap.docs.map((d) => AppNotification.fromFirestore(d)).toList();
+          final decrypted = await Future.wait(raw.map((n) async {
+            if (':'.allMatches(n.title).length != 2) return n;
+            try {
+              final d = await EncryptionService.getDecryptedNotification(
+                userId: userId,
+                notificationId: n.id,
+                fields: ['title', 'body', 'titleAr', 'bodyAr'],
+              );
+              return n.copyWith(
+                title: d['title'] as String? ?? n.title,
+                body: d['body'] as String? ?? n.body,
+                titleAr: d['titleAr'] as String? ?? n.titleAr,
+                bodyAr: d['bodyAr'] as String? ?? n.bodyAr,
+              );
+            } catch (_) {
+              return n;
+            }
+          }));
+          return decrypted;
+        });
   }
 
   Stream<int> unreadCountStream(String userId) {
@@ -110,21 +149,25 @@ class NotificationService {
     required String reason,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
-    await _notifRef(patientId).add({
-      'type': NotificationType.appointmentCancelled.name,
-      'title': 'Appointment Cancelled',
-      'body': '$doctorName has cancelled your appointment on $appointmentDate.',
-      'titleAr': 'تم إلغاء الموعد',
-      'bodyAr': 'قام $doctorName بإلغاء موعدك بتاريخ $appointmentDate.',
-      'metadata': {
-        'appointmentId': appointmentId,
-        'doctorName': doctorName,
-        'appointmentDate': appointmentDate,
-        'reason': reason,
+    await EncryptionService.saveNotification(
+      userIds: [patientId],
+      data: {
+        'type': NotificationType.appointmentCancelled.name,
+        'title': 'Appointment Cancelled',
+        'body':
+            '$doctorName has cancelled your appointment on $appointmentDate.',
+        'titleAr': 'تم إلغاء الموعد',
+        'bodyAr':
+            'قام $doctorName بإلغاء موعدك بتاريخ $appointmentDate.',
+        'metadata': {
+          'appointmentId': appointmentId,
+          'doctorName': doctorName,
+          'appointmentDate': appointmentDate,
+          'reason': reason,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   Future<void> notifyConsultationCancelled({
@@ -138,24 +181,26 @@ class NotificationService {
     if (!await isNotificationsEnabled(patientId)) return;
     final typeLabel = _consultationTypeLabel(consultationType);
     final typeLabelAr = _consultationTypeLabelAr(consultationType);
-    await _notifRef(patientId).add({
-      'type': NotificationType.consultationCancelled.name,
-      'title': 'Consultation Cancelled',
-      'body':
-          '$doctorName has cancelled your $typeLabel consultation scheduled at $scheduledTime.',
-      'titleAr': 'تم إلغاء الاستشارة',
-      'bodyAr':
-          'قام $doctorName بإلغاء استشارتك $typeLabelAr المحددة في $scheduledTime.',
-      'metadata': {
-        'consultationId': consultationId,
-        'doctorName': doctorName,
-        'scheduledTime': scheduledTime,
-        'reason': reason,
-        'consultationType': consultationType,
+    await EncryptionService.saveNotification(
+      userIds: [patientId],
+      data: {
+        'type': NotificationType.consultationCancelled.name,
+        'title': 'Consultation Cancelled',
+        'body':
+            '$doctorName has cancelled your $typeLabel consultation scheduled at $scheduledTime.',
+        'titleAr': 'تم إلغاء الاستشارة',
+        'bodyAr':
+            'قام $doctorName بإلغاء استشارتك $typeLabelAr المحددة في $scheduledTime.',
+        'metadata': {
+          'consultationId': consultationId,
+          'doctorName': doctorName,
+          'scheduledTime': scheduledTime,
+          'reason': reason,
+          'consultationType': consultationType,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   Future<void> notifyTriageOverride({
@@ -168,23 +213,25 @@ class NotificationService {
     if (!await isNotificationsEnabled(patientId)) return;
     final oldAr = _triageLevelAr(oldLevel);
     final newAr = _triageLevelAr(newLevel);
-    await _notifRef(patientId).add({
-      'type': NotificationType.triageOverride.name,
-      'title': 'Triage Level Updated',
-      'body':
-          'Your triage level has been changed from $oldLevel to $newLevel by $nurseName.',
-      'titleAr': 'تم تحديث مستوى الفرز',
-      'bodyAr':
-          'تم تغيير مستوى الفرز الخاص بك من $oldAr إلى $newAr بواسطة $nurseName.',
-      'metadata': {
-        'oldLevel': oldLevel,
-        'newLevel': newLevel,
-        'nurseName': nurseName,
-        'reason': reason,
+    await EncryptionService.saveNotification(
+      userIds: [patientId],
+      data: {
+        'type': NotificationType.triageOverride.name,
+        'title': 'Triage Level Updated',
+        'body':
+            'Your triage level has been changed from $oldLevel to $newLevel by $nurseName.',
+        'titleAr': 'تم تحديث مستوى الفرز',
+        'bodyAr':
+            'تم تغيير مستوى الفرز الخاص بك من $oldAr إلى $newAr بواسطة $nurseName.',
+        'metadata': {
+          'oldLevel': oldLevel,
+          'newLevel': newLevel,
+          'nurseName': nurseName,
+          'reason': reason,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   /// [bodyOverride]/[bodyArOverride] let a caller (e.g. the position fan-out)
@@ -198,8 +245,6 @@ class NotificationService {
     String? bodyArOverride,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
-    // #1 is currently being assessed by the nurse; #2 is literally next in
-    // line — that's the moment to tell the patient to be ready.
     final isBeingSeen = position <= 1;
     final isNext = position == 2;
     final title = isBeingSeen
@@ -208,31 +253,31 @@ class NotificationService {
     final titleAr = isBeingSeen
         ? 'حان دورك'
         : (isNext ? 'أنت التالي' : 'تحديث الطابور');
-    await _notifRef(patientId).add({
-      'type': NotificationType.queueUpdate.name,
-      'title': title,
-      'body':
-          bodyOverride ??
-          (isBeingSeen
-              ? "It's your turn — you're being seen now."
-              : isNext
-              ? "You're next — please be ready."
-              : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.'),
-      'titleAr': titleAr,
-      'bodyAr':
-          bodyArOverride ??
-          (isBeingSeen
-              ? 'حان دورك — تتم رؤيتك الآن.'
-              : isNext
-              ? 'أنت التالي — يرجى الاستعداد.'
-              : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.'),
-      'metadata': {
-        'position': position,
-        'estimatedWaitMinutes': estimatedWaitMinutes,
+    await EncryptionService.saveNotification(
+      userIds: [patientId],
+      data: {
+        'type': NotificationType.queueUpdate.name,
+        'title': title,
+        'body': bodyOverride ??
+            (isBeingSeen
+                ? "It's your turn — you're being seen now."
+                : isNext
+                    ? "You're next — please be ready."
+                    : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.'),
+        'titleAr': titleAr,
+        'bodyAr': bodyArOverride ??
+            (isBeingSeen
+                ? 'حان دورك — تتم رؤيتك الآن.'
+                : isNext
+                    ? 'أنت التالي — يرجى الاستعداد.'
+                    : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.'),
+        'metadata': {
+          'position': position,
+          'estimatedWaitMinutes': estimatedWaitMinutes,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   /// Broadcast to every staff user with role == 'nurse'.
@@ -248,6 +293,8 @@ class NotificationService {
         .where('role', isEqualTo: 'nurse')
         .get();
 
+    if (nursesSnap.docs.isEmpty) return;
+
     final symptomLine = reportedSymptoms
         ? 'They submitted a symptom report via the app.'
         : 'Manual check-in — no symptom report available.';
@@ -255,11 +302,10 @@ class NotificationService {
         ? 'قدّم المريض تقرير أعراض عبر التطبيق.'
         : 'تسجيل وصول يدوي — لا يوجد تقرير أعراض.';
 
-    final batch = _firestore.batch();
-    for (final doc in nursesSnap.docs) {
-      final nurseId = doc.id;
-      final ref = _notifRef(nurseId).doc();
-      batch.set(ref, {
+    final nurseIds = nursesSnap.docs.map((d) => d.id).toList();
+    await EncryptionService.saveNotification(
+      userIds: nurseIds,
+      data: {
         'type': NotificationType.patientArrival.name,
         'title': 'New Patient Arrived',
         'body':
@@ -273,10 +319,8 @@ class NotificationService {
           'reportedSymptoms': reportedSymptoms,
         },
         'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
+      },
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -289,19 +333,21 @@ class NotificationService {
     required String patientName,
     required String appointmentDate,
   }) async {
-    await _notifRef(doctorId).add({
-      'type': NotificationType.appointmentCancelled.name,
-      'title': 'Appointment Cancelled by Patient',
-      'body':
-          '$patientName has cancelled their appointment on $appointmentDate.',
-      'metadata': {
-        'appointmentId': appointmentId,
-        'patientName': patientName,
-        'appointmentDate': appointmentDate,
+    await EncryptionService.saveNotification(
+      userIds: [doctorId],
+      data: {
+        'type': NotificationType.appointmentCancelled.name,
+        'title': 'Appointment Cancelled by Patient',
+        'body':
+            '$patientName has cancelled their appointment on $appointmentDate.',
+        'metadata': {
+          'appointmentId': appointmentId,
+          'patientName': patientName,
+          'appointmentDate': appointmentDate,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   Future<void> notifyDoctorConsultationCancelled({
@@ -310,19 +356,21 @@ class NotificationService {
     required String patientName,
     required String scheduledTime,
   }) async {
-    await _notifRef(doctorId).add({
-      'type': NotificationType.consultationCancelled.name,
-      'title': 'Consultation Cancelled by Patient',
-      'body':
-          '$patientName has cancelled their online consultation scheduled at $scheduledTime.',
-      'metadata': {
-        'consultationId': consultationId,
-        'patientName': patientName,
-        'scheduledTime': scheduledTime,
+    await EncryptionService.saveNotification(
+      userIds: [doctorId],
+      data: {
+        'type': NotificationType.consultationCancelled.name,
+        'title': 'Consultation Cancelled by Patient',
+        'body':
+            '$patientName has cancelled their online consultation scheduled at $scheduledTime.',
+        'metadata': {
+          'consultationId': consultationId,
+          'patientName': patientName,
+          'scheduledTime': scheduledTime,
+        },
+        'isRead': false,
       },
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════════

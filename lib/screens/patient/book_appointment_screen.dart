@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../services/encryption_service.dart';
 import '../../utils/app_localizer.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
@@ -330,8 +331,6 @@ String translateDoctorSpecialty(String specialty) {
           throw Exception('SLOT_TAKEN');
         }
 
-        final reason = reasonController.text.trim();
-
         final appointmentData = <String, dynamic>{
           'appointmentId': appointmentRef.id,
           'patientId': user.uid,
@@ -346,12 +345,20 @@ String translateDoctorSpecialty(String specialty) {
           'createdAt': FieldValue.serverTimestamp(),
         };
 
-        if (reason.isNotEmpty) {
-          appointmentData['reason'] = reason;
-        }
-
         transaction.set(appointmentRef, appointmentData);
       });
+
+      // Encrypt and write sensitive reason field after the transaction
+      final reason = reasonController.text.trim();
+      if (reason.isNotEmpty) {
+        await EncryptionService.saveAppointmentData(
+          docId: appointmentRef.id,
+          data: {
+            'patientId': user.uid,
+            'reason': reason,
+          },
+        );
+      }
 
 if (!mounted) return;
 

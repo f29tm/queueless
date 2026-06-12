@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'encryption_service.dart';
 
 class Prescription {
   // Standard dose hours by frequency
@@ -38,6 +39,17 @@ class Prescription {
     required this.doseTakenLog,
     required this.active,
   });
+
+  Prescription copyWith({String? medicationName, String? dosageInstructions}) {
+    return Prescription(
+      id: id, patientId: patientId, patientName: patientName,
+      medicationName: medicationName ?? this.medicationName,
+      dosageInstructions: dosageInstructions ?? this.dosageInstructions,
+      timesPerDay: timesPerDay, startDate: startDate, endDate: endDate,
+      prescribedByUid: prescribedByUid, prescribedByName: prescribedByName,
+      totalDoses: totalDoses, doseTakenLog: doseTakenLog, active: active,
+    );
+  }
 
   factory Prescription.fromFirestore(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
@@ -124,18 +136,37 @@ class Prescription {
 class PrescriptionService {
   final _col = FirebaseFirestore.instance.collection('prescriptions');
 
-  // Client-side sort avoids needing a composite Firestore index
+  // Client-side sort avoids needing a composite Firestore index.
+  // asyncMap decrypts sensitive fields for each prescription after loading.
   Stream<List<Prescription>> streamForPatient(String patientId) {
     return _col
         .where('patientId', isEqualTo: patientId)
         .snapshots()
-        .map((s) {
-      final list = s.docs
+        .asyncMap((s) async {
+      final raw = s.docs
           .map(Prescription.fromFirestore)
           .where((p) => p.active)
           .toList();
-      list.sort((a, b) => b.startDate.compareTo(a.startDate));
-      return list;
+
+      final decrypted = await Future.wait(raw.map((p) async {
+        if (':'.allMatches(p.medicationName).length != 2) return p;
+        try {
+          final d = await EncryptionService.getDecryptedData(
+            collection: 'prescriptions',
+            docId: p.id,
+            fields: ['medicationName', 'dosageInstructions'],
+          );
+          return p.copyWith(
+            medicationName: d['medicationName'] as String? ?? p.medicationName,
+            dosageInstructions: d['dosageInstructions'] as String? ?? p.dosageInstructions,
+          );
+        } catch (_) {
+          return p;
+        }
+      }));
+
+      decrypted.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return decrypted;
     });
   }
 
@@ -155,11 +186,12 @@ class PrescriptionService {
     final endDate = durationDays > 0 ? startDate.add(Duration(days: durationDays)) : null;
     final totalDoses = durationDays > 0 ? timesPerDay * durationDays : 0;
 
-    await _col.add({
+    // Generate doc ref so we can write non-sensitive and sensitive fields separately
+    final ref = _col.doc();
+
+    await ref.set({
       'patientId': patientId,
       'patientName': patientName,
-      'medicationName': medicationName,
-      'dosageInstructions': dosageInstructions,
       'timesPerDay': timesPerDay,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': endDate != null ? Timestamp.fromDate(endDate) : null,
@@ -170,6 +202,15 @@ class PrescriptionService {
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // Encrypt sensitive medication fields via Cloud Function
+    await EncryptionService.savePrescription(
+      docId: ref.id,
+      data: {
+        'medicationName': medicationName,
+        'dosageInstructions': dosageInstructions,
+      },
+    );
   }
 
   Future<void> markDoseTaken(String prescriptionId) async {

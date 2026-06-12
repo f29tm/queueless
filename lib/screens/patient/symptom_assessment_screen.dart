@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../services/speech_input_service.dart';
 import '../../services/symptom_extraction_service.dart';
 import '../../services/triage_service.dart';
+import '../../services/encryption_service.dart';
 import 'symptom_result_screen.dart';
 import '../../utils/app_localizer.dart';
 import '../../utils/stage1_input_builder.dart';
@@ -225,12 +226,14 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // Decrypt dob and gender via Cloud Function (they are AES-256 encrypted)
+      final data = await EncryptionService.getDecryptedData(
+        collection: 'users',
+        docId: uid,
+        fields: ['dob', 'gender'],
+      );
 
-      final data = doc.data();
-
-      if (data != null && mounted) {
+      if (mounted) {
         setState(() {
           _patientName = data['name'] as String?;
 
@@ -540,15 +543,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
 
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      final ref = await FirebaseFirestore.instance.collection('queue').add({
+      // Generate doc ref first so we have the ID before writing
+      final ref = FirebaseFirestore.instance.collection('queue').doc();
+
+      // Write non-sensitive operational fields directly
+      await ref.set({
         'patientId': uid,
         'patientName': _patientName ?? 'Unknown',
         'queueType': 'pre_arrival',
         'status': 'pre_arrival',
         'priorityNumber': result.priorityNumber,
         'triageLevel': result.triageLevel,
-        'symptoms': _selectedSymptoms.toList(),
-        'description': description,
         'aiPrediction': result.prediction,
         'confidence': result.confidence,
         'deferred': result.deferred,
@@ -562,6 +567,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         'nlpConfirmed': _suggestionsApplied,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Write sensitive text fields encrypted via Cloud Function
+      await EncryptionService.saveSymptomData(
+        docId: ref.id,
+        data: {
+          'patientId': uid,
+          'symptoms': _selectedSymptoms.join(', '),
+          'description': description,
+          'chiefComplaint': chiefComplaint,
+        },
+      );
 
       if (!mounted) return;
 

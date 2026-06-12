@@ -288,10 +288,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       extraData: {
         "fullName": _fullNameController.text.trim(),
         "nationalId": hashedId,
+        "role": "patient",
+      },
+      sensitiveData: {
         "dob": _dobController.text.trim(),
         "nationality": _nationalityController.text.trim(),
         "gender": selectedGender,
-        "role": "patient",
       },
     );
 

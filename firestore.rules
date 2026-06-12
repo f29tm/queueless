@@ -2,102 +2,188 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Checks if the requesting user has a staff role.
+    // Returns true if the authenticated caller has a staff role.
+    // Role is stored in Firestore (not the token) so it cannot be forged
+    // by the client.
     function isStaff() {
       return request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid))
-        .data.role in ['nurse', 'doctor', 'staff'];
+          .data.role in ['nurse', 'doctor', 'staff'];
     }
 
-    // USERS
+    // ── USERS ────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      // Staff profiles are readable without auth so staffSignIn can query by staffId before login.
-      // Patient profiles require auth + own UID — patients cannot read each other.
+
+      // Own profile always readable after login.
+      // Staff profiles readable by any authenticated user (needed for
+      // doctor/nurse name lookups across the app).
+      // Staff can read all profiles.
       allow read: if (request.auth != null && request.auth.uid == userId) ||
-        resource.data.role in ['nurse', 'doctor', 'staff'] ||
-        isStaff();
+                     (request.auth != null &&
+                       resource.data.role in ['nurse', 'doctor', 'staff']) ||
+                     isStaff();
 
-      allow write: if request.auth != null &&
-        request.auth.uid == userId;
+      // Any authenticated user may create their own profile during registration,
+      // but the resulting document must NOT carry a staff role — patients cannot
+      // self-grant nurse/doctor/staff privileges.
+      allow create: if request.auth != null &&
+                       request.auth.uid == userId &&
+                       !(request.resource.data.get('role', 'patient')
+                           in ['nurse', 'doctor', 'staff']);
 
+      // Same constraint on updates: the post-write document must not have a
+      // staff role unless the caller is already staff (e.g. a nurse updating
+      // their own display name).
+      allow update: if request.auth != null &&
+                       request.auth.uid == userId &&
+                       (
+                         isStaff() ||
+                         !(request.resource.data.get('role', 'patient')
+                             in ['nurse', 'doctor', 'staff'])
+                       );
+
+      // Account deletion only via admin tools (Cloud Functions / console).
+      allow delete: if false;
+
+      // ── NOTIFICATIONS subcollection ────────────────────────────────────────
       match /notifications/{notifId} {
+
+        // Only the owner can read their own notifications.
         allow read: if request.auth != null &&
-          request.auth.uid == userId;
+                       request.auth.uid == userId;
 
-        // Any authenticated user can push a notification to another user
-        // (e.g. patient cancels → writes to doctor's subcollection).
-        allow create: if request.auth != null;
+        // ALL writes go through the saveNotification Cloud Function which uses
+        // the admin SDK (bypasses these rules) and encrypts content.
+        // Block direct client creates so unencrypted notifications cannot be
+        // pushed by any client.
+        allow create: if false;
 
-        allow update, delete: if request.auth != null && (
-          request.auth.uid == userId || isStaff()
-        );
+        // Owner or staff may mark as read or delete.
+        allow update, delete: if request.auth != null &&
+                                  (request.auth.uid == userId || isStaff());
       }
     }
 
-    // QUEUE
+    // ── QUEUE ─────────────────────────────────────────────────────────────────
     match /queue/{docId} {
+
+      // Patient sees own entry; staff sees everything.
       allow read: if request.auth != null && (
         resource.data.patientId == request.auth.uid || isStaff()
       );
 
+      // Patients create their own entry (symptom assessment or manual check-in).
+      // Enforce: patientId must match caller, status must be a valid initial
+      // state, and priorityNumber must be in the 1-3 range so a patient cannot
+      // forge an EMERGENCY priority from a manual check-in.
       allow create: if request.auth != null &&
-        request.resource.data.patientId == request.auth.uid;
+                       request.resource.data.patientId == request.auth.uid &&
+                       request.resource.data.status
+                           in ['pre_arrival', 'waiting_nurse'] &&
+                       request.resource.data.priorityNumber is int &&
+                       request.resource.data.priorityNumber >= 1 &&
+                       request.resource.data.priorityNumber <= 3;
 
+      // Staff can update any field (triage level, status transitions, etc.).
+      // Patients may only flip their entry to waiting_nurse at arrival — they
+      // cannot touch clinical fields (triageLevel, priorityNumber, deferred…).
       allow update: if request.auth != null && (
-        resource.data.patientId == request.auth.uid || isStaff()
+        isStaff() || (
+          resource.data.patientId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'queueType', 'arrivedAt', 'queueNumber'])
+        )
       );
 
       allow delete: if isStaff();
     }
 
-    // MEDICAL RECORDS
+    // ── MEDICAL RECORDS ───────────────────────────────────────────────────────
     match /medical_records/{docId} {
+
+      // Patient reads own record; staff reads all.
       allow read: if request.auth != null && (
         resource.data.patientId == request.auth.uid || isStaff()
       );
 
+      // Only staff can create / update / delete medical records.
       allow write: if isStaff();
     }
 
-    // APPOINTMENTS
+    // ── APPOINTMENTS ──────────────────────────────────────────────────────────
     match /appointments/{docId} {
+
+      // Any authenticated user can book an appointment.
       allow create: if request.auth != null;
-      allow read: if request.auth != null;
+
+      // Patient sees own appointments; assigned doctor sees theirs; staff sees all.
+      allow read: if request.auth != null && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId  == request.auth.uid ||
+        isStaff()
+      );
+
+      // Patient can cancel their own; doctor can update their own; staff full access.
       allow update, delete: if request.auth != null && (
-        resource.data.patientId == request.auth.uid || isStaff()
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId  == request.auth.uid ||
+        isStaff()
       );
     }
 
-    // CONSULTATIONS
+    // ── CONSULTATIONS ─────────────────────────────────────────────────────────
     match /consultations/{docId} {
+
       allow create: if request.auth != null;
-      allow read: if request.auth != null;
+
+      allow read: if request.auth != null && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId  == request.auth.uid ||
+        isStaff()
+      );
+
       allow update, delete: if request.auth != null && (
-        resource.data.patientId == request.auth.uid || isStaff()
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId  == request.auth.uid ||
+        isStaff()
       );
     }
 
-    // PRESCRIPTIONS
+    // ── PRESCRIPTIONS ─────────────────────────────────────────────────────────
     match /prescriptions/{docId} {
+
+      // Only doctors/nurses create prescriptions.
       allow create: if isStaff();
 
+      // Patient reads own; staff reads all.
       allow read: if request.auth != null && (
         resource.data.patientId == request.auth.uid || isStaff()
       );
 
+      // Staff can update any field.
+      // Patients may only update doseTakenLog (marking a dose as taken) —
+      // they cannot alter medication name, dosage instructions, or any other
+      // clinical field.
       allow update: if request.auth != null && (
-        resource.data.patientId == request.auth.uid || isStaff()
+        isStaff() || (
+          resource.data.patientId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['doseTakenLog'])
+        )
       );
+
       allow delete: if isStaff();
     }
 
-    // STAFF LOOKUP — staffId → email mapping for unauthenticated login query
+    // ── STAFF LOOKUP ──────────────────────────────────────────────────────────
+    // staffId → email mapping used by the staff sign-in flow before the user
+    // is authenticated (so it must be world-readable).
     match /staff_lookup/{staffId} {
-      allow read: if true;
+      allow read:  if true;
       allow write: if isStaff();
     }
 
-    // LEGACY COLLECTIONS
+    // ── LEGACY COLLECTIONS (locked to staff) ─────────────────────────────────
     match /triageResults/{docId} {
       allow read, write: if isStaff();
     }
@@ -110,7 +196,7 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
-    // Top-level notifications legacy collection
+    // Top-level notifications collection (legacy — no longer written by the app).
     match /notifications/{docId} {
       allow read, write: if request.auth != null;
     }

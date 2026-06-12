@@ -65,8 +65,8 @@ class ManualCheckinConfirmationScreen extends StatelessWidget {
 
                 Text(
                   isArabic
-                      ? "أظهر هذا الرقم عند طاولة الاستقبال عند وصولك."
-                      : "Show this number at the reception desk when you arrive.",
+                      ? "تم إخطار الممرضة. توجّه إلى قسم الطوارئ الآن."
+                      : "The nurse has been notified. Please head to the emergency department now.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 15,
@@ -94,8 +94,8 @@ class ManualCheckinConfirmationScreen extends StatelessWidget {
                 _stepItem(
                   icon: Icons.directions_walk,
                   text: isArabic
-                      ? "توجه إلى قسم الطوارئ"
-                      : "Come to the emergency department",
+                      ? "توجّه إلى قسم الطوارئ الآن"
+                      : "Head to the emergency department now",
                   isArabic: isArabic,
                 ),
                 const SizedBox(height: 12),

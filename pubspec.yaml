@@ -42,8 +42,10 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   crypto: ^3.0.7
+  encrypt: ^5.0.3
   http: ^1.2.0
   speech_to_text: ^7.3.0
+  cloud_functions: ^5.1.5
 
 dev_dependencies:
   flutter_test:
