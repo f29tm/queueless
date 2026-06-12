@@ -82,9 +82,7 @@ Guidelines:
 
       if (response.statusCode != 200) {
         _history.removeLast();
-        throw Exception(
-          'Gemini API error ${response.statusCode}: ${response.body}',
-        );
+        throw Exception('Gemini API error ${response.statusCode}');
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;

@@ -115,18 +115,16 @@ class AuthProvider with ChangeNotifier {
     required String password,
   }) async {
     try {
-      final query = await _firestore
-          .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .limit(1)
+      final lookupDoc = await _firestore
+          .collection("staff_lookup")
+          .doc(staffId)
           .get();
 
-      if (query.docs.isEmpty) {
+      if (!lookupDoc.exists) {
         return "Staff ID not found.";
       }
 
-      final data = query.docs.first.data();
-      final email = data["email"];
+      final email = lookupDoc.data()?["email"];
 
       UserCredential cred = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -196,19 +194,18 @@ class AuthProvider with ChangeNotifier {
     required String email,
   }) async {
     try {
-      final query = await _firestore
-          .collection("users")
-          .where("staffId", isEqualTo: staffId)
-          .where("role", isEqualTo: "staff")
+      final lookupDoc = await _firestore
+          .collection("staff_lookup")
+          .doc(staffId)
           .get();
 
-      if (query.docs.isEmpty) {
+      if (!lookupDoc.exists) {
         return "Staff ID not found.";
       }
 
-      final data = query.docs.first.data();
+      final storedEmail = lookupDoc.data()?["email"];
 
-      if (data["email"] != email) {
+      if (storedEmail != email) {
         return "Email does not match this Staff ID.";
       }
 

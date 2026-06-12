@@ -1,7 +1,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 import 'staff/staff_login_screen.dart';
@@ -172,40 +171,22 @@ const SizedBox(height: 12),
                                 if (!context.mounted) return;
                                 if (error != null) {
                                   if (error.contains('user-not-found') ||
-                                      error.contains('invalid-credential')) {
-                                    final query = await FirebaseFirestore
-                                        .instance
-                                        .collection('users')
-                                        .where('email',
-                                            isEqualTo:
-                                                emailController.text.trim())
-                                        .limit(1)
-                                        .get();
-                                    if (!context.mounted) return;
-                                    if (query.docs.isEmpty) {
-                                      setState(() {
-                                        _emailFieldError =
-                                            "Your email is not registered. Please sign up first.";
-                                        _passwordFieldError = null;
-                                      });
-                                      return;
-                                    } else {
-                                      // Email exists — wrong password
-                                      setState(() {
-                                        _emailFieldError = null;
-                                        _passwordFieldError =
-                                            "Incorrect password. Please try again.";
-                                      });
-                                      return;
-                                    }
+                                      error.contains('invalid-credential') ||
+                                      error.contains('wrong-password')) {
+                                    setState(() {
+                                      _emailFieldError = null;
+                                      _passwordFieldError =
+                                          "Incorrect email or password. Please try again.";
+                                    });
+                                  } else {
+                                    setState(() {
+                                      _emailFieldError = null;
+                                      _passwordFieldError = null;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(error)),
+                                    );
                                   }
-                                  setState(() {
-                                    _emailFieldError = null;
-                                    _passwordFieldError = null;
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(error)),
-                                  );
                                   return;
                                 }
                                 setState(() {
@@ -410,67 +391,77 @@ const SizedBox(height: 12),
   }
 
   void _showResetPasswordDialog(BuildContext context) {
-  final TextEditingController resetEmailController = TextEditingController();
+    final TextEditingController resetEmailController = TextEditingController();
+    String? emailError;
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text("Reset Password"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Enter your email address"),
-            const SizedBox(height: 10),
-            TextField(
-              controller: resetEmailController,
-              decoration: const InputDecoration(
-                hintText: "example@gmail.com",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = resetEmailController.text.trim();
-
-              if (email.isEmpty) return;
-
-              try {
-                await Provider.of<AuthProvider>(context, listen: false)
-                    .sendPasswordResetEmail(email);
-
-                if (!context.mounted) return;
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Password reset email sent."),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Reset Password"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Enter your email address"),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: resetEmailController,
+                    decoration: InputDecoration(
+                      hintText: "example@gmail.com",
+                      border: const OutlineInputBorder(),
+                      errorText: emailError,
+                    ),
                   ),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF009688),
-            ),
-            child: const Text("Send",
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      );
-    },
-  );
-}
-  
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final email = resetEmailController.text.trim();
+
+                    if (email.isEmpty) {
+                      setState(() => emailError = 'Please enter your email address');
+                      return;
+                    }
+                    setState(() => emailError = null);
+
+                    final navigator = Navigator.of(context);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+                    try {
+                      await authProvider.sendPasswordResetEmail(email);
+
+                      navigator.pop();
+
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text("Password reset email sent."),
+                        ),
+                      );
+                    } catch (e) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF009688),
+                  ),
+                  child: const Text("Send",
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }

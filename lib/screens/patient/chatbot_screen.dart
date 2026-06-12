@@ -238,8 +238,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         setState(() {
           _messages.add(_ChatMessage(
             text: isArabic
-                ? 'عذراً، أواجه صعوبة في الاتصال الآن. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
-                : 'Sorry, I\'m having trouble connecting right now. Please check your internet connection and try again.',
+                ? 'عذراً، المساعد غير متاح مؤقتاً. يرجى المحاولة مرة أخرى لاحقاً.'
+                : 'Sorry, the assistant is temporarily unavailable. Please try again later.',
             isUser: false,
             isError: true,
             retryText: trimmed,

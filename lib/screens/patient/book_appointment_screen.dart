@@ -649,6 +649,7 @@ await showDialog(
       future: FirebaseFirestore.instance
           .collection('users')
           .where('department', isEqualTo: selectedDepartment)
+          .where('role', isEqualTo: 'doctor')
           .get(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {

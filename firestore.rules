@@ -2,50 +2,117 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Checks if the requesting user has a staff role.
+    function isStaff() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid))
+        .data.role in ['nurse', 'doctor', 'staff'];
+    }
+
+    // USERS
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      // Staff profiles are readable without auth so staffSignIn can query by staffId before login.
+      // Patient profiles require auth + own UID — patients cannot read each other.
+      allow read: if (request.auth != null && request.auth.uid == userId) ||
+        resource.data.role in ['nurse', 'doctor', 'staff'] ||
+        isStaff();
+
+      allow write: if request.auth != null &&
+        request.auth.uid == userId;
 
       match /notifications/{notifId} {
-        allow read, write: if request.auth != null;
+        allow read: if request.auth != null &&
+          request.auth.uid == userId;
+
+        // Any authenticated user can push a notification to another user
+        // (e.g. patient cancels → writes to doctor's subcollection).
+        allow create: if request.auth != null;
+
+        allow update, delete: if request.auth != null && (
+          request.auth.uid == userId || isStaff()
+        );
       }
     }
 
-    match /appointments/{appointmentId} {
-      allow read, write: if request.auth != null;
+    // QUEUE
+    match /queue/{docId} {
+      allow read: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+
+      allow create: if request.auth != null &&
+        request.resource.data.patientId == request.auth.uid;
+
+      allow update: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+
+      allow delete: if isStaff();
     }
 
-    match /consultations/{consultationId} {
-      allow read, write: if request.auth != null;
+    // MEDICAL RECORDS
+    match /medical_records/{docId} {
+      allow read: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+
+      allow write: if isStaff();
     }
 
+    // APPOINTMENTS
+    match /appointments/{docId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+    }
+
+    // CONSULTATIONS
+    match /consultations/{docId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+    }
+
+    // PRESCRIPTIONS
+    match /prescriptions/{docId} {
+      allow create: if isStaff();
+
+      allow read: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+
+      allow update: if request.auth != null && (
+        resource.data.patientId == request.auth.uid || isStaff()
+      );
+      allow delete: if isStaff();
+    }
+
+    // STAFF LOOKUP — staffId → email mapping for unauthenticated login query
+    match /staff_lookup/{staffId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // LEGACY COLLECTIONS
     match /triageResults/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isStaff();
     }
 
     match /checkIns/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isStaff();
     }
 
     match /symptoms/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isStaff();
     }
 
-    match /queue/{docId} {
-      allow read, write: if request.auth != null;
-    }
-
-    match /prescriptions/{docId} {
-      allow read, write: if request.auth != null;
-    }
-
-    match /medical_records/{docId} {
-      allow read, write: if request.auth != null;
-    }
-
+    // Top-level notifications legacy collection
     match /notifications/{docId} {
       allow read, write: if request.auth != null;
     }
-
   }
 }
