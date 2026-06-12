@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_localizer.dart';
 
 class ManualCheckinConfirmationScreen extends StatelessWidget {
   const ManualCheckinConfirmationScreen({super.key});

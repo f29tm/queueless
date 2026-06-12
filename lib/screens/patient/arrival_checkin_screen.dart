@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../utils/app_localizer.dart';
+import '../../utils/wait_estimator.dart';
 import '../../services/notification_service.dart';
 
 class ArrivalCheckInScreen extends StatefulWidget {
@@ -22,23 +22,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
   String _estimatedWaitText = '-';
   bool _showLowPriorityNote = false;
 
-  // ── Estimated-wait model (APQ — accumulative priority queue) ──────────────
-  // Constants derived from published KTAS/CTAS/ESI time-to-be-seen targets,
-  // cross-checked against the project dataset's median ED length-of-stay per
-  // acuity level (Emergency 479 min > Urgent 323 > Non-Urgent 180), which
-  // confirms the acuity->resource gradient. The per-patient service minutes
-  // below are in-lane service estimates, NOT raw LOS.
-  //
-  // Per-patient in-lane service time (minutes), by triage class.
-  // Basis: KTAS/ESI published targets (L1 immediate, L2 10m, L3 30m,
-  // L4 60m, L5 120m) scaled for parallel multi-bay service; dataset median
-  // LOS confirms ordering.
-  static const Map<String, int> _serviceMinutes = {
-    'EMERGENCY': 12,
-    'MODERATE': 20,
-    'LOW': 25,
-  };
-  static const double _rangeSpread = 0.25; // +/- 25% shown as a range
+  // Estimated-wait math lives in the pure, unit-tested WaitEstimator (APQ —
+  // accumulative priority queue). See lib/utils/wait_estimator.dart for the
+  // service-time constants and their clinical basis.
 
   @override
   void initState() {
@@ -63,7 +49,10 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       if (query.docs.isNotEmpty && mounted) {
         setState(() => _resolvedDocId = query.docs.first.id);
       }
-    } catch (_) {}
+    } catch (_) {
+      // Best-effort lookup: if it fails, _resolvedDocId stays null and
+      // _confirmArrival shows the friendly "no pending triage" prompt.
+    }
   }
 
   Future<void> _confirmArrival() async {
@@ -130,15 +119,8 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           if (aheadPriority <= myPriority) patientsAheadInLane++;
         }
 
-        final serviceMinutes = _serviceMinutes[thisLevel] ?? 20;
-        baseWait = patientsAheadInLane * serviceMinutes;
-        if (patientsAheadInLane == 0) {
-          waitText = "You're next";
-        } else {
-          final low = (baseWait * (1 - _rangeSpread)).round();
-          final high = (baseWait * (1 + _rangeSpread)).round();
-          waitText = "$low–$high min";
-        }
+        baseWait = WaitEstimator.baseWaitMinutes(thisLevel, patientsAheadInLane);
+        waitText = WaitEstimator.waitText(thisLevel, patientsAheadInLane);
       } catch (_) {
         // Position query failed — check-in still succeeded
       }

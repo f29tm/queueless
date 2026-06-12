@@ -56,7 +56,10 @@ class SpeechInputService {
           return locale.localeId;
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      // Locale enumeration failed — fall through to null so the recognizer
+      // uses the device default language instead of erroring.
+    }
 
     return null;
   }

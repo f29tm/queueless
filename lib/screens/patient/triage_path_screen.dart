@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../utils/app_localizer.dart';
 
 class TriagePathScreen extends StatefulWidget {
   const TriagePathScreen({super.key});

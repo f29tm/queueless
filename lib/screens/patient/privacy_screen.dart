@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_localizer.dart';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});

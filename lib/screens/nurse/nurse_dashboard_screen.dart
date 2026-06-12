@@ -472,20 +472,26 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                                       horizontal: 12, vertical: 8),
                                   child: Row(
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: borderColor,
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          isManual ? 'MANUAL' : triageLevel,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                      Semantics(
+                                        label: isManual
+                                            ? 'Triage level: Manual check-in'
+                                            : 'Triage level: ${triageLevel[0]}${triageLevel.substring(1).toLowerCase()}',
+                                        excludeSemantics: true,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: borderColor,
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            isManual ? 'MANUAL' : triageLevel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
                                       ),

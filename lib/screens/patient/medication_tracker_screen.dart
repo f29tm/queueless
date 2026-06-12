@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../services/prescription_service.dart';
-import '../../utils/app_localizer.dart';
 
 // ── Locale-aware label helpers ────────────────────────────────────────────────
 

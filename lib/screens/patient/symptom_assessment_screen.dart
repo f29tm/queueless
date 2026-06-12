@@ -241,7 +241,10 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
           if (gender != null) _sex = TriageService.sexFromGender(gender);
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      // Profile prefill is optional — on any read failure the patient simply
+      // fills age/sex manually; the assessment still works.
+    }
   }
 
   void _toggleSymptom(String symptom) {
@@ -735,13 +738,16 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                   ),
                 ],
               ),
-              Slider(
-                value: _nrsPain,
-                min: 0,
-                max: 10,
-                divisions: 10,
-                activeColor: _painColor,
-                onChanged: (v) => setState(() => _nrsPain = v),
+              Semantics(
+                label: 'Pain score, 0 is no pain, 10 is worst pain',
+                child: Slider(
+                  value: _nrsPain,
+                  min: 0,
+                  max: 10,
+                  divisions: 10,
+                  activeColor: _painColor,
+                  onChanged: (v) => setState(() => _nrsPain = v),
+                ),
               ),
             ],
           ),
@@ -1013,6 +1019,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                 _isListening ? Icons.stop_circle : Icons.mic_none,
                 color: _isListening ? Colors.red : Colors.teal,
                 size: 26,
+                semanticLabel: 'Voice input, tap to describe symptoms by voice',
               ),
             ),
           ),
