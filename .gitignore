@@ -58,3 +58,6 @@ inspect_staff_fields.py
 lib/firebase_options.dart
 android/app/google-services.json
 firebase-seed/node_modules/
+.claude/
+AGENTS.md
+SESSION_NOTES_*.md
