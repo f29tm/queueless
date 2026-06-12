@@ -995,6 +995,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     final data = _data;
 
     if (data['noAITriage'] == true) {
+      final manualComplaint = (data['chiefComplaint'] as String?)?.trim();
       return Container(
         width: double.infinity,
         margin: const EdgeInsets.only(top: 16),
@@ -1004,16 +1005,29 @@ class _VitalsSheetState extends State<_VitalsSheet> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: accent.withValues(alpha: 0.25)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: accent, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                "Manual check-in — no patient self-report",
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              ),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: accent, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Manual check-in — no patient self-report",
+                    style:
+                        TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                ),
+              ],
             ),
+            if (manualComplaint != null && manualComplaint.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                manualComplaint,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+            ],
           ],
         ),
       );
@@ -1032,6 +1046,9 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         (description == null || description.isEmpty) ? "—" : description;
 
     final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
+    if (s1.isEmpty) {
+      return _buildFallbackSelfReport(data);
+    }
     final pain = s1['nrs_pain'] as num?;
     final painText = pain == null ? "—" : "${pain.toInt()} / 10";
     final arrivalText =
@@ -1126,6 +1143,115 @@ class _VitalsSheetState extends State<_VitalsSheet> {
           _reportRow("Injury related", injuryText),
           _reportRow("Alertness", avpuText),
           _reportRow("Age · Sex", ageSexText),
+          if (confText != null) ...[
+            const Divider(height: 22),
+            Text(
+              confText,
+              style: const TextStyle(
+                fontSize: 12,
+                color: accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Resilient fallback for the self-report card when stage1Inputs is missing
+  // or empty (legacy docs, or AI ran but the structured inputs were never
+  // persisted). Shows any top-level symptom data the doc still carries; if
+  // there is none, shows an explicit empty-state instead of a blank card.
+  Widget _buildFallbackSelfReport(Map<String, dynamic> data) {
+    const accent = Color(0xFF2446B8);
+
+    final chiefComplaint = ((data['chiefComplaint'] as String?) ??
+            (data['chief_complaint'] as String?))
+        ?.trim();
+
+    final rawSymptoms = data['symptoms'];
+    final symptoms = rawSymptoms is List
+        ? rawSymptoms
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+        : <String>[];
+
+    final description = (data['description'] as String?)?.trim();
+
+    final hasComplaint = chiefComplaint != null && chiefComplaint.isNotEmpty;
+    final hasDescription = description != null && description.isNotEmpty;
+    final hasAnything = hasComplaint || hasDescription || symptoms.isNotEmpty;
+
+    final confidence = data['confidence'] as num?;
+    final confText = confidence == null
+        ? null
+        : "AI confidence: ${(confidence * 100).round()}%";
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(
+          left: const BorderSide(color: accent, width: 4),
+          top: BorderSide(color: accent.withValues(alpha: 0.2)),
+          right: BorderSide(color: accent.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: accent.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.assignment_outlined, color: accent, size: 18),
+              SizedBox(width: 8),
+              Text(
+                "Patient Self-Report",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (!hasAnything)
+            Text(
+              "No symptom data recorded — assess manually",
+              style: TextStyle(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: Colors.grey.shade600,
+              ),
+            )
+          else ...[
+            if (symptoms.isNotEmpty) ...[
+              const Text("Symptoms",
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: symptoms.map(_reportChip).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (hasComplaint) ...[
+              const Text("Chief complaint",
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              Text(chiefComplaint, style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 12),
+            ],
+            if (hasDescription) ...[
+              const Text("Description",
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              Text(description, style: const TextStyle(fontSize: 13)),
+            ],
+          ],
           if (confText != null) ...[
             const Divider(height: 22),
             Text(
