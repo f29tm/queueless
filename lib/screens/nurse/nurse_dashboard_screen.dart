@@ -571,8 +571,14 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                           final arrivalMode = (s1['arrival_mode'] as num?)
                               ?.toInt();
 
-                          final description = (data['description'] as String?)
-                              ?.trim();
+                          final rawDesc =
+                              (data['description'] as String?)?.trim();
+                          // Encrypted values are decrypted on detail open — skip here
+                          final description =
+                              (rawDesc != null &&
+                                  ':'.allMatches(rawDesc).length == 2)
+                              ? null
+                              : rawDesc;
                           final chiefComplaint =
                               (s1['chief_complaint'] as String?)?.trim();
                           final String complaintText;
@@ -1512,20 +1518,24 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   Widget _buildFallbackSelfReport(Map<String, dynamic> data) {
     const accent = Color(0xFF2446B8);
 
-    final chiefComplaint =
-        ((data['chiefComplaint'] as String?) ??
-                (data['chief_complaint'] as String?))
-            ?.trim();
+    final chiefComplaint = _decryptedChiefComplaint?.isNotEmpty == true
+        ? _decryptedChiefComplaint!
+        : ((data['chiefComplaint'] as String?) ??
+                    (data['chief_complaint'] as String?))
+                ?.trim();
 
-    final rawSymptoms = data['symptoms'];
-    final symptoms = rawSymptoms is List
-        ? rawSymptoms
-              .map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList()
-        : <String>[];
+    final symptoms = _decryptedSymptoms.isNotEmpty
+        ? _decryptedSymptoms
+        : () {
+            final raw = data['symptoms'];
+            return raw is List
+                ? raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+                : <String>[];
+          }();
 
-    final description = (data['description'] as String?)?.trim();
+    final description = (_decryptedDescription?.isNotEmpty == true)
+        ? _decryptedDescription
+        : (data['description'] as String?)?.trim();
 
     final hasComplaint = chiefComplaint != null && chiefComplaint.isNotEmpty;
     final hasDescription = description != null && description.isNotEmpty;
