@@ -57,4 +57,18 @@ class NurseQueueFilter {
     });
     return list;
   }
+
+  /// Order by `estimatedWaitMinutes` descending (longest estimated wait first).
+  /// Missing values are treated as 0.
+  static List<QueryDocumentSnapshot<Object?>> sortByWaitTime(
+    List<QueryDocumentSnapshot<Object?>> docs,
+  ) {
+    final list = List.of(docs);
+    list.sort((a, b) {
+      final wa = (_data(a)['estimatedWaitMinutes'] as num?) ?? 0;
+      final wb = (_data(b)['estimatedWaitMinutes'] as num?) ?? 0;
+      return wb.compareTo(wa);
+    });
+    return list;
+  }
 }

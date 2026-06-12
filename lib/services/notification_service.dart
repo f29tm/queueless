@@ -198,21 +198,33 @@ class NotificationService {
     String? bodyArOverride,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
-    // Front of the line: friendly "you're next" wording, no "0 min" line.
-    final isNext = position <= 1;
+    // #1 is currently being assessed by the nurse; #2 is literally next in
+    // line — that's the moment to tell the patient to be ready.
+    final isBeingSeen = position <= 1;
+    final isNext = position == 2;
+    final title = isBeingSeen
+        ? "It's Your Turn"
+        : (isNext ? "You're Next" : 'Queue Update');
+    final titleAr = isBeingSeen
+        ? 'حان دورك'
+        : (isNext ? 'أنت التالي' : 'تحديث الطابور');
     await _notifRef(patientId).add({
       'type': NotificationType.queueUpdate.name,
-      'title': isNext ? "You're Next" : 'Queue Update',
+      'title': title,
       'body':
           bodyOverride ??
-          (isNext
-              ? "You're next — please be ready to be seen."
+          (isBeingSeen
+              ? "It's your turn — you're being seen now."
+              : isNext
+              ? "You're next — please be ready."
               : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.'),
-      'titleAr': isNext ? 'أنت التالي' : 'تحديث الطابور',
+      'titleAr': titleAr,
       'bodyAr':
           bodyArOverride ??
-          (isNext
-              ? 'أنت التالي — يرجى الاستعداد لمقابلة الطاقم الطبي.'
+          (isBeingSeen
+              ? 'حان دورك — تتم رؤيتك الآن.'
+              : isNext
+              ? 'أنت التالي — يرجى الاستعداد.'
               : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.'),
       'metadata': {
         'position': position,

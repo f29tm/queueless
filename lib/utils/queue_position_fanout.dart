@@ -91,16 +91,25 @@ class QueuePositionFanout {
     }
   }
 
-  // position 1 has no meaningful wait range — it's a "be ready" prompt.
-  static String _bodyEn(int position, String triageLevel) => position <= 1
-      ? 'Your queue position: #1 — Please be ready to be seen'
-      : 'Your queue position: #$position — Estimated wait: '
-            '${WaitEstimator.waitText(triageLevel, position - 1)}';
+  // #1 is being assessed by the nurse now; #2 is literally next (be ready);
+  // #3+ gets a wait-time estimate.
+  static String _bodyEn(int position, String triageLevel) {
+    if (position <= 1) return "It's your turn — you're being seen now";
+    if (position == 2) {
+      return "Your queue position: #2 — Please be ready, you're next";
+    }
+    return 'Your queue position: #$position — Estimated wait: '
+        '${WaitEstimator.waitText(triageLevel, position - 1)}';
+  }
 
-  static String _bodyAr(int position, String triageLevel) => position <= 1
-      ? 'موقعك في الطابور: #1 — يرجى الاستعداد'
-      : 'موقعك في الطابور: #$position — الوقت المتوقع: '
-            '${WaitEstimator.waitText(triageLevel, position - 1)}';
+  static String _bodyAr(int position, String triageLevel) {
+    if (position <= 1) return 'حان دورك — تتم رؤيتك الآن';
+    if (position == 2) {
+      return 'موقعك في الطابور: #2 — يرجى الاستعداد، أنت التالي';
+    }
+    return 'موقعك في الطابور: #$position — الوقت المتوقع: '
+        '${WaitEstimator.waitText(triageLevel, position - 1)}';
+  }
 }
 
 class _MovedPatient {

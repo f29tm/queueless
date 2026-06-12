@@ -80,4 +80,18 @@ void main() {
       expect(sorted.map((d) => d.id).toList(), ['emerg', 'mod', 'low']);
     });
   });
+
+  group('NurseQueueFilter.sortByWaitTime', () {
+    test('returns higher estimatedWaitMinutes first', () async {
+      await db.collection('queue').doc('short').set({'estimatedWaitMinutes': 5});
+      await db.collection('queue').doc('long').set({'estimatedWaitMinutes': 40});
+      await db.collection('queue').doc('mid').set({'estimatedWaitMinutes': 20});
+      await db.collection('queue').doc('none').set({'patientName': 'x'});
+
+      final all = (await db.collection('queue').get()).docs;
+      final sorted = NurseQueueFilter.sortByWaitTime(all);
+      // Longest wait first; the doc with no value is treated as 0 and sorts last.
+      expect(sorted.map((d) => d.id).toList(), ['long', 'mid', 'short', 'none']);
+    });
+  });
 }

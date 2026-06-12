@@ -487,9 +487,14 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                       allPatients,
                       _selectedFilter,
                     );
-                    final patients = _selectedSort == 'priority'
-                        ? NurseQueueFilter.sortByPriority(filtered)
-                        : NurseQueueFilter.sortByArrival(filtered);
+                    final List<QueryDocumentSnapshot<Object?>> patients;
+                    if (_selectedSort == 'priority') {
+                      patients = NurseQueueFilter.sortByPriority(filtered);
+                    } else if (_selectedSort == 'wait') {
+                      patients = NurseQueueFilter.sortByWaitTime(filtered);
+                    } else {
+                      patients = NurseQueueFilter.sortByArrival(filtered);
+                    }
                     // Track the currently visible docs for multi-select actions.
                     _visibleDocs = patients;
 
