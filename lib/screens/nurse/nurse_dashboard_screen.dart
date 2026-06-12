@@ -996,6 +996,9 @@ class _VitalsSheetState extends State<_VitalsSheet> {
 
   // Read-only summary of everything the patient submitted. Nurse-only view,
   // so AI confidence and the review flag are allowed here.
+  // Call removed from the vitals dialog (showed a blank box); kept for now
+  // until the self-report UI is reworked.
+  // ignore: unused_element
   Widget _buildSelfReportCard() {
     const accent = Color(0xFF2446B8);
     final data = _data;
@@ -1359,9 +1362,6 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                 ),
               ),
             ],
-
-            // Full read-only summary of what the patient submitted.
-            _buildSelfReportCard(),
 
             const SizedBox(height: 20),
             const Text(
