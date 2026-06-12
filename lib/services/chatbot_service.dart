@@ -35,8 +35,8 @@ Guidelines:
   String? _patientContext;
 
   ChatbotService({http.Client? client, String? patientContext})
-      : _client = client ?? http.Client(),
-        _patientContext = patientContext;
+    : _client = client ?? http.Client(),
+      _patientContext = patientContext;
 
   List<Map<String, dynamic>> get history => List.unmodifiable(_history);
 
@@ -47,9 +47,9 @@ Guidelines:
   String get _effectiveSystemInstruction => _patientContext == null
       ? _systemInstruction
       : '$_systemInstruction\n'
-          'PATIENT CONTEXT (the patient already sees all of this in the app — '
-          'use it to personalize answers, never to change their triage):\n'
-          '$_patientContext';
+            'PATIENT CONTEXT (the patient already sees all of this in the app — '
+            'use it to personalize answers, never to change their triage):\n'
+            '$_patientContext';
 
   Future<String> sendMessage(String text) async {
     _history.add({

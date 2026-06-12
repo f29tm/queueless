@@ -11,11 +11,11 @@ http.Response _geminiResponse(String text) {
         {
           'content': {
             'parts': [
-              {'text': text}
-            ]
-          }
-        }
-      ]
+              {'text': text},
+            ],
+          },
+        },
+      ],
     }),
     200,
     headers: {'content-type': 'application/json'},
@@ -73,17 +73,20 @@ void main() {
       await expectLater(service.sendMessage('hello'), throwsException);
     });
 
-    test('history does NOT grow after 500 (user turn is rolled back)', () async {
-      final service = ChatbotService(
-        client: MockClient(
-          (request) async => http.Response('Server error', 500),
-        ),
-      );
-      try {
-        await service.sendMessage('hello');
-      } catch (_) {}
-      expect(service.history.length, 0);
-    });
+    test(
+      'history does NOT grow after 500 (user turn is rolled back)',
+      () async {
+        final service = ChatbotService(
+          client: MockClient(
+            (request) async => http.Response('Server error', 500),
+          ),
+        );
+        try {
+          await service.sendMessage('hello');
+        } catch (_) {}
+        expect(service.history.length, 0);
+      },
+    );
 
     test('throws Exception on 200 with empty candidates []', () async {
       final service = ChatbotService(

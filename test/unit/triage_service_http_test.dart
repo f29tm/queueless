@@ -58,7 +58,8 @@ void main() {
     test('malformed JSON body surfaces an error, not an exception', () async {
       // HTTP 200 but the body is not the JSON object the parser expects.
       final client = MockClient(
-          (_) async => http.Response('this is not json', 200));
+        (_) async => http.Response('this is not json', 200),
+      );
 
       final result = await _runWith(client);
 

@@ -18,7 +18,9 @@ void main() {
     test('free text only', () {
       expect(
         buildChiefComplaint(
-            selectedSymptoms: [], complaintText: 'my arm is numb'),
+          selectedSymptoms: [],
+          complaintText: 'my arm is numb',
+        ),
         'my arm is numb',
       );
     });
@@ -41,8 +43,7 @@ void main() {
   // ── Stage 1 payload identity: typed vs extracted (ML-NLP-01) ──────────────
 
   group('buildStage1Request', () {
-    test(
-        'payload is identical whether the form state came from typing or '
+    test('payload is identical whether the form state came from typing or '
         'from confirmed NLP suggestions', () {
       // A patient typing these values by hand…
       final typed = buildStage1Request(
@@ -72,22 +73,21 @@ void main() {
       expect(typed.toJson(), equals(extracted.toJson()));
     });
 
-    test('payload contains exactly the nine Stage 1 keys — no NLP additions',
-        () {
-      final request = buildStage1Request(
-        selectedSymptoms: ['Fever'],
-        complaintText: 'feeling hot since yesterday',
-        age: 30,
-        sex: 2,
-        nrsPain: 2,
-        mental: 1,
-        arrivalMode: 1,
-        injury: 2,
-      );
+    test(
+      'payload contains exactly the nine Stage 1 keys — no NLP additions',
+      () {
+        final request = buildStage1Request(
+          selectedSymptoms: ['Fever'],
+          complaintText: 'feeling hot since yesterday',
+          age: 30,
+          sex: 2,
+          nrsPain: 2,
+          mental: 1,
+          arrivalMode: 1,
+          injury: 2,
+        );
 
-      expect(
-        request.toJson().keys.toSet(),
-        {
+        expect(request.toJson().keys.toSet(), {
           'chief_complaint',
           'age',
           'sex',
@@ -97,12 +97,11 @@ void main() {
           'arrival_mode',
           'injury',
           'patients_per_hour',
-        },
-      );
-    });
+        });
+      },
+    );
 
-    test('derives pain flag from NRS exactly as the typed flow always has',
-        () {
+    test('derives pain flag from NRS exactly as the typed flow always has', () {
       final noPain = buildStage1Request(
         selectedSymptoms: [],
         complaintText: 'rash on arm',

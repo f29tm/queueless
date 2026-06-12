@@ -72,8 +72,10 @@ class SpeechInputService {
   }) async {
     if (!_ready) return;
     await _stt.listen(
-      listenOptions:
-          SpeechListenOptions(partialResults: true, localeId: localeId),
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        localeId: localeId,
+      ),
       onResult: (SpeechRecognitionResult r) =>
           onText(r.recognizedWords, r.finalResult),
     );

@@ -16,9 +16,7 @@ import 'utils/locale_helper.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final savedLanguage = await LocaleHelper.loadLanguageCode();
 
@@ -28,10 +26,7 @@ void main() async {
 class QueueLessApp extends StatefulWidget {
   final String savedLanguage;
 
-  const QueueLessApp({
-    super.key,
-    required this.savedLanguage,
-  });
+  const QueueLessApp({super.key, required this.savedLanguage});
 
   @override
   State<QueueLessApp> createState() => _QueueLessAppState();
@@ -59,15 +54,12 @@ class _QueueLessAppState extends State<QueueLessApp> {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: MaterialApp(
-  key: ValueKey(_locale.languageCode),
+        key: ValueKey(_locale.languageCode),
         debugShowCheckedModeBanner: false,
 
         locale: _locale,
 
-        supportedLocales: const [
-          Locale('en'),
-          Locale('ar'),
-        ],
+        supportedLocales: const [Locale('en'), Locale('ar')],
 
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
@@ -79,8 +71,7 @@ class _QueueLessAppState extends State<QueueLessApp> {
           final isArabic = _locale.languageCode == 'ar';
 
           return Directionality(
-            textDirection:
-                isArabic ? TextDirection.rtl : TextDirection.ltr,
+            textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
             child: child ?? const SizedBox(),
           );
         },
@@ -90,8 +81,7 @@ class _QueueLessAppState extends State<QueueLessApp> {
         routes: {
           '/patient-hub': (context) =>
               PatientHubScreen(onLanguageChanged: changeLanguage),
-          '/symptom-assessment': (context) =>
-              const SymptomAssessmentScreen(),
+          '/symptom-assessment': (context) => const SymptomAssessmentScreen(),
           '/triage-path': (context) => const TriagePathScreen(),
           '/manual-confirmation': (context) =>
               const ManualCheckinConfirmationScreen(),
@@ -104,10 +94,7 @@ class _QueueLessAppState extends State<QueueLessApp> {
 class AuthGate extends StatelessWidget {
   final Future<void> Function(String) onLanguageChanged;
 
-  const AuthGate({
-    super.key,
-    required this.onLanguageChanged,
-  });
+  const AuthGate({super.key, required this.onLanguageChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -120,15 +107,11 @@ class AuthGate extends StatelessWidget {
         if (auth.currentUser != null) {
           if (!auth.currentUser!.emailVerified) {
             return const Scaffold(
-              body: Center(
-                child: Text("Please verify your email."),
-              ),
+              body: Center(child: Text("Please verify your email.")),
             );
           }
 
-          return PatientHubScreen(
-            onLanguageChanged: onLanguageChanged,
-          );
+          return PatientHubScreen(onLanguageChanged: onLanguageChanged);
         }
 
         return const LoginScreen();

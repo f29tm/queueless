@@ -27,8 +27,10 @@ void main() {
     });
 
     test('clearSelection empties the set', () {
-      final s =
-          NurseSelectionState.empty().selectAll(['a', 'b']).clearSelection();
+      final s = NurseSelectionState.empty().selectAll([
+        'a',
+        'b',
+      ]).clearSelection();
       expect(s.isEmpty, isTrue);
     });
 

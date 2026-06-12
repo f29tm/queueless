@@ -100,11 +100,7 @@ void main() {
     final result = TriageResult(
       prediction: 'Emergency',
       confidence: 0.941,
-      probabilities: {
-        'Emergency': 0.941,
-        'Urgent': 0.056,
-        'Non-Urgent': 0.003,
-      },
+      probabilities: {'Emergency': 0.941, 'Urgent': 0.056, 'Non-Urgent': 0.003},
       deferred: false,
       entropy: 0.23,
       stage: 1,
@@ -121,11 +117,14 @@ void main() {
       expect(map.containsKey('priorityNumber'), isTrue);
     });
 
-    test('Emergency prediction maps triageLevel=EMERGENCY, priorityNumber=1', () {
-      final map = result.toFirestore();
-      expect(map['triageLevel'], 'EMERGENCY');
-      expect(map['priorityNumber'], 1);
-    });
+    test(
+      'Emergency prediction maps triageLevel=EMERGENCY, priorityNumber=1',
+      () {
+        final map = result.toFirestore();
+        expect(map['triageLevel'], 'EMERGENCY');
+        expect(map['priorityNumber'], 1);
+      },
+    );
   });
 
   // ── TriageResult.error ───────────────────────────────────────────────────────
@@ -168,7 +167,10 @@ void main() {
     });
 
     test('chief_complaint equals chiefComplaint field value', () {
-      expect(request.toJson()['chief_complaint'], 'chest pain radiating to left arm');
+      expect(
+        request.toJson()['chief_complaint'],
+        'chest pain radiating to left arm',
+      );
     });
 
     test('nrs_pain equals nrsPain field as double', () {

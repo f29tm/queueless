@@ -158,8 +158,10 @@ class AuthProvider with ChangeNotifier {
   Future<void> _loadUserData() async {
     if (currentUser == null) return;
 
-    final doc =
-        await _firestore.collection("users").doc(currentUser!.uid).get();
+    final doc = await _firestore
+        .collection("users")
+        .doc(currentUser!.uid)
+        .get();
 
     userRole = doc.data()?["role"];
     userName = doc.data()?["name"] ?? doc.data()?["fullName"];

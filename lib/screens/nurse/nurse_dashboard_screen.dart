@@ -189,6 +189,9 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
     List<QueryDocumentSnapshot> docs,
   ) {
     if (!mounted) return;
+    // Patients can't read the lane, so every staff stream snapshot doubles as
+    // the trigger that fans positions/waits out onto patient docs.
+    QueuePositionFanout.autoSync(docs, NotificationService());
     if (_firstLoad) {
       _knownIds = currentIds;
       _firstLoad = false;
@@ -534,9 +537,16 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                             ),
                           ),
                         ...patients.asMap().entries.map((entry) {
-                          final position = entry.key + 1;
                           final patient = entry.value;
                           final data = patient.data() as Map<String, dynamic>;
+
+                          // True lane position fanned out onto the doc — NOT
+                          // the row index, which lies under filters and
+                          // non-priority sorts. Falls back to the row index
+                          // for the instant before the first fan-out lands.
+                          final position =
+                              (data['currentPosition'] as num?)?.toInt() ??
+                              (entry.key + 1);
 
                           final isManual = data['noAITriage'] == true;
                           final triageLevel =
@@ -633,7 +643,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                                           Semantics(
                                             label: isManual
                                                 ? 'Triage level: Manual check-in'
-                                                : 'Triage level: ${triageLevel[0]}${triageLevel.substring(1).toLowerCase()}',
+                                                : 'Triage level: ${TriageLevels.labelEn(triageLevel)}',
                                             excludeSemantics: true,
                                             child: Container(
                                               padding:
@@ -648,8 +658,10 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
                                               ),
                                               child: Text(
                                                 isManual
-                                                    ? 'MANUAL'
-                                                    : triageLevel,
+                                                    ? 'Manual'
+                                                    : TriageLevels.labelEn(
+                                                        triageLevel,
+                                                      ),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.bold,

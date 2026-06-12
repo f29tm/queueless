@@ -24,8 +24,7 @@ class DoctorPatientDetailScreen extends StatefulWidget {
       _DoctorPatientDetailScreenState();
 }
 
-class _DoctorPatientDetailScreenState
-    extends State<DoctorPatientDetailScreen> {
+class _DoctorPatientDetailScreenState extends State<DoctorPatientDetailScreen> {
   bool _discharging = false;
 
   Color get _levelColor => TriageLevels.color(widget.triageLevel);
@@ -36,26 +35,26 @@ class _DoctorPatientDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Discharge Patient'),
-        content: Text(
-            'Discharge ${widget.patientName} and close this case?'),
+        content: Text('Discharge ${widget.patientName} and close this case?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2446B8),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Discharge',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Discharge',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -68,17 +67,19 @@ class _DoctorPatientDetailScreenState
           .collection('queue')
           .doc(widget.queueDocId)
           .update({
-        'status': 'discharged',
-        'dischargedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'discharged',
+            'dischargedAt': FieldValue.serverTimestamp(),
+          });
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() => _discharging = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to discharge: $e'),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to discharge: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -119,7 +120,9 @@ class _DoctorPatientDetailScreenState
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 6),
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _levelColor,
                     borderRadius: BorderRadius.circular(12),
@@ -127,15 +130,16 @@ class _DoctorPatientDetailScreenState
                   child: Text(
                     _levelLabel,
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (widget.symptoms.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
                     'Symptoms: ${widget.symptoms.join(', ')}',
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 14),
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ],
@@ -145,14 +149,12 @@ class _DoctorPatientDetailScreenState
           // ── Prescriptions list ───────────────────────────────────
           Expanded(
             child: StreamBuilder<List<Prescription>>(
-              stream: PrescriptionService()
-                  .streamForPatient(widget.patientId),
+              stream: PrescriptionService().streamForPatient(widget.patientId),
               builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF2446B8)));
+                    child: CircularProgressIndicator(color: Color(0xFF2446B8)),
+                  );
                 }
                 final list = snapshot.data ?? [];
                 return ListView(
@@ -161,7 +163,9 @@ class _DoctorPatientDetailScreenState
                     const Text(
                       'Prescriptions',
                       style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     if (list.isEmpty)
@@ -205,15 +209,20 @@ class _DoctorPatientDetailScreenState
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.red),
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
                         )
-                      : const Text('Discharge',
-                          style: TextStyle(color: Colors.red)),
+                      : const Text(
+                          'Discharge',
+                          style: TextStyle(color: Colors.red),
+                        ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Colors.red),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -222,13 +231,16 @@ class _DoctorPatientDetailScreenState
                 child: ElevatedButton.icon(
                   onPressed: _openPrescriptionForm,
                   icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('Add Prescription',
-                      style: TextStyle(color: Colors.white)),
+                  label: const Text(
+                    'Add Prescription',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2446B8),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -267,33 +279,32 @@ class _PrescriptionCard extends StatelessWidget {
         children: [
           Text(
             p.medicationName,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          Text(p.dosageInstructions,
-              style: const TextStyle(color: Colors.grey)),
+          Text(
+            p.dosageInstructions,
+            style: const TextStyle(color: Colors.grey),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.calendar_today,
-                  size: 14, color: Colors.grey.shade500),
+              Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 4),
-              Text(p.durationLabel,
-                  style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 13)),
+              Text(
+                p.durationLabel,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
               const SizedBox(width: 16),
-              Icon(Icons.medication,
-                  size: 14, color: Colors.grey.shade500),
+              Icon(Icons.medication, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 4),
               Text(
                 p.timesPerDay == 1
                     ? 'Once daily'
                     : p.timesPerDay == 2
-                        ? 'Twice daily'
-                        : '${p.timesPerDay}x daily',
-                style: TextStyle(
-                    color: Colors.grey.shade600, fontSize: 13),
+                    ? 'Twice daily'
+                    : '${p.timesPerDay}x daily',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
           ),
@@ -309,10 +320,7 @@ class _PrescriptionForm extends StatefulWidget {
   final String patientId;
   final String patientName;
 
-  const _PrescriptionForm({
-    required this.patientId,
-    required this.patientName,
-  });
+  const _PrescriptionForm({required this.patientId, required this.patientName});
 
   @override
   State<_PrescriptionForm> createState() => _PrescriptionFormState();
@@ -351,18 +359,19 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
       );
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Prescription saved'),
-          backgroundColor: Color(0xFF2446B8),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Prescription saved'),
+            backgroundColor: Color(0xFF2446B8),
+          ),
+        );
       }
     } catch (e) {
       setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -388,14 +397,16 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2)),
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Write Prescription',
-                style:
-                    TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              'Write Prescription',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 20),
 
             // Medication name + dosage
@@ -406,8 +417,7 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                 'Medication name & dosage',
                 hint: 'e.g. Amoxicillin 500mg',
               ),
-              validator: (v) =>
-                  (v?.trim().isEmpty ?? true) ? 'Required' : null,
+              validator: (v) => (v?.trim().isEmpty ?? true) ? 'Required' : null,
             ),
             const SizedBox(height: 14),
 
@@ -418,8 +428,7 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                 'Instructions',
                 hint: 'e.g. 1 capsule • 3 times daily',
               ),
-              validator: (v) =>
-                  (v?.trim().isEmpty ?? true) ? 'Required' : null,
+              validator: (v) => (v?.trim().isEmpty ?? true) ? 'Required' : null,
             ),
             const SizedBox(height: 14),
 
@@ -432,8 +441,7 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                     value: _timesPerDay,
                     items: const [1, 2, 3, 4],
                     labels: const ['Once', 'Twice', '3×', '4×'],
-                    onChanged: (v) =>
-                        setState(() => _timesPerDay = v!),
+                    onChanged: (v) => setState(() => _timesPerDay = v!),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -443,8 +451,7 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                     value: _durationDays,
                     items: _durationValues,
                     labels: _durationLabels,
-                    onChanged: (v) =>
-                        setState(() => _durationDays = v!),
+                    onChanged: (v) => setState(() => _durationDays = v!),
                   ),
                 ),
               ],
@@ -460,21 +467,25 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
                   backgroundColor: const Color(0xFF2446B8),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: _saving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text(
                         'Save Prescription',
                         style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
@@ -484,25 +495,24 @@ class _PrescriptionFormState extends State<_PrescriptionForm> {
     );
   }
 
-  InputDecoration _inputDecor(String label, {String? hint}) =>
-      InputDecoration(
-        labelText: label,
-        hintText: hint,
-        hintStyle:
-            TextStyle(color: Colors.grey.shade400, fontSize: 13),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: Color(0xFF2446B8), width: 2)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      );
+  InputDecoration _inputDecor(String label, {String? hint}) => InputDecoration(
+    labelText: label,
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFF2446B8), width: 2),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+  );
 }
 
 // ── Small reusable labeled dropdown ──────────────────────────────────────────
@@ -527,9 +537,10 @@ class _LabeledDropdown<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -544,8 +555,8 @@ class _LabeledDropdown<T> extends StatelessWidget {
               icon: const Icon(Icons.keyboard_arrow_down),
               items: List.generate(
                 items.length,
-                (i) => DropdownMenuItem(
-                    value: items[i], child: Text(labels[i])),
+                (i) =>
+                    DropdownMenuItem(value: items[i], child: Text(labels[i])),
               ),
               onChanged: onChanged,
             ),
@@ -569,9 +580,7 @@ Future<void> showPrescriptionForm(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _PrescriptionForm(
-      patientId: patientId,
-      patientName: patientName,
-    ),
+    builder: (_) =>
+        _PrescriptionForm(patientId: patientId, patientName: patientName),
   );
 }

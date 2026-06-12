@@ -20,21 +20,25 @@ String _localizeRemainingLabel(Prescription p, bool isArabic) {
 String _localizeDurationLabel(Prescription p, bool isArabic) {
   if (!isArabic) return p.durationLabel;
   if (p.endDate == null) return 'مستمر';
-  final start = _translateMonthAbbr(
-      DateFormat('MMM d').format(p.startDate));
-  final end = _translateMonthAbbr(
-      DateFormat('MMM d').format(p.endDate!));
+  final start = _translateMonthAbbr(DateFormat('MMM d').format(p.startDate));
+  final end = _translateMonthAbbr(DateFormat('MMM d').format(p.endDate!));
   return '$start – $end';
 }
 
 String _translateMonthAbbr(String value) {
   return value
-      .replaceAll('Jan', 'يناير').replaceAll('Feb', 'فبراير')
-      .replaceAll('Mar', 'مارس').replaceAll('Apr', 'أبريل')
-      .replaceAll('May', 'مايو').replaceAll('Jun', 'يونيو')
-      .replaceAll('Jul', 'يوليو').replaceAll('Aug', 'أغسطس')
-      .replaceAll('Sep', 'سبتمبر').replaceAll('Oct', 'أكتوبر')
-      .replaceAll('Nov', 'نوفمبر').replaceAll('Dec', 'ديسمبر');
+      .replaceAll('Jan', 'يناير')
+      .replaceAll('Feb', 'فبراير')
+      .replaceAll('Mar', 'مارس')
+      .replaceAll('Apr', 'أبريل')
+      .replaceAll('May', 'مايو')
+      .replaceAll('Jun', 'يونيو')
+      .replaceAll('Jul', 'يوليو')
+      .replaceAll('Aug', 'أغسطس')
+      .replaceAll('Sep', 'سبتمبر')
+      .replaceAll('Oct', 'أكتوبر')
+      .replaceAll('Nov', 'نوفمبر')
+      .replaceAll('Dec', 'ديسمبر');
 }
 
 class MedicationTrackerScreen extends StatelessWidget {
@@ -48,100 +52,91 @@ class MedicationTrackerScreen extends StatelessWidget {
     if (uid == null) {
       return Scaffold(
         body: Center(
-          child: Text(isArabic
-              ? 'المستخدم غير مسجل الدخول'
-              : 'Not logged in'),
+          child: Text(isArabic ? 'المستخدم غير مسجل الدخول' : 'Not logged in'),
         ),
       );
     }
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: StreamBuilder<List<Prescription>>(
-          stream: PrescriptionService().streamForPatient(uid),
-          builder: (context, snapshot) {
-            final loading =
-                snapshot.connectionState == ConnectionState.waiting;
-            final all = snapshot.data ?? [];
-            final today = all.where((p) => p.isActiveToday).toList();
-            final doneToday =
-                today.where((p) => p.allTodayDosesTaken).length;
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: StreamBuilder<List<Prescription>>(
+        stream: PrescriptionService().streamForPatient(uid),
+        builder: (context, snapshot) {
+          final loading = snapshot.connectionState == ConnectionState.waiting;
+          final all = snapshot.data ?? [];
+          final today = all.where((p) => p.isActiveToday).toList();
+          final doneToday = today.where((p) => p.allTodayDosesTaken).length;
 
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _Header(
-                    todayCount: today.length,
-                    doneCount: doneToday,
-                    loading: loading,
-                    isArabic: isArabic,
-                  ),
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _Header(
+                  todayCount: today.length,
+                  doneCount: doneToday,
+                  loading: loading,
+                  isArabic: isArabic,
                 ),
-                if (loading)
-                  const SliverFillRemaining(
-                    child: Center(
-                      child: CircularProgressIndicator(
-                          color: Colors.teal),
+              ),
+              if (loading)
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.teal),
+                  ),
+                )
+              else if (snapshot.hasError)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Text(
+                      isArabic
+                          ? 'حدث خطأ ما. يرجى المحاولة مرة أخرى.'
+                          : 'Something went wrong. Please try again.',
+                      style: const TextStyle(color: Colors.grey),
                     ),
-                  )
-                else if (snapshot.hasError)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Text(
-                        isArabic
-                            ? 'حدث خطأ ما. يرجى المحاولة مرة أخرى.'
-                            : 'Something went wrong. Please try again.',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  )
-                else if (all.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyState(),
-                  )
-                else ...[
-                  if (today.isNotEmpty) ...[
-                    _sectionHeader(
-                      context,
-                      isArabic ? 'أدوية اليوم' : "Today's Medications",
-                      badge: isArabic
-                          ? '$doneToday/${today.length} مكتمل'
-                          : '$doneToday/${today.length} done',
-                      badgeGreen: doneToday == today.length,
-                    ),
-                    SliverPadding(
-                      padding:
-                          const EdgeInsets.fromLTRB(20, 0, 20, 4),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (_, i) =>
-                              _TodayMedCard(prescription: today[i]),
-                          childCount: today.length,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                )
+              else if (all.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _EmptyState(),
+                )
+              else ...[
+                if (today.isNotEmpty) ...[
                   _sectionHeader(
                     context,
-                    isArabic ? 'جميع الوصفات الطبية' : 'All Prescriptions',
+                    isArabic ? 'أدوية اليوم' : "Today's Medications",
+                    badge: isArabic
+                        ? '$doneToday/${today.length} مكتمل'
+                        : '$doneToday/${today.length} done',
+                    badgeGreen: doneToday == today.length,
                   ),
                   SliverPadding(
-                    padding:
-                        const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (_, i) =>
-                            _PrescriptionCard(prescription: all[i]),
-                        childCount: all.length,
+                        (_, i) => _TodayMedCard(prescription: today[i]),
+                        childCount: today.length,
                       ),
                     ),
                   ),
                 ],
+                _sectionHeader(
+                  context,
+                  isArabic ? 'جميع الوصفات الطبية' : 'All Prescriptions',
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (_, i) => _PrescriptionCard(prescription: all[i]),
+                      childCount: all.length,
+                    ),
+                  ),
+                ),
               ],
-            );
-          },
-        ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -156,14 +151,17 @@ class MedicationTrackerScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
         child: Row(
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
             if (badge != null) ...[
               const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: badgeGreen
                       ? Colors.green.withValues(alpha: 0.12)
@@ -239,8 +237,7 @@ class _Header extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius:
-            BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(20, top + 16, 20, 28),
       child: Column(
@@ -257,8 +254,11 @@ class _Header extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.medication,
-                          color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.medication,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -269,8 +269,11 @@ class _Header extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ]
@@ -283,8 +286,11 @@ class _Header extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                     const Spacer(),
@@ -294,8 +300,11 @@ class _Header extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.medication,
-                          color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.medication,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ],
           ),
@@ -332,11 +341,11 @@ class _Header extends StatelessWidget {
                       Text(
                         allDone
                             ? (isArabic
-                                ? 'أتممت جميع جرعاتك اليوم!'
-                                : 'All done for today!')
+                                  ? 'أتممت جميع جرعاتك اليوم!'
+                                  : 'All done for today!')
                             : isArabic
-                                ? 'تم أخذ $doneCount من $todayCount اليوم'
-                                : '$doneCount of $todayCount taken today',
+                            ? 'تم أخذ $doneCount من $todayCount اليوم'
+                            : '$doneCount of $todayCount taken today',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -345,7 +354,9 @@ class _Header extends StatelessWidget {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(12),
@@ -367,10 +378,8 @@ class _Header extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: doneCount / todayCount,
                       minHeight: 6,
-                      backgroundColor:
-                          Colors.white.withValues(alpha: 0.25),
-                      valueColor: const AlwaysStoppedAnimation(
-                          Colors.white),
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
+                      valueColor: const AlwaysStoppedAnimation(Colors.white),
                     ),
                   ),
                 ],
@@ -390,13 +399,11 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic =
-        Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Center(
       child: SingleChildScrollView(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -423,9 +430,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 28),
 
             Text(
-              isArabic
-                  ? 'لا توجد وصفات طبية حالياً'
-                  : 'No prescriptions yet',
+              isArabic ? 'لا توجد وصفات طبية حالياً' : 'No prescriptions yet',
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -452,14 +457,12 @@ class _EmptyState extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.teal.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: Colors.teal.withValues(alpha: 0.2)),
+                border: Border.all(color: Colors.teal.withValues(alpha: 0.2)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline,
-                      color: Colors.teal, size: 20),
+                  const Icon(Icons.info_outline, color: Colors.teal, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -498,20 +501,22 @@ class _TodayMedCardState extends State<_TodayMedCard> {
 
   Future<void> _markTaken() async {
     if (widget.prescription.allTodayDosesTaken) return;
-    final isArabic =
-        Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     setState(() => _marking = true);
     try {
-      await PrescriptionService()
-          .markDoseTaken(widget.prescription.id);
+      await PrescriptionService().markDoseTaken(widget.prescription.id);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(isArabic
-              ? 'تعذر تسجيل الجرعة. يرجى المحاولة مرة أخرى.'
-              : 'Could not record dose. Please try again.'),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic
+                  ? 'تعذر تسجيل الجرعة. يرجى المحاولة مرة أخرى.'
+                  : 'Could not record dose. Please try again.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _marking = false);
@@ -520,8 +525,7 @@ class _TodayMedCardState extends State<_TodayMedCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic =
-        Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final p = widget.prescription;
     final allDone = p.allTodayDosesTaken;
     final accent = allDone ? Colors.green : Colors.teal;
@@ -531,9 +535,7 @@ class _TodayMedCardState extends State<_TodayMedCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border(
-          left: BorderSide(color: accent, width: 4),
-        ),
+        border: Border(left: BorderSide(color: accent, width: 4)),
         boxShadow: [
           BoxShadow(
             blurRadius: 8,
@@ -554,9 +556,7 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                allDone
-                    ? Icons.check_circle_rounded
-                    : Icons.medication_liquid,
+                allDone ? Icons.check_circle_rounded : Icons.medication_liquid,
                 color: accent,
                 size: 24,
               ),
@@ -578,8 +578,7 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                   const SizedBox(height: 3),
                   Text(
                     p.dosageInstructions,
-                    style: TextStyle(
-                        fontSize: 13, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 6),
                   Wrap(
@@ -588,13 +587,13 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                       _chip(
                         allDone
                             ? (isArabic
-                                ? 'تم أخذ جميع الجرعات'
-                                : 'All doses taken')
+                                  ? 'تم أخذ جميع الجرعات'
+                                  : 'All doses taken')
                             : p.nextDoseLabel != null
-                                ? (isArabic
-                                    ? 'التالية: ${p.nextDoseLabel}'
-                                    : 'Next: ${p.nextDoseLabel}')
-                                : (isArabic ? 'عند الحاجة' : 'As needed'),
+                            ? (isArabic
+                                  ? 'التالية: ${p.nextDoseLabel}'
+                                  : 'Next: ${p.nextDoseLabel}')
+                            : (isArabic ? 'عند الحاجة' : 'As needed'),
                         color: accent,
                       ),
                       if (!allDone)
@@ -620,8 +619,7 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                   color: Colors.green.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check,
-                    color: Colors.green, size: 22),
+                child: const Icon(Icons.check, color: Colors.green, size: 22),
               )
             else
               GestureDetector(
@@ -629,15 +627,14 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: _marking
                         ? null
                         : const LinearGradient(
-                            colors: [
-                              Color(0xFF00796B),
-                              Color(0xFF26A69A),
-                            ],
+                            colors: [Color(0xFF00796B), Color(0xFF26A69A)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -649,7 +646,9 @@ class _TodayMedCardState extends State<_TodayMedCard> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.teal),
+                            strokeWidth: 2,
+                            color: Colors.teal,
+                          ),
                         )
                       : Text(
                           isArabic ? 'تم' : 'Taken',
@@ -667,11 +666,9 @@ class _TodayMedCardState extends State<_TodayMedCard> {
     );
   }
 
-  Widget _chip(String label,
-      {required Color color, bool light = false}) {
+  Widget _chip(String label, {required Color color, bool light = false}) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: light ? 0.08 : 0.1),
         borderRadius: BorderRadius.circular(8),
@@ -696,8 +693,7 @@ class _PrescriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic =
-        Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final p = prescription;
     final warn = p.needsRefill;
 
@@ -748,16 +744,14 @@ class _PrescriptionCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '${p.prescribedByName}  ·  ${_localizeDurationLabel(p, isArabic)}',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: warn
                   ? Colors.orange.withValues(alpha: 0.1)
@@ -767,9 +761,7 @@ class _PrescriptionCard extends StatelessWidget {
             child: Text(
               _localizeRemainingLabel(p, isArabic),
               style: TextStyle(
-                color: warn
-                    ? Colors.orange.shade800
-                    : Colors.teal.shade700,
+                color: warn ? Colors.orange.shade800 : Colors.teal.shade700,
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),

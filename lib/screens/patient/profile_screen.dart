@@ -11,10 +11,7 @@ import 'help_support_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final Future<void> Function(String)? onLanguageChanged;
 
-  const ProfileScreen({
-    super.key,
-    this.onLanguageChanged,
-  });
+  const ProfileScreen({super.key, this.onLanguageChanged});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -71,14 +68,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 isArabic ? "الملف الشخصي" : "Profile",
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
 
               const SizedBox(height: 20),
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 25,
+                  horizontal: 20,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -100,12 +103,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                     Text(
                       displayName,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       displayEmail,
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                     const SizedBox(height: 20),
 
@@ -115,21 +124,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
                               .collection('queue')
-                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .where(
+                                'patientId',
+                                isEqualTo: auth.currentUser?.uid,
+                              )
                               .snapshots(),
                           builder: (context, queueSnap) {
-                            final queueCount =
-                                queueSnap.hasData ? queueSnap.data!.docs.length : 0;
+                            final queueCount = queueSnap.hasData
+                                ? queueSnap.data!.docs.length
+                                : 0;
 
                             return StreamBuilder<QuerySnapshot>(
                               stream: FirebaseFirestore.instance
                                   .collection('appointments')
-                                  .where('patientId', isEqualTo: auth.currentUser?.uid)
+                                  .where(
+                                    'patientId',
+                                    isEqualTo: auth.currentUser?.uid,
+                                  )
                                   .where('status', isEqualTo: 'completed')
                                   .snapshots(),
                               builder: (context, apptSnap) {
-                                final completedApptCount =
-                                    apptSnap.hasData ? apptSnap.data!.docs.length : 0;
+                                final completedApptCount = apptSnap.hasData
+                                    ? apptSnap.data!.docs.length
+                                    : 0;
 
                                 return _buildCounter(
                                   (queueCount + completedApptCount).toString(),
@@ -143,11 +160,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
                               .collection('appointments')
-                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .where(
+                                'patientId',
+                                isEqualTo: auth.currentUser?.uid,
+                              )
                               .where('status', isEqualTo: 'scheduled')
                               .snapshots(),
                           builder: (context, snap) {
-                            final count = snap.hasData ? snap.data!.docs.length : 0;
+                            final count = snap.hasData
+                                ? snap.data!.docs.length
+                                : 0;
                             return _buildCounter(
                               count.toString(),
                               isArabic ? 'المواعيد' : 'Appointments',
@@ -158,11 +180,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
                               .collection('consultations')
-                              .where('patientId', isEqualTo: auth.currentUser?.uid)
+                              .where(
+                                'patientId',
+                                isEqualTo: auth.currentUser?.uid,
+                              )
                               .where('status', isEqualTo: 'scheduled')
                               .snapshots(),
                           builder: (context, snap) {
-                            final count = snap.hasData ? snap.data!.docs.length : 0;
+                            final count = snap.hasData
+                                ? snap.data!.docs.length
+                                : 0;
                             return _buildCounter(
                               count.toString(),
                               isArabic ? 'الاستشارات' : 'Consultations',
@@ -193,7 +220,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: isArabic ? "الإشعارات" : "Notifications",
                 value: _notificationsEnabled,
                 loading: _loadingNotifPref,
-                onChanged: uid.isNotEmpty ? (v) => _toggleNotifications(v, uid) : null,
+                onChanged: uid.isNotEmpty
+                    ? (v) => _toggleNotifications(v, uid)
+                    : null,
               ),
 
               _buildSettingsItem(
@@ -300,14 +329,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Colors.teal.withValues(alpha: 0.12),
-                      child: const Icon(Icons.language, color: Colors.teal, size: 30),
+                      child: const Icon(
+                        Icons.language,
+                        color: Colors.teal,
+                        size: 30,
+                      ),
                     ),
 
                     const SizedBox(height: 14),
 
                     Text(
                       isArabic ? "اختر لغة التطبيق" : "Choose App Language",
-                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
 
                     const SizedBox(height: 6),
@@ -317,7 +353,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? "يمكنك تغيير اللغة في أي وقت من الإعدادات"
                           : "You can change the language anytime from settings",
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
                     ),
 
                     const SizedBox(height: 20),
@@ -353,7 +392,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (widget.onLanguageChanged == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Language function is not connected"),
+                                content: Text(
+                                  "Language function is not connected",
+                                ),
                               ),
                             );
                             return;
@@ -372,7 +413,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: Text(
                           isArabic ? "تطبيق اللغة" : "Apply Language",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -405,7 +449,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.teal.withValues(alpha: 0.10) : Colors.grey.shade50,
+          color: isSelected
+              ? Colors.teal.withValues(alpha: 0.10)
+              : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? Colors.teal : Colors.grey.shade200,
@@ -423,7 +469,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -465,10 +514,7 @@ Widget _buildCounter(String number, String label) {
         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 4),
-      Text(
-        label,
-        style: const TextStyle(color: Colors.grey, fontSize: 13),
-      ),
+      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
     ],
   );
 }
@@ -498,14 +544,15 @@ Widget _buildToggleItem({
       children: [
         Icon(icon, color: Colors.teal),
         const SizedBox(width: 14),
-        Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 15)),
-        ),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
         loading
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.teal,
+                ),
               )
             : Switch(
                 value: value,
@@ -546,9 +593,7 @@ Widget _buildSettingsItem({
           Icon(icon, color: Colors.teal),
           const SizedBox(width: 14),
 
-          Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 15)),
-          ),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
 
           if (value != null)
             Text(value, style: const TextStyle(color: Colors.grey)),

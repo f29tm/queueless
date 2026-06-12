@@ -70,100 +70,100 @@ class HelpSupportScreen extends StatelessWidget {
           ];
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0,
-          centerTitle: true,
-          title: Text(
-            isArabic ? 'المساعدة والدعم' : 'Help & Support',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-          ),
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          isArabic ? 'المساعدة والدعم' : 'Help & Support',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-
-            // Emergency banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.emergency, color: Colors.red.shade700, size: 26),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      isArabic
-                          ? 'في حالات الطوارئ اتصل بـ 999 فوراً'
-                          : 'For life-threatening emergencies call 999',
-                      style: TextStyle(
-                        color: Colors.red.shade800,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // Emergency banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.emergency, color: Colors.red.shade700, size: 26),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    isArabic
+                        ? 'في حالات الطوارئ اتصل بـ 999 فوراً'
+                        : 'For life-threatening emergencies call 999',
+                    style: TextStyle(
+                      color: Colors.red.shade800,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-            // FAQ section
-            Text(
-              isArabic ? 'الأسئلة الشائعة' : 'Frequently Asked Questions',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+          // FAQ section
+          Text(
+            isArabic ? 'الأسئلة الشائعة' : 'Frequently Asked Questions',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
 
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-            ...faqs.map((faq) => _FaqTile(faq: faq)),
+          ...faqs.map((faq) => _FaqTile(faq: faq)),
 
-            const SizedBox(height: 28),
+          const SizedBox(height: 28),
 
-            // Contact section
-            Text(
-              isArabic ? 'تواصل معنا' : 'Contact Us',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+          // Contact section
+          Text(
+            isArabic ? 'تواصل معنا' : 'Contact Us',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
 
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-            _contactTile(
-              icon: Icons.email_outlined,
-              iconColor: Colors.teal,
-              label: isArabic ? 'البريد الإلكتروني' : 'Email',
-              value: 'support@queueless.ae',
-            ),
+          _contactTile(
+            icon: Icons.email_outlined,
+            iconColor: Colors.teal,
+            label: isArabic ? 'البريد الإلكتروني' : 'Email',
+            value: 'support@queueless.ae',
+          ),
 
-            const SizedBox(height: 10),
+          const SizedBox(height: 10),
 
-            _contactTile(
-              icon: Icons.phone_outlined,
-              iconColor: Colors.blue,
-              label: isArabic ? 'هاتف الدعم' : 'Support Line',
-              value: '+971 2 000 0000',
-            ),
+          _contactTile(
+            icon: Icons.phone_outlined,
+            iconColor: Colors.blue,
+            label: isArabic ? 'هاتف الدعم' : 'Support Line',
+            value: '+971 2 000 0000',
+          ),
 
-            const SizedBox(height: 10),
+          const SizedBox(height: 10),
 
-            _contactTile(
-              icon: Icons.schedule_outlined,
-              iconColor: Colors.orange,
-              label: isArabic ? 'ساعات الدعم' : 'Support Hours',
-              value: isArabic ? 'الأحد – الخميس، 8ص – 5م' : 'Sun – Thu, 8 AM – 5 PM',
-            ),
+          _contactTile(
+            icon: Icons.schedule_outlined,
+            iconColor: Colors.orange,
+            label: isArabic ? 'ساعات الدعم' : 'Support Hours',
+            value: isArabic
+                ? 'الأحد – الخميس، 8ص – 5م'
+                : 'Sun – Thu, 8 AM – 5 PM',
+          ),
 
-
-            const SizedBox(height: 20),
-          ],
-        ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -200,20 +200,24 @@ class HelpSupportScreen extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: TextStyle(
-                      color: Colors.grey.shade600, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
               const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 15)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
             ],
           ),
         ],
       ),
     );
   }
-
 }
 
 class _FAQ {
@@ -262,17 +266,20 @@ class _FaqTileState extends State<_FaqTile> {
                     child: Text(
                       widget.faq.q,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          height: 1.3),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.keyboard_arrow_down,
-                        color: Colors.teal),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.teal,
+                    ),
                   ),
                 ],
               ),
@@ -283,9 +290,10 @@ class _FaqTileState extends State<_FaqTile> {
                 Text(
                   widget.faq.a,
                   style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF6B7280),
-                      height: 1.5),
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    height: 1.5,
+                  ),
                 ),
               ],
             ],

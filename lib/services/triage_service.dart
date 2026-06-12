@@ -31,15 +31,15 @@ class TriageResult {
   });
 
   factory TriageResult.error(String message) => TriageResult(
-        prediction: '',
-        confidence: 0,
-        probabilities: {},
-        deferred: false,
-        entropy: 0,
-        stage: 0,
-        isError: true,
-        errorMessage: message,
-      );
+    prediction: '',
+    confidence: 0,
+    probabilities: {},
+    deferred: false,
+    entropy: 0,
+    stage: 0,
+    isError: true,
+    errorMessage: message,
+  );
 
   /// Maps API prediction label to Firestore triageLevel value.
   String get triageLevel => TriageLevels.fromPrediction(prediction);
@@ -49,14 +49,14 @@ class TriageResult {
 
   /// Returns the ML-result fields to merge into a Firestore queue document.
   Map<String, dynamic> toFirestore() => {
-        'aiPrediction': prediction,
-        'confidence': confidence,
-        'probabilities': probabilities,
-        'deferred': deferred,
-        'entropy': entropy,
-        'triageLevel': triageLevel,
-        'priorityNumber': priorityNumber,
-      };
+    'aiPrediction': prediction,
+    'confidence': confidence,
+    'probabilities': probabilities,
+    'deferred': deferred,
+    'entropy': entropy,
+    'triageLevel': triageLevel,
+    'priorityNumber': priorityNumber,
+  };
 }
 
 /// Request fields for Stage 1 (symptoms only).
@@ -84,16 +84,16 @@ class Stage1Request {
   });
 
   Map<String, dynamic> toJson() => {
-        'chief_complaint': chiefComplaint,
-        'age': age,
-        'sex': sex,
-        'pain': pain,
-        'nrs_pain': nrsPain,
-        'mental': mental,
-        'arrival_mode': arrivalMode,
-        'injury': injury,
-        'patients_per_hour': patientsPerHour,
-      };
+    'chief_complaint': chiefComplaint,
+    'age': age,
+    'sex': sex,
+    'pain': pain,
+    'nrs_pain': nrsPain,
+    'mental': mental,
+    'arrival_mode': arrivalMode,
+    'injury': injury,
+    'patients_per_hour': patientsPerHour,
+  };
 }
 
 /// Request fields for Stage 2 (Stage 1 fields + vitals).
@@ -119,15 +119,15 @@ class Stage2Request {
   });
 
   Map<String, dynamic> toJson() => {
-        ...stage1.toJson(),
-        'sbp': sbp,
-        'dbp': dbp,
-        'hr': hr,
-        'rr': rr,
-        'bt': bt,
-        'saturation': saturation,
-        'ktas_rn': ktasRn,
-      };
+    ...stage1.toJson(),
+    'sbp': sbp,
+    'dbp': dbp,
+    'hr': hr,
+    'rr': rr,
+    'bt': bt,
+    'saturation': saturation,
+    'ktas_rn': ktasRn,
+  };
 }
 
 /// HTTP client for the QueueLess triage ML API.
@@ -136,8 +136,8 @@ class TriageService {
   static const Duration _timeout = Duration(seconds: 90);
 
   static Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-      };
+    'Content-Type': 'application/json',
+  };
 
   /// Calls Stage 1 prediction endpoint (symptoms only).
   static Future<TriageResult> predictStage1(Stage1Request request) async {
@@ -171,7 +171,9 @@ class TriageService {
       gender.toLowerCase() == 'male' ? 1 : 2;
 
   static Future<TriageResult> _post(
-      String path, Map<String, dynamic> body) async {
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     try {
       final response = await http
           .post(
@@ -183,7 +185,8 @@ class TriageService {
 
       if (response.statusCode != 200) {
         return TriageResult.error(
-            'API error ${response.statusCode}: ${response.body}');
+          'API error ${response.statusCode}: ${response.body}',
+        );
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;

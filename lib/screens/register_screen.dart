@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -14,21 +13,21 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   // ── Controllers ────────────────────────────────────────────────────────────
-  final _fullNameController       = TextEditingController();
-  final _nationalIdController     = TextEditingController();
-  final _dobController            = TextEditingController();
-  final _nationalityController    = TextEditingController();
-  final _phoneController          = TextEditingController();
-  final _emailController          = TextEditingController();
-  final _passwordController       = TextEditingController();
-  final _confirmPasswordController= TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _nationalIdController = TextEditingController();
+  final _dobController = TextEditingController();
+  final _nationalityController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   // ── Focus nodes (for blur-triggered validation) ────────────────────────────
-  final _fullNameFocus        = FocusNode();
-  final _nationalIdFocus      = FocusNode();
-  final _phoneFocus           = FocusNode();
-  final _emailFocus           = FocusNode();
-  final _passwordFocus        = FocusNode();
+  final _fullNameFocus = FocusNode();
+  final _nationalIdFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   final _confirmPasswordFocus = FocusNode();
 
   // ── Inline error messages ──────────────────────────────────────────────────
@@ -44,9 +43,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // ── State ──────────────────────────────────────────────────────────────────
   String? selectedGender;
-  bool obscurePass    = true;
+  bool obscurePass = true;
   bool obscureConfirm = true;
-  bool _isLoading     = false;
+  bool _isLoading = false;
 
   // ── Password strength (0–4) ────────────────────────────────────────────────
   int _passwordStrength = 0;
@@ -54,10 +53,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final List<String> genders = ["Male", "Female"];
 
   final List<String> allCountries = [
-    "United Arab Emirates","Saudi Arabia","Kuwait","Qatar","Bahrain","Oman",
-    "Egypt","Jordan","Lebanon","Syria","Iraq","India","Pakistan","Bangladesh",
-    "Philippines","United Kingdom","United States","Canada","Australia",
-    "Germany","France",
+    "United Arab Emirates",
+    "Saudi Arabia",
+    "Kuwait",
+    "Qatar",
+    "Bahrain",
+    "Oman",
+    "Egypt",
+    "Jordan",
+    "Lebanon",
+    "Syria",
+    "Iraq",
+    "India",
+    "Pakistan",
+    "Bangladesh",
+    "Philippines",
+    "United Kingdom",
+    "United States",
+    "Canada",
+    "Australia",
+    "Germany",
+    "France",
   ];
 
   // ── Validators ─────────────────────────────────────────────────────────────
@@ -84,8 +100,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validateEmail(String v) {
     if (v.trim().isEmpty) return "Email is required.";
-    if (!RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-        .hasMatch(v.trim())) {
+    if (!RegExp(
+      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+    ).hasMatch(v.trim())) {
       return "Enter a valid email address.";
     }
     return null;
@@ -94,8 +111,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _validatePassword(String v) {
     if (v.isEmpty) return "Password is required.";
     if (v.length < 8) return "At least 8 characters required.";
-    if (!RegExp(r"[A-Z]").hasMatch(v)) return "Add at least one uppercase letter.";
-    if (!RegExp(r"[a-z]").hasMatch(v)) return "Add at least one lowercase letter.";
+    if (!RegExp(r"[A-Z]").hasMatch(v))
+      return "Add at least one uppercase letter.";
+    if (!RegExp(r"[a-z]").hasMatch(v))
+      return "Add at least one lowercase letter.";
     if (!RegExp(r"[0-9]").hasMatch(v)) return "Add at least one number.";
     if (!RegExp(r'[!@#\$%\^&\*\(\)\.\?\:"\{\}\|<>]').hasMatch(v)) {
       return "Add at least one special character.";
@@ -165,14 +184,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Blur listeners — validate on focus loss
     _fullNameFocus.addListener(() {
       if (!_fullNameFocus.hasFocus) {
-        setState(() =>
-            _fullNameError = _validateFullName(_fullNameController.text));
+        setState(
+          () => _fullNameError = _validateFullName(_fullNameController.text),
+        );
       }
     });
     _nationalIdFocus.addListener(() {
       if (!_nationalIdFocus.hasFocus) {
-        setState(() =>
-            _nationalIdError = _validateNationalId(_nationalIdController.text));
+        setState(
+          () => _nationalIdError = _validateNationalId(
+            _nationalIdController.text,
+          ),
+        );
       }
     });
     _phoneFocus.addListener(() {
@@ -187,14 +210,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     _passwordFocus.addListener(() {
       if (!_passwordFocus.hasFocus) {
-        setState(() =>
-            _passwordError = _validatePassword(_passwordController.text));
+        setState(
+          () => _passwordError = _validatePassword(_passwordController.text),
+        );
       }
     });
     _confirmPasswordFocus.addListener(() {
       if (!_confirmPasswordFocus.hasFocus) {
-        setState(() => _confirmPasswordError =
-            _validateConfirmPassword(_confirmPasswordController.text));
+        setState(
+          () => _confirmPasswordError = _validateConfirmPassword(
+            _confirmPasswordController.text,
+          ),
+        );
       }
     });
 
@@ -205,19 +232,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordError = null; // clear error while typing
         // re-validate confirm if already touched
         if (_confirmPasswordController.text.isNotEmpty) {
-          _confirmPasswordError =
-              _validateConfirmPassword(_confirmPasswordController.text);
+          _confirmPasswordError = _validateConfirmPassword(
+            _confirmPasswordController.text,
+          );
         }
       });
     });
     _confirmPasswordController.addListener(() {
       if (_confirmPasswordController.text.isNotEmpty) {
-        setState(() => _confirmPasswordError =
-            _validateConfirmPassword(_confirmPasswordController.text));
+        setState(
+          () => _confirmPasswordError = _validateConfirmPassword(
+            _confirmPasswordController.text,
+          ),
+        );
       }
     });
-    _fullNameController.addListener(() => setState(() => _fullNameError = null));
-    _nationalIdController.addListener(() => setState(() => _nationalIdError = null));
+    _fullNameController.addListener(
+      () => setState(() => _fullNameError = null),
+    );
+    _nationalIdController.addListener(
+      () => setState(() => _nationalIdError = null),
+    );
     _phoneController.addListener(() => setState(() => _phoneError = null));
     _emailController.addListener(() => setState(() => _emailError = null));
   }
@@ -250,8 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (picked != null) {
       setState(() {
-        _dobController.text =
-            "${picked.day}/${picked.month}/${picked.year}";
+        _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
         _dobError = null;
       });
     }
@@ -261,15 +295,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     // Final validation sweep
     setState(() {
-      _fullNameError    = _validateFullName(_fullNameController.text);
-      _nationalIdError  = _validateNationalId(_nationalIdController.text);
-      _dobError         = _dobController.text.isEmpty ? "Date of birth is required." : null;
-      _nationalityError = _nationalityController.text.isEmpty ? "Nationality is required." : null;
-      _genderError      = selectedGender == null ? "Please select your gender." : null;
-      _phoneError       = _validatePhone(_phoneController.text);
-      _emailError       = _validateEmail(_emailController.text);
-      _passwordError    = _validatePassword(_passwordController.text);
-      _confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
+      _fullNameError = _validateFullName(_fullNameController.text);
+      _nationalIdError = _validateNationalId(_nationalIdController.text);
+      _dobError = _dobController.text.isEmpty
+          ? "Date of birth is required."
+          : null;
+      _nationalityError = _nationalityController.text.isEmpty
+          ? "Nationality is required."
+          : null;
+      _genderError = selectedGender == null
+          ? "Please select your gender."
+          : null;
+      _phoneError = _validatePhone(_phoneController.text);
+      _emailError = _validateEmail(_emailController.text);
+      _passwordError = _validatePassword(_passwordController.text);
+      _confirmPasswordError = _validateConfirmPassword(
+        _confirmPasswordController.text,
+      );
     });
 
     if (!_isFormValid) return;
@@ -277,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final hashedId    = auth.hashData(_nationalIdController.text.trim());
+    final hashedId = auth.hashData(_nationalIdController.text.trim());
     final hashedPhone = auth.hashData(_phoneController.text.trim());
 
     final error = await auth.signUpWithDetails(
@@ -301,15 +343,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text("Account created! Please verify your email.")),
+          content: Text("Account created! Please verify your email."),
+        ),
       );
       Navigator.pushReplacement(
         context,
@@ -348,16 +392,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             color: const Color(0xFFF2F2F2),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Image.asset("assets/images/logo.png",
-                              width: 70, height: 70),
+                          child: Image.asset(
+                            "assets/images/logo.png",
+                            width: 70,
+                            height: 70,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         const Text(
                           "Create Your Account",
                           style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -369,8 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const LoginScreen()),
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
                       ),
                     ),
                   ),
@@ -384,8 +431,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +461,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         return TextEditingValue(
                           text: formatted,
                           selection: TextSelection.collapsed(
-                              offset: formatted.length),
+                            offset: formatted.length,
+                          ),
                         );
                       }),
                     ],
@@ -470,8 +517,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: "Strong@Pass1",
                     obscure: obscurePass,
                     error: _passwordError,
-                    toggle: () =>
-                        setState(() => obscurePass = !obscurePass),
+                    toggle: () => setState(() => obscurePass = !obscurePass),
                   ),
                   // Strength bar
                   if (_passwordController.text.isNotEmpty)
@@ -495,15 +541,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: (_isLoading || !_isFormValid)
-                          ? null
-                          : _submit,
+                      onPressed: (_isLoading || !_isFormValid) ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF009688),
-                        disabledBackgroundColor:
-                            const Color(0xFF009688).withValues(alpha: 0.4),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        disabledBackgroundColor: const Color(
+                          0xFF009688,
+                        ).withValues(alpha: 0.4),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -513,12 +557,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white))
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Text(
                               "Create Account",
                               style: TextStyle(
-                                  fontSize: 18, color: Colors.white),
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -533,7 +581,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
+                            builder: (_) => const LoginScreen(),
+                          ),
                         ),
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
@@ -543,8 +592,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: const Text(
                           "Sign In",
                           style: TextStyle(
-                              color: Color(0xFF009688),
-                              fontWeight: FontWeight.bold),
+                            color: Color(0xFF009688),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -566,9 +616,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Text(
         label,
         style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: Color(0xFF374151)),
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: Color(0xFF374151),
+        ),
       ),
     );
   }
@@ -588,9 +639,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: error != null
-                ? Colors.red.shade50
-                : const Color(0xFFF2F5F7),
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
             border: error != null
                 ? Border.all(color: Colors.red.shade300)
@@ -602,8 +651,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             decoration: InputDecoration(
-              prefixIcon:
-                  Icon(icon, color: const Color(0xFF009688)),
+              prefixIcon: Icon(icon, color: const Color(0xFF009688)),
               hintText: hint,
               border: InputBorder.none,
             ),
@@ -628,9 +676,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: error != null
-                ? Colors.red.shade50
-                : const Color(0xFFF2F5F7),
+            color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
             border: error != null
                 ? Border.all(color: Colors.red.shade300)
@@ -641,13 +687,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             focusNode: focusNode,
             obscureText: obscure,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.lock_outline,
-                  color: Color(0xFF009688)),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                color: Color(0xFF009688),
+              ),
               hintText: hint,
               border: InputBorder.none,
               suffixIcon: IconButton(
-                icon: Icon(
-                    obscure ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: toggle,
               ),
             ),
@@ -665,8 +712,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           const Icon(Icons.error_outline, size: 13, color: Colors.red),
           const SizedBox(width: 4),
-          Text(msg,
-              style: const TextStyle(color: Colors.red, fontSize: 12)),
+          Text(msg, style: const TextStyle(color: Colors.red, fontSize: 12)),
         ],
       ),
     );
@@ -676,18 +722,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final color = _strengthColor(_passwordStrength);
     final label = _strengthLabel(_passwordStrength);
     final reqs = [
-      _Requirement("At least 8 characters",
-          _passwordController.text.length >= 8),
-      _Requirement("One uppercase letter (A-Z)",
-          RegExp(r"[A-Z]").hasMatch(_passwordController.text)),
-      _Requirement("One lowercase letter (a-z)",
-          RegExp(r"[a-z]").hasMatch(_passwordController.text)),
-      _Requirement("One number (0-9)",
-          RegExp(r"[0-9]").hasMatch(_passwordController.text)),
       _Requirement(
-          "One special character (!@#\$...)",
-          RegExp(r'[!@#\$%\^&\*\(\)\.\?\:"\{\}\|<>]')
-              .hasMatch(_passwordController.text)),
+        "At least 8 characters",
+        _passwordController.text.length >= 8,
+      ),
+      _Requirement(
+        "One uppercase letter (A-Z)",
+        RegExp(r"[A-Z]").hasMatch(_passwordController.text),
+      ),
+      _Requirement(
+        "One lowercase letter (a-z)",
+        RegExp(r"[a-z]").hasMatch(_passwordController.text),
+      ),
+      _Requirement(
+        "One number (0-9)",
+        RegExp(r"[0-9]").hasMatch(_passwordController.text),
+      ),
+      _Requirement(
+        "One special character (!@#\$...)",
+        RegExp(
+          r'[!@#\$%\^&\*\(\)\.\?\:"\{\}\|<>]',
+        ).hasMatch(_passwordController.text),
+      ),
     ];
 
     return Padding(
@@ -710,36 +766,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(label,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           // Requirements checklist
-          ...reqs.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Row(
-                  children: [
-                    Icon(
-                      r.met
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 14,
-                      color: r.met ? Colors.green : Colors.grey,
+          ...reqs.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                children: [
+                  Icon(
+                    r.met ? Icons.check_circle : Icons.radio_button_unchecked,
+                    size: 14,
+                    color: r.met ? Colors.green : Colors.grey,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    r.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: r.met ? Colors.green : Colors.grey.shade600,
                     ),
-                    const SizedBox(width: 6),
-                    Text(r.label,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: r.met
-                                ? Colors.green
-                                : Colors.grey.shade600)),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -766,8 +826,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: TextField(
                 controller: _dobController,
                 decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.calendar_today,
-                      color: Color(0xFF009688)),
+                  prefixIcon: Icon(
+                    Icons.calendar_today,
+                    color: Color(0xFF009688),
+                  ),
                   hintText: "DD/MM/YYYY",
                   border: InputBorder.none,
                 ),
@@ -793,8 +855,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               context: context,
               isScrollControlled: true,
               shape: const RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               builder: (_) => Padding(
                 padding: const EdgeInsets.all(16),
@@ -811,9 +872,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onChanged: (v) => setSheet(() {
                           filtered = allCountries
-                              .where((e) => e
-                                  .toLowerCase()
-                                  .contains(v.toLowerCase()))
+                              .where(
+                                (e) =>
+                                    e.toLowerCase().contains(v.toLowerCase()),
+                              )
                               .toList();
                         }),
                       ),
@@ -841,8 +903,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             );
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               color: _nationalityError != null
                   ? Colors.red.shade50
@@ -897,14 +958,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: DropdownButtonFormField<String>(
             initialValue: selectedGender,
             decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.person_outline,
-                  color: Color(0xFF009688)),
+              prefixIcon: Icon(Icons.person_outline, color: Color(0xFF009688)),
               border: InputBorder.none,
               hintText: "Select gender",
             ),
             items: genders
-                .map((e) =>
-                    DropdownMenuItem(value: e, child: Text(e)))
+                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                 .toList(),
             onChanged: (v) => setState(() {
               selectedGender = v;

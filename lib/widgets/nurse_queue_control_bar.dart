@@ -59,7 +59,7 @@ class NurseQueueControlBar extends StatelessWidget {
             _filterChip('All', null, _primary),
             _filterChip('Emergency', 'EMERGENCY', _triageColor('EMERGENCY')),
             _filterChip('Urgent', 'MODERATE', _triageColor('MODERATE')),
-            _filterChip('Normal', 'LOW', _triageColor('LOW')),
+            _filterChip('Non-Urgent', 'LOW', _triageColor('LOW')),
             _filterChip('Manual', NurseQueueFilter.manual, Colors.blueGrey),
           ],
         ),

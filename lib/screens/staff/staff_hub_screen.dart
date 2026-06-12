@@ -48,7 +48,11 @@ class _StaffHubScreenState extends State<StaffHubScreen> {
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.local_hospital, size: 40, color: Colors.teal),
+                  child: const Icon(
+                    Icons.local_hospital,
+                    size: 40,
+                    color: Colors.teal,
+                  ),
                 ),
                 const Expanded(
                   child: Column(
@@ -119,7 +123,8 @@ class _StaffHubScreenState extends State<StaffHubScreen> {
     );
   }
 
-  Widget _buildHorizontalActionCard(BuildContext context, {
+  Widget _buildHorizontalActionCard(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required IconData icon,

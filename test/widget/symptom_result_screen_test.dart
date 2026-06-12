@@ -11,11 +11,7 @@ TriageResult _makeResult({
   return TriageResult(
     prediction: prediction,
     confidence: confidence,
-    probabilities: {
-      'Emergency': 0.8,
-      'Urgent': 0.15,
-      'Non-Urgent': 0.05,
-    },
+    probabilities: {'Emergency': 0.8, 'Urgent': 0.15, 'Non-Urgent': 0.05},
     deferred: deferred,
     entropy: 0.3,
     stage: 1,
@@ -24,13 +20,15 @@ TriageResult _makeResult({
 }
 
 Future<void> pumpScreen(WidgetTester tester, TriageResult result) async {
-  await tester.pumpWidget(MaterialApp(
-    home: SymptomResultScreen(
-      triageResult: result,
-      queueDocId: 'test-doc-id',
-      selectedSymptoms: ['Chest pain'],
+  await tester.pumpWidget(
+    MaterialApp(
+      home: SymptomResultScreen(
+        triageResult: result,
+        queueDocId: 'test-doc-id',
+        selectedSymptoms: ['Chest pain'],
+      ),
     ),
-  ));
+  );
   await tester.pump();
 }
 
@@ -48,7 +46,9 @@ void main() {
       expect(find.textContaining('999'), findsWidgets);
     });
 
-    testWidgets('"I Have Arrived at the Hospital" is not the primary CTA', (tester) async {
+    testWidgets('"I Have Arrived at the Hospital" is not the primary CTA', (
+      tester,
+    ) async {
       await pumpScreen(tester, _makeResult(prediction: 'Emergency'));
       // Primary CTA is the 999 emergency button
       expect(find.textContaining('999'), findsWidgets);
@@ -73,7 +73,9 @@ void main() {
       expect(find.text('Urgent'), findsWidgets);
     });
 
-    testWidgets('"I Have Arrived at the Hospital" button is present', (tester) async {
+    testWidgets('"I Have Arrived at the Hospital" button is present', (
+      tester,
+    ) async {
       await pumpScreen(tester, _makeResult(prediction: 'Urgent'));
       expect(find.text('I Have Arrived at the Hospital'), findsOneWidget);
     });
@@ -82,12 +84,16 @@ void main() {
   // ── Non-Urgent prediction ────────────────────────────────────────────────────
 
   group('Non-Urgent prediction', () {
-    testWidgets('label text "Non-Urgent" is found (not "NON-URGENT")', (tester) async {
+    testWidgets('label text "Non-Urgent" is found (not "NON-URGENT")', (
+      tester,
+    ) async {
       await pumpScreen(tester, _makeResult(prediction: 'Non-Urgent'));
       expect(find.text('Non-Urgent'), findsWidgets);
     });
 
-    testWidgets('"I Have Arrived at the Hospital" button is present', (tester) async {
+    testWidgets('"I Have Arrived at the Hospital" button is present', (
+      tester,
+    ) async {
       await pumpScreen(tester, _makeResult(prediction: 'Non-Urgent'));
       expect(find.text('I Have Arrived at the Hospital'), findsOneWidget);
     });
@@ -96,14 +102,19 @@ void main() {
   // ── Label casing ─────────────────────────────────────────────────────────────
 
   group('Label casing', () {
-    testWidgets('"EMERGENCY" all-caps is NOT found for Emergency prediction', (tester) async {
+    testWidgets('"EMERGENCY" all-caps is NOT found for Emergency prediction', (
+      tester,
+    ) async {
       await pumpScreen(tester, _makeResult(prediction: 'Emergency'));
       expect(find.text('EMERGENCY'), findsNothing);
     });
 
-    testWidgets('"NON-URGENT" all-caps is NOT found for Non-Urgent prediction', (tester) async {
-      await pumpScreen(tester, _makeResult(prediction: 'Non-Urgent'));
-      expect(find.text('NON-URGENT'), findsNothing);
-    });
+    testWidgets(
+      '"NON-URGENT" all-caps is NOT found for Non-Urgent prediction',
+      (tester) async {
+        await pumpScreen(tester, _makeResult(prediction: 'Non-Urgent'));
+        expect(find.text('NON-URGENT'), findsNothing);
+      },
+    );
   });
 }

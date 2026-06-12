@@ -1,4 +1,3 @@
-﻿
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -79,7 +78,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   // ─── Long press menu ───────────────────────────────────────────────────────
   void _showLongPressMenu(
-      BuildContext context, AppNotification notif, String patientId) {
+    BuildContext context,
+    AppNotification notif,
+    String patientId,
+  ) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     showModalBottomSheet(
@@ -107,8 +109,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Color(0xFFE8F5E9),
-                      child: Icon(Icons.mark_email_read_outlined,
-                          color: Colors.green),
+                      child: Icon(
+                        Icons.mark_email_read_outlined,
+                        color: Colors.green,
+                      ),
                     ),
                     title: Text(
                       isArabic ? 'تعليم كمقروء' : 'Mark as read',
@@ -123,8 +127,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   ListTile(
                     leading: const CircleAvatar(
                       backgroundColor: Color(0xFFFFF3E0),
-                      child: Icon(Icons.mark_email_unread_outlined,
-                          color: Colors.orange),
+                      child: Icon(
+                        Icons.mark_email_unread_outlined,
+                        color: Colors.orange,
+                      ),
                     ),
                     title: Text(
                       isArabic ? 'تعليم كغير مقروء' : 'Mark as unread',
@@ -160,7 +166,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   // ─── Bottom sheet: notification details ───────────────────────────────────
   void _showDetails(
-      BuildContext context, AppNotification notif, String patientId) {
+    BuildContext context,
+    AppNotification notif,
+    String patientId,
+  ) {
     _service.markAsRead(patientId, notif.id);
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
@@ -190,44 +199,57 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       child: Text(
                         notif.localizedTitle(isArabic),
                         style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text(notif.localizedBody(isArabic),
-                    style:
-                        const TextStyle(fontSize: 15, color: Colors.black87)),
+                Text(
+                  notif.localizedBody(isArabic),
+                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                ),
                 const SizedBox(height: 16),
                 if (notif.metadata.containsKey('reason')) ...[
-                  _metaRow(Icons.info_outline,
-                      isArabic ? 'السبب' : 'Reason',
-                      notif.metadata['reason']),
+                  _metaRow(
+                    Icons.info_outline,
+                    isArabic ? 'السبب' : 'Reason',
+                    notif.metadata['reason'],
+                  ),
                   const SizedBox(height: 8),
                 ],
                 if (notif.metadata.containsKey('doctorName')) ...[
-                  _metaRow(Icons.person_outline,
-                      isArabic ? 'الطبيب' : 'Doctor',
-                      '${notif.metadata['doctorName']}'),
+                  _metaRow(
+                    Icons.person_outline,
+                    isArabic ? 'الطبيب' : 'Doctor',
+                    '${notif.metadata['doctorName']}',
+                  ),
                   const SizedBox(height: 8),
                 ],
                 if (notif.metadata.containsKey('nurseName')) ...[
-                  _metaRow(Icons.person_outline,
-                      isArabic ? 'الممرضة' : 'Nurse',
-                      notif.metadata['nurseName']),
+                  _metaRow(
+                    Icons.person_outline,
+                    isArabic ? 'الممرضة' : 'Nurse',
+                    notif.metadata['nurseName'],
+                  ),
                   const SizedBox(height: 8),
                 ],
                 if (notif.metadata.containsKey('appointmentDate')) ...[
-                  _metaRow(Icons.calendar_today,
-                      isArabic ? 'التاريخ' : 'Date',
-                      notif.metadata['appointmentDate']),
+                  _metaRow(
+                    Icons.calendar_today,
+                    isArabic ? 'التاريخ' : 'Date',
+                    notif.metadata['appointmentDate'],
+                  ),
                   const SizedBox(height: 8),
                 ],
                 if (notif.metadata.containsKey('scheduledTime')) ...[
-                  _metaRow(Icons.access_time,
-                      isArabic ? 'الوقت' : 'Time',
-                      notif.metadata['scheduledTime']),
+                  _metaRow(
+                    Icons.access_time,
+                    isArabic ? 'الوقت' : 'Time',
+                    notif.metadata['scheduledTime'],
+                  ),
                   const SizedBox(height: 8),
                 ],
                 const SizedBox(height: 8),
@@ -253,8 +275,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         const SizedBox(width: 8),
         Text('$label: ', style: const TextStyle(color: Colors.grey)),
         Expanded(
-          child: Text(value,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
         ),
       ],
     );
@@ -262,7 +286,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   // ─── Notification tile ─────────────────────────────────────────────────────
   Widget _notifTile(
-      AppNotification notif, String patientId, BuildContext context) {
+    AppNotification notif,
+    String patientId,
+    BuildContext context,
+  ) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final color = _colorFor(notif.type);
 
@@ -297,8 +324,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ],
           ),
           child: Row(
-            textDirection:
-                isArabic ? TextDirection.rtl : TextDirection.ltr,
+            textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
@@ -327,7 +353,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         Text(
                           _relativeTime(notif.createdAt, isArabic),
                           style: const TextStyle(
-                              color: Colors.grey, fontSize: 11),
+                            color: Colors.grey,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -335,7 +363,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     Text(
                       notif.localizedBody(isArabic),
                       style: const TextStyle(
-                          color: Colors.black54, fontSize: 13),
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -347,10 +377,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 Container(
                   width: 8,
                   height: 8,
-                  decoration:
-                      BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ]
+              ],
             ],
           ),
         ),
@@ -364,11 +396,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_none,
-              size: 64, color: Colors.grey.shade300),
+          Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text(message,
-              style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
+          ),
         ],
       ),
     );
@@ -377,10 +410,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   // ─── List view ─────────────────────────────────────────────────────────────
   Widget _buildList(List<AppNotification> notifications, String patientId) {
     if (notifications.isEmpty) {
-      final isArabic =
-          Localizations.localeOf(context).languageCode == 'ar';
+      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
       return _emptyState(
-          isArabic ? 'لا توجد إشعارات هنا' : 'No notifications here');
+        isArabic ? 'لا توجد إشعارات هنا' : 'No notifications here',
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -443,13 +476,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               children: [
                 all.isEmpty
                     ? _emptyState(
-                        isArabic ? 'لا توجد إشعارات بعد' : 'No notifications yet')
+                        isArabic
+                            ? 'لا توجد إشعارات بعد'
+                            : 'No notifications yet',
+                      )
                     : _buildList(all, patientId),
 
                 unread.isEmpty
-                    ? _emptyState(isArabic
-                        ? 'تمت قراءة جميع الإشعارات!'
-                        : 'You\'re all caught up!')
+                    ? _emptyState(
+                        isArabic
+                            ? 'تمت قراءة جميع الإشعارات!'
+                            : 'You\'re all caught up!',
+                      )
                     : _buildList(unread, patientId),
               ],
             );
@@ -463,15 +501,17 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 // ─── Helper for mark as unread (not in NotificationService) ───────────────────
 class FirestoreHelper {
   static Future<void> markAsUnread(
-      String patientId, String notificationId) async {
-    await FirestoreHelper._ref(patientId)
-        .doc(notificationId)
-        .update({'isRead': false});
+    String patientId,
+    String notificationId,
+  ) async {
+    await FirestoreHelper._ref(
+      patientId,
+    ).doc(notificationId).update({'isRead': false});
   }
 
-  static CollectionReference _ref(String patientId) =>
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(patientId)
-          .collection('notifications');
+  static CollectionReference _ref(String patientId) => FirebaseFirestore
+      .instance
+      .collection('users')
+      .doc(patientId)
+      .collection('notifications');
 }

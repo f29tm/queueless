@@ -30,8 +30,8 @@ class ExtractedSymptoms {
   factory ExtractedSymptoms.fromJson(Map<String, dynamic> json) {
     return ExtractedSymptoms(
       chiefComplaint: json['chief_complaint'] as String?,
-      symptoms: (json['symptoms'] as List?)?.whereType<String>().toList() ??
-          const [],
+      symptoms:
+          (json['symptoms'] as List?)?.whereType<String>().toList() ?? const [],
       nrsPain: (json['nrs_pain'] as num?)?.toDouble(),
       injury: json['injury'] as bool?,
       arrivalMode: json['arrival_mode'] as String?,
@@ -42,13 +42,13 @@ class ExtractedSymptoms {
   /// Canonical map persisted to `queue.nlpExtracted` — rebuilt from the typed
   /// fields so only schema-shaped data ever reaches Firestore.
   Map<String, dynamic> toJson() => {
-        'chief_complaint': chiefComplaint,
-        'symptoms': symptoms,
-        'nrs_pain': nrsPain,
-        'injury': injury,
-        'arrival_mode': arrivalMode,
-        'mental_status': mentalStatus,
-      };
+    'chief_complaint': chiefComplaint,
+    'symptoms': symptoms,
+    'nrs_pain': nrsPain,
+    'injury': injury,
+    'arrival_mode': arrivalMode,
+    'mental_status': mentalStatus,
+  };
 
   /// True when the extractor could not determine anything actionable.
   bool get isEmpty =>
@@ -137,7 +137,7 @@ Return the patient's words faithfully in chief_complaint meaning, but do not add
   final http.Client _client;
 
   SymptomExtractionService({http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   /// Returns the extracted suggestions, or null on any failure or timeout so
   /// the form silently falls back to manual entry (FR-NLP-06).

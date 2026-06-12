@@ -82,16 +82,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void _addWelcomeMessage() {
     final greeting = _patientName != null
         ? (_isArabic
-            ? 'مرحباً ${_patientName!.split(' ').first}!'
-            : 'Hello ${_patientName!.split(' ').first}!')
+              ? 'مرحباً ${_patientName!.split(' ').first}!'
+              : 'Hello ${_patientName!.split(' ').first}!')
         : (_isArabic ? 'مرحباً!' : 'Hello!');
 
-    _messages.add(_ChatMessage(
-      text: _isArabic
-          ? '$greeting أنا مساعدك في QueueLess. يمكنني مساعدتك في فهم نتيجة الفرز الخاصة بك، وشرح ما تتوقعه في المستشفى، أو الإجابة على أي أسئلة لديك. كيف يمكنني مساعدتك اليوم؟'
-          : '$greeting I\'m your QueueLess assistant. I can help you understand your triage result, explain what to expect at the hospital, or answer any questions you have. How can I help you today?',
-      isUser: false,
-    ));
+    _messages.add(
+      _ChatMessage(
+        text: _isArabic
+            ? '$greeting أنا مساعدك في QueueLess. يمكنني مساعدتك في فهم نتيجة الفرز الخاصة بك، وشرح ما تتوقعه في المستشفى، أو الإجابة على أي أسئلة لديك. كيف يمكنني مساعدتك اليوم؟'
+            : '$greeting I\'m your QueueLess assistant. I can help you understand your triage result, explain what to expect at the hospital, or answer any questions you have. How can I help you today?',
+        isUser: false,
+      ),
+    );
   }
 
   @override
@@ -110,15 +112,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
       final name = userDoc.data()?['name'] as String?;
 
       final snap = await FirebaseFirestore.instance
           .collection('queue')
           .where('patientId', isEqualTo: uid)
-          .where('status',
-              whereIn: ['pre_arrival', 'waiting_nurse', 'waiting_doctor'])
+          .where(
+            'status',
+            whereIn: ['pre_arrival', 'waiting_nurse', 'waiting_doctor'],
+          )
           .orderBy('createdAt', descending: true)
           .limit(1)
           .get();
@@ -155,12 +161,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       // A small personal touch once the assistant knows about the visit.
       if (status != null) {
         setState(() {
-          _messages.add(_ChatMessage(
-            text: _isArabic
-                ? 'أرى أن لديك زيارة نشطة (${_statusPhrase(status!, true)}). اسألني عن أي شيء يخص الخطوات القادمة.'
-                : 'I can see your active visit (${_statusPhrase(status!, false)}). Ask me anything about what happens next.',
-            isUser: false,
-          ));
+          _messages.add(
+            _ChatMessage(
+              text: _isArabic
+                  ? 'أرى أن لديك زيارة نشطة (${_statusPhrase(status!, true)}). اسألني عن أي شيء يخص الخطوات القادمة.'
+                  : 'I can see your active visit (${_statusPhrase(status!, false)}). Ask me anything about what happens next.',
+              isUser: false,
+            ),
+          );
         });
         _scrollToBottom();
       }
@@ -228,7 +236,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       final reply = await _service.sendMessage(trimmed);
       if (mounted) {
         setState(() {
-          _messages.add(_ChatMessage(text: reply, isUser: false, animate: true));
+          _messages.add(
+            _ChatMessage(text: reply, isUser: false, animate: true),
+          );
           _isLoading = false;
         });
         _scrollToBottom();
@@ -236,14 +246,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add(_ChatMessage(
-            text: isArabic
-                ? 'عذراً، المساعد غير متاح مؤقتاً. يرجى المحاولة مرة أخرى لاحقاً.'
-                : 'Sorry, the assistant is temporarily unavailable. Please try again later.',
-            isUser: false,
-            isError: true,
-            retryText: trimmed,
-          ));
+          _messages.add(
+            _ChatMessage(
+              text: isArabic
+                  ? 'عذراً، المساعد غير متاح مؤقتاً. يرجى المحاولة مرة أخرى لاحقاً.'
+                  : 'Sorry, the assistant is temporarily unavailable. Please try again later.',
+              isUser: false,
+              isError: true,
+              retryText: trimmed,
+            ),
+          );
           _isLoading = false;
         });
         _scrollToBottom();
@@ -260,12 +272,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       return;
     }
 
-    final ready = await _speech.init(onStatus: (status) {
-      if (!mounted) return;
-      if ((status == 'notListening' || status == 'done') && _isListening) {
-        setState(() => _isListening = false);
-      }
-    });
+    final ready = await _speech.init(
+      onStatus: (status) {
+        if (!mounted) return;
+        if ((status == 'notListening' || status == 'done') && _isListening) {
+          setState(() => _isListening = false);
+        }
+      },
+    );
     if (!mounted) return;
 
     if (!ready) {
@@ -291,8 +305,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         if (!mounted) return;
         setState(() {
           _controller.text = text;
-          _controller.selection =
-              TextSelection.collapsed(offset: text.length);
+          _controller.selection = TextSelection.collapsed(offset: text.length);
           if (isFinal) _isListening = false;
         });
       },
@@ -336,8 +349,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 itemCount: _messages.length + (_isLoading ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == _messages.length) {
@@ -381,7 +396,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 child: const CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.white24,
-                  child: Icon(Icons.support_agent, color: Colors.white, size: 20),
+                  child: Icon(
+                    Icons.support_agent,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
               Positioned(
@@ -415,8 +434,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 Text(
                   _visitStatus != null
                       ? (isArabic
-                          ? 'متصل بزيارتك الحالية'
-                          : 'Connected to your visit')
+                            ? 'متصل بزيارتك الحالية'
+                            : 'Connected to your visit')
                       : (isArabic ? 'متصل الآن' : 'Online now'),
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
@@ -442,8 +461,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          Icon(Icons.health_and_safety_outlined,
-              size: 14, color: Colors.teal.shade700),
+          Icon(
+            Icons.health_and_safety_outlined,
+            size: 14,
+            color: Colors.teal.shade700,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -517,7 +539,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           child: CircleAvatar(
             radius: 12,
             backgroundColor: Colors.teal.shade100,
-            child: Icon(Icons.support_agent, size: 14, color: Colors.teal.shade800),
+            child: Icon(
+              Icons.support_agent,
+              size: 14,
+              color: Colors.teal.shade800,
+            ),
           ),
         ),
         Expanded(child: bubble),
@@ -610,8 +636,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.refresh,
-                              size: 13, color: Colors.red.shade700),
+                          Icon(
+                            Icons.refresh,
+                            size: 13,
+                            color: Colors.red.shade700,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             isArabic ? 'إعادة المحاولة' : 'Try again',
@@ -739,75 +768,83 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           const SizedBox(height: 8),
           Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              minLines: 1,
-              maxLines: 4,
-              textDirection: AppLocalizer.direction(context),
-              textAlign: TextAlign.start,
-              textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: _isListening
-                    ? (isArabic ? 'جارٍ الاستماع…' : 'Listening…')
-                    : (isArabic ? 'اسألني أي شيء…' : 'Ask me anything…'),
-                hintStyle: TextStyle(
-                  color: _isListening ? Colors.red.shade300 : Colors.grey,
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF5F6FA),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onSubmitted: _send,
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _isLoading ? null : _toggleListening,
-            child: Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: _isListening ? Colors.red.shade50 : const Color(0xFFF5F6FA),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _isListening ? Colors.red : Colors.teal.shade200,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  textDirection: AppLocalizer.direction(context),
+                  textAlign: TextAlign.start,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: _isListening
+                        ? (isArabic ? 'جارٍ الاستماع…' : 'Listening…')
+                        : (isArabic ? 'اسألني أي شيء…' : 'Ask me anything…'),
+                    hintStyle: TextStyle(
+                      color: _isListening ? Colors.red.shade300 : Colors.grey,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF5F6FA),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: _send,
                 ),
               ),
-              child: Icon(
-                _isListening ? Icons.stop : Icons.mic_none,
-                color: _isListening ? Colors.red : Colors.teal,
-                size: 20,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _isLoading ? null : _toggleListening,
+                child: Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: _isListening
+                        ? Colors.red.shade50
+                        : const Color(0xFFF5F6FA),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _isListening ? Colors.red : Colors.teal.shade200,
+                    ),
+                  ),
+                  child: Icon(
+                    _isListening ? Icons.stop : Icons.mic_none,
+                    color: _isListening ? Colors.red : Colors.teal,
+                    size: 20,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _send(_controller.text),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: hasText || _isLoading ? Colors.teal : Colors.teal.shade200,
-                shape: BoxShape.circle,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _send(_controller.text),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: hasText || _isLoading
+                        ? Colors.teal
+                        : Colors.teal.shade200,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send, color: Colors.white, size: 20),
+                ),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.send, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
+            ],
           ),
         ],
       ),
@@ -866,7 +903,11 @@ class _TypewriterText extends StatelessWidget {
   final TextStyle style;
   final VoidCallback? onAdvance;
 
-  const _TypewriterText({required this.text, required this.style, this.onAdvance});
+  const _TypewriterText({
+    required this.text,
+    required this.style,
+    this.onAdvance,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -907,9 +948,10 @@ class _TypingDotState extends State<_TypingDot>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _animation = Tween<double>(begin: 0, end: -6).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0,
+      end: -6,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     Future.delayed(widget.delay, () {
       if (mounted) _controller.repeat(reverse: true);
     });

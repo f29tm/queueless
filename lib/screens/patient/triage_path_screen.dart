@@ -14,8 +14,7 @@ class TriagePathScreen extends StatefulWidget {
 class _TriagePathScreenState extends State<TriagePathScreen> {
   bool _isCreating = false;
 
-  bool get _isArabic =>
-      Localizations.localeOf(context).languageCode == 'ar';
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
 
   Future<void> _createManualQueueEntry() async {
     setState(() => _isCreating = true);
@@ -23,9 +22,11 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
-        _showError(_isArabic
-            ? "يجب تسجيل الدخول للمتابعة."
-            : "You must be logged in to continue.");
+        _showError(
+          _isArabic
+              ? "يجب تسجيل الدخول للمتابعة."
+              : "You must be logged in to continue.",
+        );
         return;
       }
 
@@ -33,8 +34,7 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
           .collection('users')
           .doc(uid)
           .get();
-      final name =
-          (userDoc.data()?['name'] as String?) ?? 'Unknown Patient';
+      final name = (userDoc.data()?['name'] as String?) ?? 'Unknown Patient';
 
       final queueNumber =
           'Q${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
@@ -72,9 +72,11 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
         arguments: {'queueNumber': queueNumber},
       );
     } catch (_) {
-      _showError(_isArabic
-          ? "حدث خطأ ما. يرجى المحاولة مرة أخرى."
-          : "Something went wrong. Please try again.");
+      _showError(
+        _isArabic
+            ? "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+            : "Something went wrong. Please try again.",
+      );
     } finally {
       if (mounted) setState(() => _isCreating = false);
     }
@@ -82,8 +84,9 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -91,92 +94,96 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
     final isArabic = _isArabic;
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F6FA),
-        appBar: AppBar(
-          backgroundColor: Colors.teal,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          title: Text(
-            isArabic
-                ? "كيف تريد تسجيل الدخول؟"
-                : "How would you like to check in?",
-            style: const TextStyle(fontSize: 17),
-          ),
+      backgroundColor: const Color(0xFFF5F6FA),
+      appBar: AppBar(
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          isArabic
+              ? "كيف تريد تسجيل الدخول؟"
+              : "How would you like to check in?",
+          style: const TextStyle(fontSize: 17),
         ),
-        body: _isCreating
-            ? Center(
+      ),
+      body: _isCreating
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Colors.teal),
+                  const SizedBox(height: 16),
+                  Text(
+                    isArabic
+                        ? "جارٍ تسجيلك في الطابور…"
+                        : "Registering you in the queue…",
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(color: Colors.teal),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Text(
                       isArabic
-                          ? "جارٍ تسجيلك في الطابور…"
-                          : "Registering you in the queue…",
-                      style: const TextStyle(color: Colors.grey),
+                          ? "اختر طريقة الفرز المناسبة لك"
+                          : "Choose how you want to be triaged today",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                        height: 1.4,
+                      ),
                     ),
+                    const SizedBox(height: 32),
+                    _ChoiceCard(
+                      icon: Icons.psychology_outlined,
+                      iconColor: Colors.teal,
+                      title: isArabic
+                          ? "تقييم الأعراض بالذكاء الاصطناعي"
+                          : "Assess Symptoms with AI",
+                      subtitle: isArabic
+                          ? "أجب على بعض الأسئلة واحصل على تقييم طبي قبل وصولك. معالجة أسرع في قسم الطوارئ."
+                          : "Answer a few questions and get an urgency rating before you arrive. Faster processing at the ED.",
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/symptom-assessment'),
+                    ),
+                    const SizedBox(height: 18),
+                    _ChoiceCard(
+                      icon: Icons.personal_injury_outlined,
+                      iconColor: Colors.grey.shade600,
+                      title: isArabic
+                          ? "التقرير للممرضة عند الوصول"
+                          : "Report to Nurse on Arrival",
+                      subtitle: isArabic
+                          ? "تخطَّ الاستبيان. تعال وستقوم الممرضة بتقييمك مباشرةً."
+                          : "Skip the questionnaire. Come in and the nurse will assess you directly.",
+                      onTap: _createManualQueueEntry,
+                    ),
+                    const Spacer(),
+                    Text(
+                      isArabic
+                          ? "في حالات الطوارئ، اتصل بـ 999 فوراً."
+                          : "For emergencies, call 999 immediately.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
-              )
-            : SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 20),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      Text(
-                        isArabic
-                            ? "اختر طريقة الفرز المناسبة لك"
-                            : "Choose how you want to be triaged today",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black54,
-                            height: 1.4),
-                      ),
-                      const SizedBox(height: 32),
-                      _ChoiceCard(
-                        icon: Icons.psychology_outlined,
-                        iconColor: Colors.teal,
-                        title: isArabic
-                            ? "تقييم الأعراض بالذكاء الاصطناعي"
-                            : "Assess Symptoms with AI",
-                        subtitle: isArabic
-                            ? "أجب على بعض الأسئلة واحصل على تقييم طبي قبل وصولك. معالجة أسرع في قسم الطوارئ."
-                            : "Answer a few questions and get an urgency rating before you arrive. Faster processing at the ED.",
-                        onTap: () => Navigator.pushNamed(
-                            context, '/symptom-assessment'),
-                      ),
-                      const SizedBox(height: 18),
-                      _ChoiceCard(
-                        icon: Icons.personal_injury_outlined,
-                        iconColor: Colors.grey.shade600,
-                        title: isArabic
-                            ? "التقرير للممرضة عند الوصول"
-                            : "Report to Nurse on Arrival",
-                        subtitle: isArabic
-                            ? "تخطَّ الاستبيان. تعال وستقوم الممرضة بتقييمك مباشرةً."
-                            : "Skip the questionnaire. Come in and the nurse will assess you directly.",
-                        onTap: _createManualQueueEntry,
-                      ),
-                      const Spacer(),
-                      Text(
-                        isArabic
-                            ? "في حالات الطوارئ، اتصل بـ 999 فوراً."
-                            : "For emergencies, call 999 immediately.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.red.shade700,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
               ),
+            ),
     );
   }
 }
@@ -233,15 +240,18 @@ class _ChoiceCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     subtitle,
                     style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                        height: 1.4),
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),

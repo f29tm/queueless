@@ -92,8 +92,9 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
             _staffIdError = null;
             _passwordError = null;
           });
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(error)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error)));
         }
         return;
       }
@@ -107,32 +108,24 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
       } else if (role == "doctor") {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const DoctorDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const DoctorDashboardScreen()),
           (route) => false,
         );
       } else if (role == "nurse") {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const NurseDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const NurseDashboardScreen()),
           (route) => false,
         );
       } else if (role == "staff") {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => const StaffDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const StaffDashboardScreen()),
           (route) => false,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Invalid role. Please contact admin."),
-          ),
+          const SnackBar(content: Text("Invalid role. Please contact admin.")),
         );
       }
     } finally {
@@ -202,10 +195,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                 children: [
                   const Text(
                     "Staff Login",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -214,8 +204,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  _input(staffIdController, "Staff ID", Icons.perm_identity,
-                      error: _staffIdError),
+                  _input(
+                    staffIdController,
+                    "Staff ID",
+                    Icons.perm_identity,
+                    error: _staffIdError,
+                  ),
                   const SizedBox(height: 16),
 
                   _passwordField(error: _passwordError),
@@ -256,12 +250,16 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text(
                               "Login",
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -283,7 +281,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                         ),
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -293,8 +291,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
     );
   }
 
-  Widget _input(TextEditingController c, String label, IconData icon,
-      {String? error}) {
+  Widget _input(
+    TextEditingController c,
+    String label,
+    IconData icon, {
+    String? error,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,8 +305,9 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
           decoration: BoxDecoration(
             color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
-            border:
-                error != null ? Border.all(color: Colors.red.shade300) : null,
+            border: error != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
           ),
           child: TextField(
             controller: c,
@@ -329,22 +332,26 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
           decoration: BoxDecoration(
             color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
-            border:
-                error != null ? Border.all(color: Colors.red.shade300) : null,
+            border: error != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
           ),
           child: TextField(
             controller: passwordController,
             obscureText: obscurePassword,
             decoration: InputDecoration(
-              prefixIcon:
-                  const Icon(Icons.lock_outline, color: Color(0xFF2446B8)),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                color: Color(0xFF2446B8),
+              ),
               labelText: "Password",
               border: InputBorder.none,
               suffixIcon: IconButton(
                 icon: Icon(
                   obscurePassword ? Icons.visibility_off : Icons.visibility,
                 ),
-                onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                onPressed: () =>
+                    setState(() => obscurePassword = !obscurePassword),
               ),
             ),
           ),
@@ -362,8 +369,10 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
           const Icon(Icons.error_outline, size: 13, color: Colors.red),
           const SizedBox(width: 4),
           Flexible(
-            child: Text(msg,
-                style: const TextStyle(color: Colors.red, fontSize: 12)),
+            child: Text(
+              msg,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -418,15 +427,22 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
                     final email = emailController.text.trim();
 
                     setState(() {
-                      staffIdError = staffId.isEmpty ? 'Please enter your Staff ID' : null;
-                      emailError = email.isEmpty ? 'Please enter your email address' : null;
+                      staffIdError = staffId.isEmpty
+                          ? 'Please enter your Staff ID'
+                          : null;
+                      emailError = email.isEmpty
+                          ? 'Please enter your email address'
+                          : null;
                     });
 
                     if (staffId.isEmpty || email.isEmpty) return;
 
                     final navigator = Navigator.of(context);
                     final messenger = ScaffoldMessenger.of(context);
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final authProvider = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
 
                     final error = await authProvider.staffResetPassword(
                       staffId: staffId,

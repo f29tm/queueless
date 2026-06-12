@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -54,9 +54,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   late final List<String> availableDates = List.generate(
     4,
-    (index) => DateFormat('EEE, MMM d').format(
-      DateTime.now().add(Duration(days: index)),
-    ),
+    (index) => DateFormat(
+      'EEE, MMM d',
+    ).format(DateTime.now().add(Duration(days: index))),
   );
 
   final List<String> availableTimes = [
@@ -213,7 +213,8 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     final time = DateFormat('hh:mm a').parse(timeLabel);
     final now = DateTime.now();
 
-    final year = (date.month < now.month ||
+    final year =
+        (date.month < now.month ||
             (date.month == now.month && date.day < now.day))
         ? now.year + 1
         : now.year;
@@ -223,7 +224,10 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   bool _isSelectedConsultationInPast() {
     if (selectedDate == null || selectedTime == null) return false;
-    return _parseDateTime(selectedDate!, selectedTime!).isBefore(DateTime.now());
+    return _parseDateTime(
+      selectedDate!,
+      selectedTime!,
+    ).isBefore(DateTime.now());
   }
 
   Future<void> _loadBookedSlots(String doctorUid) async {
@@ -274,18 +278,22 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         selectedDoctorUid == null ||
         selectedDate == null ||
         selectedTime == null) {
-      _showSnack(tr(
-        "Please complete all consultation steps.",
-        "يرجى إكمال جميع خطوات الاستشارة.",
-      ));
+      _showSnack(
+        tr(
+          "Please complete all consultation steps.",
+          "يرجى إكمال جميع خطوات الاستشارة.",
+        ),
+      );
       return;
     }
 
     if (_isSelectedConsultationInPast()) {
-      _showSnack(tr(
-        "Selected consultation time has already passed.",
-        "وقت الاستشارة المحدد قد مضى بالفعل.",
-      ));
+      _showSnack(
+        tr(
+          "Selected consultation time has already passed.",
+          "وقت الاستشارة المحدد قد مضى بالفعل.",
+        ),
+      );
       return;
     }
 
@@ -438,10 +446,9 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   void nextStep() {
     if (currentStep == 0 && selectedType == null) {
-      _showSnack(tr(
-        "Please select a consultation type.",
-        "يرجى اختيار نوع الاستشارة.",
-      ));
+      _showSnack(
+        tr("Please select a consultation type.", "يرجى اختيار نوع الاستشارة."),
+      );
       return;
     }
 
@@ -451,26 +458,29 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
     }
 
     if (currentStep == 2 && (selectedDate == null || selectedTime == null)) {
-      _showSnack(tr(
-        "Please select date and time.",
-        "يرجى اختيار التاريخ والوقت.",
-      ));
+      _showSnack(
+        tr("Please select date and time.", "يرجى اختيار التاريخ والوقت."),
+      );
       return;
     }
 
     if (currentStep == 2 && _isSelectedConsultationInPast()) {
-      _showSnack(tr(
-        "Selected consultation time has already passed.",
-        "وقت الاستشارة المحدد قد مضى بالفعل.",
-      ));
+      _showSnack(
+        tr(
+          "Selected consultation time has already passed.",
+          "وقت الاستشارة المحدد قد مضى بالفعل.",
+        ),
+      );
       return;
     }
 
     if (currentStep == 2 && _isSlotBooked(selectedTime!)) {
-      _showSnack(tr(
-        "This slot is already booked. Please choose another.",
-        "هذا الموعد محجوز بالفعل. يرجى اختيار موعد آخر.",
-      ));
+      _showSnack(
+        tr(
+          "This slot is already booked. Please choose another.",
+          "هذا الموعد محجوز بالفعل. يرجى اختيار موعد آخر.",
+        ),
+      );
       return;
     }
 
@@ -490,22 +500,22 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildProgress(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                  child: _buildStepContent(),
-                ),
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildProgress(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: _buildStepContent(),
               ),
-              _buildBottomButtons(),
-            ],
-          ),
+            ),
+            _buildBottomButtons(),
+          ],
         ),
+      ),
     );
   }
 
@@ -577,8 +587,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
 
   Widget _buildTypeStep() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Online Consultation", "استشارة إلكترونية"),
@@ -651,14 +660,12 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         final Map<String, QueryDocumentSnapshot> byName = {};
         for (final doc in uniqueDoctors.values) {
           final data = doc.data() as Map<String, dynamic>;
-          final name =
-              (data['name'] ?? '').toString().toLowerCase().trim();
+          final name = (data['name'] ?? '').toString().toLowerCase().trim();
           if (name.isEmpty) continue;
           if (!byName.containsKey(name)) {
             byName[name] = doc;
           } else {
-            final existing =
-                byName[name]!.data() as Map<String, dynamic>;
+            final existing = byName[name]!.data() as Map<String, dynamic>;
             if (data['nameAr'] != null && existing['nameAr'] == null) {
               byName[name] = doc;
             }
@@ -676,8 +683,7 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
         }
 
         return Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               tr("Select Doctor", "اختر الطبيب"),
@@ -695,62 +701,60 @@ class _OnlineConsultationScreenState extends State<OnlineConsultationScreen> {
               ),
               style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
             ),
-      ...doctors.map((doc) {
-  final data = doc.data() as Map<String, dynamic>;
+            ...doctors.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
 
-final uid = (data['uid'] ?? doc.id).toString();
+              final uid = (data['uid'] ?? doc.id).toString();
 
-final rawName = (data['name'] ?? 'Doctor').toString();
-final doctorName = isArabic
-    ? (data['nameAr'] ?? translateDoctorName(rawName)).toString()
-    : rawName;
+              final rawName = (data['name'] ?? 'Doctor').toString();
+              final doctorName = isArabic
+                  ? (data['nameAr'] ?? translateDoctorName(rawName)).toString()
+                  : rawName;
 
-final specialty = isArabic
-    ? (data['specialtyAr'] ?? '').toString()
-    : (data['specialty'] ?? '').toString();
+              final specialty = isArabic
+                  ? (data['specialtyAr'] ?? '').toString()
+                  : (data['specialty'] ?? '').toString();
 
-final department = isArabic
-    ? (data['departmentAr'] ?? '').toString()
-    : (data['department'] ?? '').toString();
+              final department = isArabic
+                  ? (data['departmentAr'] ?? '').toString()
+                  : (data['department'] ?? '').toString();
 
-final originalDoctorName = (data['name'] ?? 'Doctor').toString();
-final originalSpecialty = (data['specialty'] ?? '').toString();
-final originalDepartment = (data['department'] ?? '').toString();
+              final originalDoctorName = (data['name'] ?? 'Doctor').toString();
+              final originalSpecialty = (data['specialty'] ?? '').toString();
+              final originalDepartment = (data['department'] ?? '').toString();
 
-final subtitleText = isArabic
-    ? specialty
-    : "$department • $specialty";
+              final subtitleText = isArabic
+                  ? specialty
+                  : "$department • $specialty";
 
-return _selectCard(
-  title: doctorName,
-  subtitle: subtitleText,
-  icon: Icons.person_outline,
-  selected: selectedDoctorUid == uid,
-  onTap: () async {
-    setState(() {
-      selectedDoctor = originalDoctorName;
-      selectedDoctorUid = uid;
-      selectedDoctorDepartment = originalDepartment;
-      selectedDoctorSpecialty = originalSpecialty;
-      selectedDate = null;
-      selectedTime = null;
-    });
+              return _selectCard(
+                title: doctorName,
+                subtitle: subtitleText,
+                icon: Icons.person_outline,
+                selected: selectedDoctorUid == uid,
+                onTap: () async {
+                  setState(() {
+                    selectedDoctor = originalDoctorName;
+                    selectedDoctorUid = uid;
+                    selectedDoctorDepartment = originalDepartment;
+                    selectedDoctorSpecialty = originalSpecialty;
+                    selectedDate = null;
+                    selectedTime = null;
+                  });
 
-    await _loadBookedSlots(uid);
-  },
-);
-}),
-
-],
-);
-},
-);
-}
+                  await _loadBookedSlots(uid);
+                },
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildDateTimeStep() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Date & Time", "اختر التاريخ والوقت"),
@@ -800,8 +804,7 @@ return _selectCard(
         ),
         const SizedBox(height: 24),
         Row(
-          mainAxisAlignment:
-              MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Text(
               tr("Available Times", "الأوقات المتاحة"),
@@ -828,31 +831,37 @@ return _selectCard(
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
 
-            final isPast = selectedDate != null &&
+            final isPast =
+                selectedDate != null &&
                 _parseDateTime(selectedDate!, time).isBefore(DateTime.now());
 
             final isBooked = _isSlotBooked(time);
             final disabled = isPast || isBooked;
 
             return GestureDetector(
-              onTap: disabled ? null : () => setState(() => selectedTime = time),
+              onTap: disabled
+                  ? null
+                  : () => setState(() => selectedTime = time),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: isBooked
                       ? Colors.red.shade50
                       : selected
-                          ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
-                          : isPast
-                              ? const Color(0xFFF3F4F6)
-                              : Colors.white,
+                      ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
+                      : isPast
+                      ? const Color(0xFFF3F4F6)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isBooked
                         ? Colors.red.shade200
                         : selected
-                            ? const Color(0xFF0F8B8D)
-                            : const Color(0xFFE5E7EB),
+                        ? const Color(0xFF0F8B8D)
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
                 child: Column(
@@ -864,13 +873,14 @@ return _selectCard(
                         color: isBooked
                             ? Colors.red.shade300
                             : isPast
-                                ? const Color(0xFF9CA3AF)
-                                : selected
-                                    ? const Color(0xFF0F8B8D)
-                                    : const Color(0xFF111827),
+                            ? const Color(0xFF9CA3AF)
+                            : selected
+                            ? const Color(0xFF0F8B8D)
+                            : const Color(0xFF111827),
                         fontWeight: FontWeight.w600,
-                        decoration:
-                            isBooked || isPast ? TextDecoration.lineThrough : null,
+                        decoration: isBooked || isPast
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
                     if (isBooked)
@@ -904,10 +914,7 @@ return _selectCard(
               Colors.red.shade200,
               tr("Already booked", "محجوز مسبقاً"),
             ),
-            _legendItem(
-              Colors.grey.shade300,
-              tr("Time passed", "انتهى الوقت"),
-            ),
+            _legendItem(Colors.grey.shade300, tr("Time passed", "انتهى الوقت")),
             _legendItem(
               const Color(0xFF0F8B8D),
               tr("Your selection", "اختيارك"),
@@ -942,8 +949,7 @@ return _selectCard(
 
   Widget _buildSummaryStep() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Consultation Summary", "ملخص الاستشارة"),
@@ -989,8 +995,7 @@ return _selectCard(
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 tr("Consultation Details", "تفاصيل الاستشارة"),
@@ -1081,8 +1086,7 @@ return _selectCard(
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
@@ -1097,7 +1101,10 @@ return _selectCard(
                   Text(
                     subtitle,
                     textAlign: TextAlign.start,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF6B7280),
+                    ),
                   ),
                 ],
               ),
@@ -1150,10 +1157,7 @@ return _selectCard(
                 padding: const EdgeInsets.all(16),
                 side: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Color(0xFF374151),
-              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFF374151)),
             ),
           ),
           Expanded(
@@ -1161,8 +1165,8 @@ return _selectCard(
               onPressed: isSaving
                   ? null
                   : isLastStep
-                      ? _confirmConsultation
-                      : nextStep,
+                  ? _confirmConsultation
+                  : nextStep,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F8B8D),
                 disabledBackgroundColor: const Color(0xFF0F8B8D),

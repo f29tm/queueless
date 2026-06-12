@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../utils/wait_estimator.dart';
-import '../../utils/queue_position_fanout.dart';
 import '../../services/notification_service.dart';
+import 'appointment_arrival_screen.dart';
 
 /// True once a queue doc has moved past `pre_arrival` — i.e. the patient has
 /// already checked in (or been triaged/seen). Used to guard against a second
@@ -31,6 +33,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
   int? _waitPosition;
   String _estimatedWaitText = '-';
   bool _showLowPriorityNote = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _ownDocSub;
 
   // Estimated-wait math lives in the pure, unit-tested WaitEstimator (APQ —
   // accumulative priority queue). See lib/utils/wait_estimator.dart for the
@@ -43,6 +46,46 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
     if (_resolvedDocId == null) {
       _lookupPendingDoc();
     }
+  }
+
+  @override
+  void dispose() {
+    _ownDocSub?.cancel();
+    super.dispose();
+  }
+
+  /// Live position and wait estimate from the patient's OWN queue doc.
+  ///
+  /// Security rules block patients from reading anyone else's queue doc, so
+  /// this screen cannot compute "N patients ahead" itself. Staff sessions
+  /// fan out `currentPosition` onto each doc (see QueuePositionFanout); we
+  /// just listen to ours and render whatever lands.
+  void _listenToOwnDoc(DocumentReference<Map<String, dynamic>> docRef) {
+    _ownDocSub?.cancel();
+    _ownDocSub = docRef.snapshots().listen((snap) {
+      if (!mounted) return;
+      final data = snap.data();
+      if (data == null) return;
+      final position = (data['currentPosition'] as num?)?.toInt();
+      final estMin = (data['estimatedWaitMinutes'] as num?)?.toInt();
+      final level = _normalizeLevel(data['triageLevel']);
+      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+      setState(() {
+        _waitPosition = position;
+        if (position == null) {
+          _estimatedWaitText = '-';
+        } else if (estMin != null && estMin > 0) {
+          _estimatedWaitText =
+              '${WaitEstimator.rangeLow(estMin)}–${WaitEstimator.rangeHigh(estMin)} min';
+        } else {
+          _estimatedWaitText = WaitEstimator.waitText(
+            level,
+            position - 1,
+            nextLabel: isArabic ? 'الآن' : 'Now',
+          );
+        }
+      });
+    });
   }
 
   Future<void> _lookupPendingDoc() async {
@@ -58,10 +101,112 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           .get();
       if (query.docs.isNotEmpty && mounted) {
         setState(() => _resolvedDocId = query.docs.first.id);
+        return;
       }
+      // No pending triage — check for an upcoming appointment instead.
+      await _checkForAppointment(uid);
     } catch (_) {
       // Best-effort lookup: if it fails, _resolvedDocId stays null and
       // _confirmArrival shows the friendly "no pending triage" prompt.
+    }
+  }
+
+  /// If the patient has an upcoming scheduled appointment (today or within the
+  /// next 24 h), navigate directly to the appointment check-in screen so they
+  /// don't land on the "no pending triage" error.
+  Future<void> _checkForAppointment(String uid) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('patientId', isEqualTo: uid)
+          .where('status', isEqualTo: 'scheduled')
+          .get();
+      if (snap.docs.isEmpty || !mounted) return;
+
+      // Pick the appointment whose date is today or soonest upcoming.
+      // date field is stored as a string like "Mon, Jun 15".
+      final now = DateTime.now();
+      QueryDocumentSnapshot<Map<String, dynamic>>? best;
+      DateTime? bestDt;
+      for (final doc in snap.docs) {
+        final dt = _parseAppointmentDateTime(
+          doc.data()['date'] as String? ?? '',
+          doc.data()['time'] as String? ?? '',
+        );
+        if (dt == null) continue;
+        // Accept if within next 8 hours (they're arriving for it now).
+        final diff = dt.difference(now);
+        if (diff.inHours >= -1 && diff.inHours <= 8) {
+          if (bestDt == null || dt.isBefore(bestDt)) {
+            best = doc;
+            bestDt = dt;
+          }
+        }
+      }
+
+      if (best == null || !mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AppointmentArrivalScreen(
+            appointmentId: best!.id,
+            appointmentData: best.data(),
+          ),
+        ),
+      );
+    } catch (_) {
+      // If appointment lookup fails, fall through to normal flow.
+    }
+  }
+
+  /// Parses the stored date/time strings ("Mon, Jun 15" + "09:00 AM") into a
+  /// DateTime. Returns null if parsing fails.
+  DateTime? _parseAppointmentDateTime(String dateStr, String timeStr) {
+    try {
+      final datePart = dateStr.contains(',')
+          ? dateStr.split(',').last.trim()
+          : dateStr.trim();
+      final monthDay = datePart.split(' ');
+      if (monthDay.length < 2) return null;
+      const months = {
+        'Jan': 1,
+        'Feb': 2,
+        'Mar': 3,
+        'Apr': 4,
+        'May': 5,
+        'Jun': 6,
+        'Jul': 7,
+        'Aug': 8,
+        'Sep': 9,
+        'Oct': 10,
+        'Nov': 11,
+        'Dec': 12,
+      };
+      final month = months[monthDay[0]];
+      final day = int.tryParse(monthDay[1]);
+      if (month == null || day == null) return null;
+
+      // Parse time like "09:00 AM" / "11:00 PM"
+      final timeParts = timeStr.trim().split(' ');
+      if (timeParts.length < 2) return null;
+      final hmParts = timeParts[0].split(':');
+      if (hmParts.length < 2) return null;
+      var hour = int.tryParse(hmParts[0]) ?? 0;
+      final minute = int.tryParse(hmParts[1]) ?? 0;
+      final isPm = timeParts[1].toUpperCase() == 'PM';
+      if (isPm && hour != 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+
+      final now = DateTime.now();
+      // Assume current year; roll to next if the month is already past.
+      var year = now.year;
+      if (month < now.month || (month == now.month && day < now.day)) {
+        year++;
+      }
+      return DateTime(year, month, day, hour, minute);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -73,8 +218,8 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
         SnackBar(
           content: Text(
             isArabic
-                ? "لا يوجد طلب فرز معلق. أكمل تقييم الأعراض أولاً."
-                : "No pending triage found. Complete symptom assessment first.",
+                ? "لا يوجد طلب فرز أو موعد معلق. أكمل تقييم الأعراض أو احجز موعداً أولاً."
+                : "No pending triage or appointment found. Please complete symptom assessment or book an appointment first.",
           ),
         ),
       );
@@ -101,95 +246,61 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
             _queueNumber = existingData?['queueNumber'] as String? ?? '-';
             _waitPosition = (existingData?['currentPosition'] as num?)?.toInt();
           });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(isArabic
-                ? 'لقد تم تسجيل وصولك بالفعل. يرجى الجلوس.'
-                : 'You are already checked in. Please take a seat.'),
-          ));
+          _listenToOwnDoc(docRef);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isArabic
+                    ? 'لقد تم تسجيل وصولك بالفعل. يرجى الجلوس.'
+                    : 'You are already checked in. Please take a seat.',
+              ),
+            ),
+          );
         }
         return;
       }
 
-      final queueNumber = existingData?['queueNumber'] as String? ??
+      final queueNumber =
+          existingData?['queueNumber'] as String? ??
           'Q${_resolvedDocId!.substring(0, 6).toUpperCase()}';
 
       await FirebaseFirestore.instance
           .collection('queue')
           .doc(_resolvedDocId)
           .update({
-        'queueType': 'nurse',
-        'status': 'waiting_nurse',
-        'queueNumber': queueNumber,
-        'arrivedAt': FieldValue.serverTimestamp(),
-      });
+            'queueType': 'nurse',
+            'status': 'waiting_nurse',
+            'queueNumber': queueNumber,
+            'arrivedAt': FieldValue.serverTimestamp(),
+          });
 
-      // BEHAVIOUR: now that this patient is waiting_nurse, recompute every
-      // waiting patient's currentPosition so each can read their own place.
-      // Best-effort and fire-and-forget — never blocks or fails the check-in.
-      QueuePositionFanout.run(NotificationService()).ignore();
-
-      // Mark confirmed immediately — position calc is best-effort
-      int patientsAhead = 0;
-      int baseWait = 0;
-      String waitText = '-';
+      // BEHAVIOUR: this patient is now waiting_nurse. We can NOT compute the
+      // queue position here — security rules block patients from reading any
+      // queue doc but their own, so a lane-wide query would be denied. The
+      // nurse dashboard's stream notices the new arrival and fans out
+      // currentPosition onto every waiting doc; we listen to our own doc and
+      // the position/wait tiles fill in live the moment it lands.
       final thisLevel = _normalizeLevel(existingData?['triageLevel']);
-
-      try {
-        final waiting = await FirebaseFirestore.instance
-            .collection('queue')
-            .where('queueType', isEqualTo: 'nurse')
-            .where('status', isEqualTo: 'waiting_nurse')
-            .orderBy('priorityNumber')
-            .orderBy('createdAt')
-            .get();
-        final index =
-            waiting.docs.indexWhere((doc) => doc.id == _resolvedDocId);
-        patientsAhead = index < 0 ? 0 : index;
-
-        final myPriority = _priorityRank(thisLevel);
-        int patientsAheadInLane = 0;
-        for (int i = 0; i < patientsAhead; i++) {
-          final aheadData = waiting.docs[i].data();
-          final aheadPriority =
-              (aheadData['priorityNumber'] as num?)?.toInt() ?? 3;
-          if (aheadPriority <= myPriority) patientsAheadInLane++;
-        }
-
-        baseWait = WaitEstimator.baseWaitMinutes(thisLevel, patientsAheadInLane);
-        waitText = WaitEstimator.waitText(thisLevel, patientsAheadInLane);
-      } catch (_) {
-        // Position query failed — check-in still succeeded
-      }
 
       if (mounted) {
         setState(() {
           _confirmed = true;
           _queueNumber = queueNumber;
-          _waitPosition = patientsAhead + 1;
-          _estimatedWaitText = waitText;
           _showLowPriorityNote = thisLevel == 'LOW';
         });
       }
+      _listenToOwnDoc(docRef);
 
       // ── Notifications (best-effort — never block or crash the check-in) ──────
+      // The patient's own position notification comes from the staff-side
+      // fan-out (which knows the real rank) — only the nurses are told here.
       try {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
         final patientName =
-            FirebaseAuth.instance.currentUser?.displayName?.trim() ?? 'A patient';
+            FirebaseAuth.instance.currentUser?.displayName?.trim() ??
+            'A patient';
         final noAI = existingData?['noAITriage'] == true;
-        final notifService = NotificationService();
 
-        // 1. Tell the patient their queue position and estimated wait.
-        if (uid != null) {
-          await notifService.notifyQueueUpdate(
-            patientId: uid,
-            position: patientsAhead + 1,
-            estimatedWaitMinutes: baseWait,
-          );
-        }
-
-        // 2. Broadcast arrival to all nurses.
-        await notifService.notifyNursePatientArrival(
+        await NotificationService().notifyNursePatientArrival(
           patientName: patientName,
           queueNumber: queueNumber,
           reportedSymptoms: !noAI,
@@ -199,8 +310,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final isArabicErr =
-          Localizations.localeOf(context).languageCode == 'ar';
+      final isArabicErr = Localizations.localeOf(context).languageCode == 'ar';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -212,17 +322,6 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       );
     } finally {
       if (mounted) setState(() => _isConfirming = false);
-    }
-  }
-
-  int _priorityRank(String level) {
-    switch (level) {
-      case 'EMERGENCY':
-        return 1;
-      case 'MODERATE':
-        return 2;
-      default:
-        return 3; // LOW / unknown
     }
   }
 
@@ -239,21 +338,21 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFF5F7FA),
-          elevation: 0,
-          foregroundColor: Colors.black87,
-          title: Text(
-            isArabic ? 'تسجيل الوصول' : 'Check In',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17),
-          ),
+        elevation: 0,
+        foregroundColor: Colors.black87,
+        title: Text(
+          isArabic ? 'تسجيل الوصول' : 'Check In',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17),
         ),
-        body: SafeArea(
-          child: _confirmed
-              ? _buildSuccessState(isArabic)
-              : _buildPreConfirmState(isArabic),
-        ),
+      ),
+      body: SafeArea(
+        child: _confirmed
+            ? _buildSuccessState(isArabic)
+            : _buildPreConfirmState(isArabic),
+      ),
     );
   }
 
@@ -273,18 +372,18 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 color: Colors.green.shade50,
                 border: Border.all(color: Colors.green.shade200, width: 3),
               ),
-              child: Icon(Icons.check_circle,
-                  color: Colors.green.shade600, size: 64),
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.green.shade600,
+                size: 64,
+              ),
             ),
 
             const SizedBox(height: 28),
 
             Text(
               isArabic ? "تم تسجيل وصولك!" : "You're checked in!",
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 12),
@@ -336,20 +435,18 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                       Expanded(
                         child: _queueInfo(
                           isArabic ? "الترتيب" : "Position",
-                          _waitPosition == null
-                              ? "-"
-                              : "#$_waitPosition",
+                          _waitPosition == null ? "-" : "#$_waitPosition",
                           isArabic,
                         ),
                       ),
                       const SizedBox(width: 12),
-               Expanded(
-  child: _queueInfo(
-    isArabic ? "وقت الانتظار المتوقع" : "Estimated Wait",
-    _estimatedWaitText,
-    isArabic,
-  ),
-),
+                      Expanded(
+                        child: _queueInfo(
+                          isArabic ? "وقت الانتظار المتوقع" : "Estimated Wait",
+                          _estimatedWaitText,
+                          isArabic,
+                        ),
+                      ),
                     ],
                   ),
 
@@ -433,7 +530,6 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Text(
             isArabic ? "لقد وصلت" : "I Have Arrived",
             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
@@ -486,7 +582,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.pan_tool, size: 22),
               label: Text(
@@ -526,7 +624,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                 child: Text(
                   isArabic ? "أو" : "OR",
                   style: const TextStyle(
-                      color: Colors.grey, fontWeight: FontWeight.bold),
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Expanded(child: Divider(color: Colors.grey.shade300)),
@@ -563,7 +663,9 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                             ? "الكشف التلقائي عن الموقع"
                             : "Auto-Detect Location",
                         style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -579,15 +681,18 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: null,
-                      icon: const Icon(Icons.location_searching,
-                          color: Colors.teal),
+                      icon: const Icon(
+                        Icons.location_searching,
+                        color: Colors.teal,
+                      ),
                       label: Text(
                         isArabic ? "قريباً" : "Coming Soon",
                         style: const TextStyle(color: Colors.teal),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: Colors.teal.withValues(alpha: 0.4)),
+                          color: Colors.teal.withValues(alpha: 0.4),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

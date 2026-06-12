@@ -10,8 +10,9 @@ String buildChiefComplaint({
   final text = complaintText.trim();
 
   if (text.isNotEmpty) {
-    chiefComplaint +=
-        chiefComplaint.isNotEmpty ? '. Patient says: $text' : text;
+    chiefComplaint += chiefComplaint.isNotEmpty
+        ? '. Patient says: $text'
+        : text;
   }
 
   if (chiefComplaint.isEmpty) {

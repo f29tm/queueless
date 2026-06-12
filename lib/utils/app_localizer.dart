@@ -55,9 +55,7 @@ class AppLocalizer {
   static String time(BuildContext context, String value) {
     if (!isArabic(context)) return value;
 
-    return value
-        .replaceAll('AM', 'صباحاً')
-        .replaceAll('PM', 'مساءً');
+    return value.replaceAll('AM', 'صباحاً').replaceAll('PM', 'مساءً');
   }
 
   static String status(BuildContext context, String value) {

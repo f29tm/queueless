@@ -29,9 +29,24 @@ void main() {
 
   group('NurseQueueFilter.filterByLevel', () {
     test('returns only docs matching the requested level', () async {
-      await seed('a', triageLevel: 'EMERGENCY', priorityNumber: 1, arrivedAtMs: 1000);
-      await seed('b', triageLevel: 'MODERATE', priorityNumber: 2, arrivedAtMs: 2000);
-      await seed('c', triageLevel: 'EMERGENCY', priorityNumber: 1, arrivedAtMs: 3000);
+      await seed(
+        'a',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 1000,
+      );
+      await seed(
+        'b',
+        triageLevel: 'MODERATE',
+        priorityNumber: 2,
+        arrivedAtMs: 2000,
+      );
+      await seed(
+        'c',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 3000,
+      );
 
       final all = (await db.collection('queue').get()).docs;
       final result = NurseQueueFilter.filterByLevel(all, 'EMERGENCY');
@@ -40,7 +55,12 @@ void main() {
     });
 
     test('null level returns every doc unchanged', () async {
-      await seed('a', triageLevel: 'EMERGENCY', priorityNumber: 1, arrivedAtMs: 1000);
+      await seed(
+        'a',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 1000,
+      );
       await seed('b', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 2000);
 
       final all = (await db.collection('queue').get()).docs;
@@ -48,8 +68,19 @@ void main() {
     });
 
     test('MANUAL keeps only manual check-ins', () async {
-      await seed('a', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 1000, noAITriage: true);
-      await seed('b', triageLevel: 'EMERGENCY', priorityNumber: 1, arrivedAtMs: 2000);
+      await seed(
+        'a',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 1000,
+        noAITriage: true,
+      );
+      await seed(
+        'b',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 2000,
+      );
 
       final all = (await db.collection('queue').get()).docs;
       final result = NurseQueueFilter.filterByLevel(all, 'MANUAL');
@@ -59,9 +90,24 @@ void main() {
 
   group('NurseQueueFilter.sortByArrival', () {
     test('orders by arrivedAt ascending (earliest first)', () async {
-      await seed('late', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 3000);
-      await seed('early', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 1000);
-      await seed('mid', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 2000);
+      await seed(
+        'late',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 3000,
+      );
+      await seed(
+        'early',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 1000,
+      );
+      await seed(
+        'mid',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 2000,
+      );
 
       final all = (await db.collection('queue').get()).docs;
       final sorted = NurseQueueFilter.sortByArrival(all);
@@ -71,27 +117,78 @@ void main() {
 
   group('NurseQueueFilter.sortByPriority', () {
     test('orders by priorityNumber ascending (most urgent first)', () async {
-      await seed('low', triageLevel: 'LOW', priorityNumber: 3, arrivedAtMs: 1000);
-      await seed('emerg', triageLevel: 'EMERGENCY', priorityNumber: 1, arrivedAtMs: 2000);
-      await seed('mod', triageLevel: 'MODERATE', priorityNumber: 2, arrivedAtMs: 3000);
+      await seed(
+        'low',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 1000,
+      );
+      await seed(
+        'emerg',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 2000,
+      );
+      await seed(
+        'mod',
+        triageLevel: 'MODERATE',
+        priorityNumber: 2,
+        arrivedAtMs: 3000,
+      );
 
       final all = (await db.collection('queue').get()).docs;
       final sorted = NurseQueueFilter.sortByPriority(all);
       expect(sorted.map((d) => d.id).toList(), ['emerg', 'mod', 'low']);
     });
+
+    test('manual check-ins (PENDING) sort after Non-Urgent despite sharing '
+        'priorityNumber 3', () async {
+      await seed(
+        'manual',
+        triageLevel: 'PENDING',
+        priorityNumber: 3,
+        arrivedAtMs: 1000,
+        noAITriage: true,
+      );
+      await seed(
+        'low',
+        triageLevel: 'LOW',
+        priorityNumber: 3,
+        arrivedAtMs: 2000,
+      );
+      await seed(
+        'emerg',
+        triageLevel: 'EMERGENCY',
+        priorityNumber: 1,
+        arrivedAtMs: 3000,
+      );
+
+      final all = (await db.collection('queue').get()).docs;
+      final sorted = NurseQueueFilter.sortByPriority(all);
+      expect(sorted.map((d) => d.id).toList(), ['emerg', 'low', 'manual']);
+    });
   });
 
   group('NurseQueueFilter.sortByWaitTime', () {
     test('returns higher estimatedWaitMinutes first', () async {
-      await db.collection('queue').doc('short').set({'estimatedWaitMinutes': 5});
-      await db.collection('queue').doc('long').set({'estimatedWaitMinutes': 40});
+      await db.collection('queue').doc('short').set({
+        'estimatedWaitMinutes': 5,
+      });
+      await db.collection('queue').doc('long').set({
+        'estimatedWaitMinutes': 40,
+      });
       await db.collection('queue').doc('mid').set({'estimatedWaitMinutes': 20});
       await db.collection('queue').doc('none').set({'patientName': 'x'});
 
       final all = (await db.collection('queue').get()).docs;
       final sorted = NurseQueueFilter.sortByWaitTime(all);
       // Longest wait first; the doc with no value is treated as 0 and sorts last.
-      expect(sorted.map((d) => d.id).toList(), ['long', 'mid', 'short', 'none']);
+      expect(sorted.map((d) => d.id).toList(), [
+        'long',
+        'mid',
+        'short',
+        'none',
+      ]);
     });
   });
 }

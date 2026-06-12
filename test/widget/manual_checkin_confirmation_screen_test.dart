@@ -20,7 +20,9 @@ void main() {
     expect(find.text('Q123456789'), findsOneWidget);
   });
 
-  testWidgets('shows "—" placeholder when queueNumber is missing', (tester) async {
+  testWidgets('shows "—" placeholder when queueNumber is missing', (
+    tester,
+  ) async {
     await tester.pumpWidget(_buildWithArgs(<dynamic, dynamic>{}));
     await tester.pumpAndSettle();
     expect(find.text('—'), findsOneWidget);

@@ -11,8 +11,7 @@ class DoctorNotificationsScreen extends StatefulWidget {
       _DoctorNotificationsScreenState();
 }
 
-class _DoctorNotificationsScreenState
-    extends State<DoctorNotificationsScreen>
+class _DoctorNotificationsScreenState extends State<DoctorNotificationsScreen>
     with SingleTickerProviderStateMixin {
   final NotificationService _service = NotificationService();
   late TabController _tabController;
@@ -95,30 +94,44 @@ class _DoctorNotificationsScreenState
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(notif.title,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    notif.title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Text(notif.body,
-                style:
-                    const TextStyle(fontSize: 15, color: Colors.black87)),
+            Text(
+              notif.body,
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
             const SizedBox(height: 16),
             if (notif.metadata.containsKey('patientName')) ...[
-              _metaRow(Icons.person_outline, 'Patient',
-                  notif.metadata['patientName']),
+              _metaRow(
+                Icons.person_outline,
+                'Patient',
+                notif.metadata['patientName'],
+              ),
               const SizedBox(height: 8),
             ],
             if (notif.metadata.containsKey('appointmentDate')) ...[
-              _metaRow(Icons.calendar_today, 'Date',
-                  notif.metadata['appointmentDate']),
+              _metaRow(
+                Icons.calendar_today,
+                'Date',
+                notif.metadata['appointmentDate'],
+              ),
               const SizedBox(height: 8),
             ],
             if (notif.metadata.containsKey('scheduledTime')) ...[
-              _metaRow(Icons.access_time, 'Time',
-                  notif.metadata['scheduledTime']),
+              _metaRow(
+                Icons.access_time,
+                'Time',
+                notif.metadata['scheduledTime'],
+              ),
               const SizedBox(height: 8),
             ],
             const SizedBox(height: 8),
@@ -140,8 +153,10 @@ class _DoctorNotificationsScreenState
         const SizedBox(width: 8),
         Text('$label: ', style: const TextStyle(color: Colors.grey)),
         Expanded(
-          child: Text(value,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
         ),
       ],
     );
@@ -168,9 +183,7 @@ class _DoctorNotificationsScreenState
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: notif.isRead
-                ? Colors.white
-                : color.withValues(alpha: 0.06),
+            color: notif.isRead ? Colors.white : color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: notif.isRead
                 ? null
@@ -189,8 +202,7 @@ class _DoctorNotificationsScreenState
               CircleAvatar(
                 radius: 20,
                 backgroundColor: color.withValues(alpha: 0.15),
-                child:
-                    Icon(_iconFor(notif.type), color: color, size: 20),
+                child: Icon(_iconFor(notif.type), color: color, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -213,7 +225,9 @@ class _DoctorNotificationsScreenState
                         Text(
                           _relativeTime(notif.createdAt),
                           style: const TextStyle(
-                              color: Colors.grey, fontSize: 11),
+                            color: Colors.grey,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -221,7 +235,9 @@ class _DoctorNotificationsScreenState
                     Text(
                       notif.body,
                       style: const TextStyle(
-                          color: Colors.black54, fontSize: 13),
+                        color: Colors.black54,
+                        fontSize: 13,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -234,7 +250,9 @@ class _DoctorNotificationsScreenState
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                      color: color, shape: BoxShape.circle),
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ],
             ],
@@ -249,11 +267,12 @@ class _DoctorNotificationsScreenState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_none,
-              size: 64, color: Colors.grey.shade300),
+          Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text(message,
-              style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
+          ),
         ],
       ),
     );
@@ -276,16 +295,20 @@ class _DoctorNotificationsScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
       appBar: AppBar(
-        title: const Text('Notifications',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF2446B8),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           TextButton(
             onPressed: () => _service.markAllAsRead(widget.doctorId),
-            child: const Text('Mark all read',
-                style: TextStyle(color: Colors.white70)),
+            child: const Text(
+              'Mark all read',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
         ],
         bottom: TabBar(

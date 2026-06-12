@@ -16,8 +16,10 @@ void main() {
     });
 
     test('unknown level falls back to the default 20 minutes', () {
-      expect(WaitEstimator.serviceMinutesFor('SOMETHING_ELSE'),
-          WaitEstimator.defaultServiceMinutes);
+      expect(
+        WaitEstimator.serviceMinutesFor('SOMETHING_ELSE'),
+        WaitEstimator.defaultServiceMinutes,
+      );
       expect(WaitEstimator.defaultServiceMinutes, 20);
     });
   });

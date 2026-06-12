@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'lane_order.dart';
+
 /// Pure, Firebase-free sort/filter helpers for the nurse queue list.
 ///
 /// All methods are non-mutating: they copy before sorting so the caller's
@@ -44,17 +46,14 @@ class NurseQueueFilter {
     return list;
   }
 
-  /// Order by `priorityNumber` ascending (most urgent first). Missing values
-  /// sort last.
+  /// Canonical lane order: Emergency → Urgent → Non-Urgent → Manual, ties by
+  /// arrival. Delegates to [LaneOrder] so the list a nurse sees ranks
+  /// patients exactly like the positions fanned out to patient phones.
   static List<QueryDocumentSnapshot<Object?>> sortByPriority(
     List<QueryDocumentSnapshot<Object?>> docs,
   ) {
     final list = List.of(docs);
-    list.sort((a, b) {
-      final pa = (_data(a)['priorityNumber'] as num?)?.toInt() ?? 1 << 30;
-      final pb = (_data(b)['priorityNumber'] as num?)?.toInt() ?? 1 << 30;
-      return pa.compareTo(pb);
-    });
+    list.sort((a, b) => LaneOrder.compare(_data(a), _data(b)));
     return list;
   }
 

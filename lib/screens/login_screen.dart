@@ -1,10 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 import 'staff/staff_login_screen.dart';
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_emailFieldError != null) setState(() => _emailFieldError = null);
     });
     passwordController.addListener(() {
-      if (_passwordFieldError != null) setState(() => _passwordFieldError = null);
+      if (_passwordFieldError != null)
+        setState(() => _passwordFieldError = null);
     });
   }
 
@@ -131,22 +130,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 24),
 
-Center(
-  child: TextButton(
-    onPressed: () => _showResetPasswordDialog(context),
-    child: const Text(
-      "Forgot Password?",
-      style: TextStyle(
-        color: Color(0xFF009688),
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => _showResetPasswordDialog(context),
+                      child: const Text(
+                        "Forgot Password?",
+                        style: TextStyle(
+                          color: Color(0xFF009688),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
 
-const SizedBox(height: 12),  
-
-
+                  const SizedBox(height: 12),
 
                   // ✅ SIGN IN BUTTON
                   SizedBox(
@@ -157,8 +154,10 @@ const SizedBox(height: 12),
                           : () async {
                               // Empty-field guards — no API call needed
                               if (passwordController.text.trim().isEmpty) {
-                                setState(() => _passwordFieldError =
-                                    "Please enter your password.");
+                                setState(
+                                  () => _passwordFieldError =
+                                      "Please enter your password.",
+                                );
                                 return;
                               }
 
@@ -213,12 +212,16 @@ const SizedBox(height: 12),
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text(
                               "Sign In",
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -266,7 +269,8 @@ const SizedBox(height: 12),
                         onPressed: () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const RegisterScreen()),
+                            builder: (_) => const RegisterScreen(),
+                          ),
                         ),
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
@@ -307,7 +311,9 @@ const SizedBox(height: 12),
           decoration: BoxDecoration(
             color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
-            border: error != null ? Border.all(color: Colors.red.shade300) : null,
+            border: error != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
           ),
           child: TextField(
             controller: controller,
@@ -348,14 +354,18 @@ const SizedBox(height: 12),
           decoration: BoxDecoration(
             color: error != null ? Colors.red.shade50 : const Color(0xFFF2F5F7),
             borderRadius: BorderRadius.circular(14),
-            border: error != null ? Border.all(color: Colors.red.shade300) : null,
+            border: error != null
+                ? Border.all(color: Colors.red.shade300)
+                : null,
           ),
           child: TextField(
             controller: passwordController,
             obscureText: obscurePassword,
             decoration: InputDecoration(
-              prefixIcon:
-                  const Icon(Icons.lock_outline, color: Color(0xFF009688)),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                color: Color(0xFF009688),
+              ),
               hintText: "Password",
               border: InputBorder.none,
               suffixIcon: IconButton(
@@ -426,14 +436,19 @@ const SizedBox(height: 12),
                     final email = resetEmailController.text.trim();
 
                     if (email.isEmpty) {
-                      setState(() => emailError = 'Please enter your email address');
+                      setState(
+                        () => emailError = 'Please enter your email address',
+                      );
                       return;
                     }
                     setState(() => emailError = null);
 
                     final navigator = Navigator.of(context);
                     final messenger = ScaffoldMessenger.of(context);
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final authProvider = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
 
                     try {
                       await authProvider.sendPasswordResetEmail(email);
@@ -454,8 +469,10 @@ const SizedBox(height: 12),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF009688),
                   ),
-                  child: const Text("Send",
-                      style: TextStyle(color: Colors.white)),
+                  child: const Text(
+                    "Send",
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             );
