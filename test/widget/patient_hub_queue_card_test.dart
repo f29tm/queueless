@@ -18,7 +18,7 @@ void main() {
       expect(find.text('Check In Now'), findsOneWidget);
     });
 
-    testWidgets('waiting_nurse at position 1 shows "You\'re next!"',
+    testWidgets('waiting_nurse at position 1 shows "Being seen now"',
         (tester) async {
       await tester.pumpWidget(_host({
         'status': 'waiting_nurse',
@@ -26,7 +26,18 @@ void main() {
         'triageLevel': 'MODERATE',
         'currentPosition': 1,
       }));
-      expect(find.text("You're next!"), findsOneWidget);
+      expect(find.text('Being seen now'), findsOneWidget);
+    });
+
+    testWidgets('waiting_nurse at position 2 shows the "You\'re next" prompt',
+        (tester) async {
+      await tester.pumpWidget(_host({
+        'status': 'waiting_nurse',
+        'queueNumber': 'Q12345',
+        'triageLevel': 'MODERATE',
+        'currentPosition': 2,
+      }));
+      expect(find.textContaining("You're next"), findsOneWidget);
     });
 
     testWidgets('waiting_doctor shows the assessment-complete message',

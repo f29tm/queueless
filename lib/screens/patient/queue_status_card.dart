@@ -96,7 +96,10 @@ class QueueStatusCard extends StatelessWidget {
   Widget _waitingNurse(String level) {
     final position = (data['currentPosition'] as num?)?.toInt();
     final queueNumber = data['queueNumber'] as String? ?? '-';
-    final isNext = position != null && position <= 1;
+    // Mirrors the notification thresholds: #1 is being assessed now, #2 is
+    // literally next in line, #3+ shows a position and wait estimate.
+    final isBeingSeen = position != null && position <= 1;
+    final isNext = position == 2;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -115,9 +118,18 @@ class QueueStatusCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        if (isNext)
+        if (isBeingSeen)
           Text(
-            isArabic ? 'أنت التالي!' : "You're next!",
+            isArabic ? 'أنت تُرى الآن' : 'Being seen now',
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else if (isNext)
+          Text(
+            isArabic ? 'أنت التالي — كن مستعداً!' : "You're next — please be ready!",
             style: TextStyle(
               color: Colors.green.shade700,
               fontSize: 16,
