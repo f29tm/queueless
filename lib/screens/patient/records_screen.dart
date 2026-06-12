@@ -24,9 +24,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Directionality(
-      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: SafeArea(
           child: Padding(
@@ -72,7 +70,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 

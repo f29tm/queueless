@@ -6,7 +6,6 @@ import '../../services/symptom_extraction_service.dart';
 import '../../services/triage_service.dart';
 import '../../services/encryption_service.dart';
 import 'symptom_result_screen.dart';
-import '../../utils/app_localizer.dart';
 import '../../utils/stage1_input_builder.dart';
 
 // English keys are kept as-is — these are sent to the AI API unchanged
@@ -612,9 +611,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
   Widget build(BuildContext context) {
     final isArabic = _isArabic;
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
           backgroundColor: Colors.teal,
@@ -631,7 +628,6 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         ),
         bottomNavigationBar: _buildBottomBar(isArabic),
         body: _buildBody(isArabic),
-      ),
     );
   }
 
@@ -1368,13 +1364,17 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                 final displaySymptom =
                     isArabic ? (_symptomAr[symptom] ?? symptom) : symptom;
 
-                return GestureDetector(
-                  onTap: () => _toggleSymptom(symptom),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
+                return Semantics(
+                  label: '$displaySymptom${isSelected ? ", selected" : ""}',
+                  button: true,
+                  toggled: isSelected,
+                  child: GestureDetector(
+                    onTap: () => _toggleSymptom(symptom),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.teal.shade50 : Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -1411,6 +1411,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
                         ),
                       ],
                     ),
+                  ),
                   ),
                 );
               }).toList(),

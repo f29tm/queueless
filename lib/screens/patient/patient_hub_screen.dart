@@ -324,9 +324,7 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Directionality(
-      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
         body: SafeArea(
           child: IndexedStack(
@@ -364,7 +362,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -381,9 +378,7 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
       );
     }
 
-    return Directionality(
-      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Stack(
+    return Stack(
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -679,7 +674,6 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
             ),
           ),
         ],
-      ),
     );
   }
 
@@ -873,9 +867,7 @@ class _QueueBanner extends StatelessWidget {
     if (message.isEmpty) return const SizedBox.shrink();
     return Material(
       color: Colors.transparent,
-      child: Directionality(
-        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-        child: Container(
+      child: Container(
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -914,7 +906,6 @@ class _QueueBanner extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
