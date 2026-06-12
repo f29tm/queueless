@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:queueless/services/notification_service.dart';
 import 'package:queueless/utils/queue_position_fanout.dart';
 
+import '../support/notification_test_sink.dart';
+
 void main() {
   group('QueuePositionFanout — public interface (tracer bullet)', () {
     test('run is a static async method that accepts a NotificationService', () {
@@ -23,7 +25,7 @@ void main() {
 
     setUp(() {
       db = FakeFirebaseFirestore();
-      notif = NotificationService(firestore: db);
+      notif = NotificationService(firestore: db, notifSink: fakeNotifSink(db));
     });
 
     Future<String> seed({

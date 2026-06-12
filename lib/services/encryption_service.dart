@@ -1,7 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 class EncryptionService {
-  static final _functions = FirebaseFunctions.instance;
+  static FirebaseFunctions get _functions => FirebaseFunctions.instance;
 
   static HttpsCallable _fn(String name) =>
       _functions.httpsCallable(name, options: HttpsCallableOptions(timeout: const Duration(seconds: 30)));

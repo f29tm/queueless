@@ -2,13 +2,15 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:queueless/services/notification_service.dart';
 
+import '../support/notification_test_sink.dart';
+
 void main() {
   late FakeFirebaseFirestore db;
   late NotificationService svc;
 
   setUp(() {
     db = FakeFirebaseFirestore();
-    svc = NotificationService(firestore: db);
+    svc = NotificationService(firestore: db, notifSink: fakeNotifSink(db));
   });
 
   Future<Map<String, dynamic>> notifyAndRead(int position) async {

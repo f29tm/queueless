@@ -575,7 +575,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
           'patientId': uid,
           'symptoms': _selectedSymptoms.join(', '),
           'description': description,
-          'chiefComplaint': chiefComplaint,
+          'chiefComplaint': complaintText,
         },
       );
 

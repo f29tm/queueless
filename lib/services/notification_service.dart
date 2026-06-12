@@ -81,10 +81,33 @@ class AppNotification {
 class NotificationService {
   final FirebaseFirestore _firestore;
 
-  /// [firestore] is injectable for tests; production callers use the default
-  /// live instance.
-  NotificationService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  /// Persists a built notification payload to every id in [userIds]. Defaults
+  /// to the encrypted server-side path (EncryptionService.saveNotification).
+  /// Tests inject a sink that writes straight to the fake Firestore so they can
+  /// assert the payload without a Cloud Functions backend.
+  final Future<void> Function(List<String> userIds, Map<String, dynamic> data)
+  _notifSink;
+
+  /// [firestore] and [notifSink] are injectable for tests; production callers
+  /// use the live instance and the encrypted notification sink.
+  NotificationService({
+    FirebaseFirestore? firestore,
+    Future<void> Function(List<String> userIds, Map<String, dynamic> data)?
+    notifSink,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _notifSink = notifSink ?? _encryptedSink;
+
+  static Future<void> _encryptedSink(
+    List<String> userIds,
+    Map<String, dynamic> data,
+  ) => EncryptionService.saveNotification(userIds: userIds, data: data);
+
+  /// All notify* methods route their payload through here, so the destination
+  /// (encrypted Cloud Function vs. test sink) is decided in one place.
+  Future<void> _saveNotification({
+    required List<String> userIds,
+    required Map<String, dynamic> data,
+  }) => _notifSink(userIds, data);
 
   CollectionReference _notifRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('notifications');
@@ -149,7 +172,7 @@ class NotificationService {
     required String reason,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [patientId],
       data: {
         'type': NotificationType.appointmentCancelled.name,
@@ -181,7 +204,7 @@ class NotificationService {
     if (!await isNotificationsEnabled(patientId)) return;
     final typeLabel = _consultationTypeLabel(consultationType);
     final typeLabelAr = _consultationTypeLabelAr(consultationType);
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [patientId],
       data: {
         'type': NotificationType.consultationCancelled.name,
@@ -213,7 +236,7 @@ class NotificationService {
     if (!await isNotificationsEnabled(patientId)) return;
     final oldAr = _triageLevelAr(oldLevel);
     final newAr = _triageLevelAr(newLevel);
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [patientId],
       data: {
         'type': NotificationType.triageOverride.name,
@@ -253,7 +276,7 @@ class NotificationService {
     final titleAr = isBeingSeen
         ? 'حان دورك'
         : (isNext ? 'أنت التالي' : 'تحديث الطابور');
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [patientId],
       data: {
         'type': NotificationType.queueUpdate.name,
@@ -303,7 +326,7 @@ class NotificationService {
         : 'تسجيل وصول يدوي — لا يوجد تقرير أعراض.';
 
     final nurseIds = nursesSnap.docs.map((d) => d.id).toList();
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: nurseIds,
       data: {
         'type': NotificationType.patientArrival.name,
@@ -333,7 +356,7 @@ class NotificationService {
     required String patientName,
     required String appointmentDate,
   }) async {
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [doctorId],
       data: {
         'type': NotificationType.appointmentCancelled.name,
@@ -356,7 +379,7 @@ class NotificationService {
     required String patientName,
     required String scheduledTime,
   }) async {
-    await EncryptionService.saveNotification(
+    await _saveNotification(
       userIds: [doctorId],
       data: {
         'type': NotificationType.consultationCancelled.name,
