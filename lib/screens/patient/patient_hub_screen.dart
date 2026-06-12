@@ -1,9 +1,11 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/notification_service.dart';
 
+import 'queue_status_card.dart';
 import 'arrival_checkin_screen.dart';
 import 'triage_path_screen.dart';
 import 'medication_tracker_screen.dart';
@@ -361,7 +363,13 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
   ],
 ),
 
-const SizedBox(height: 28),
+const SizedBox(height: 20),
+
+// Live queue status — driven by the patient's own queue doc (the only one
+// Firestore rules let them read). currentPosition is fanned out by staff.
+_buildQueueStatusCard(context, authProvider, isArabic),
+
+const SizedBox(height: 8),
 
 Align(
   alignment:
@@ -562,6 +570,47 @@ _actionRow(
           ],
         ),
       ),
+    );
+  }
+
+  /// Live status card fed by the patient's single most-recent active queue doc.
+  /// Hidden entirely when there is no active doc, so the hub falls back to its
+  /// normal layout.
+  Widget _buildQueueStatusCard(
+    BuildContext context,
+    AuthProvider authProvider,
+    bool isArabic,
+  ) {
+    final uid = authProvider.userId;
+    if (uid == null || uid.isEmpty) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('queue')
+          .where('patientId', isEqualTo: uid)
+          .where('status',
+              whereIn: ['pre_arrival', 'waiting_nurse', 'waiting_doctor'])
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.docs.first.data();
+        return QueueStatusCard(
+          data: data,
+          isArabic: isArabic,
+          onCheckIn: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ArrivalCheckInScreen(),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

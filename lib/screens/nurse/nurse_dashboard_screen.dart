@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/notification_service.dart';
 import '../../services/triage_service.dart';
+import '../../utils/queue_position_fanout.dart';
 import '../../utils/triage_levels.dart';
 import '../staff/staff_login_screen.dart';
 
@@ -881,6 +882,11 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       });
 
       await batch.commit();
+
+      // BEHAVIOUR: this patient just left the nurse lane for the doctor queue,
+      // so everyone still waiting_nurse moves up — recompute their positions.
+      // Best-effort and fire-and-forget — never blocks or fails finalize.
+      QueuePositionFanout.run(NotificationService()).ignore();
 
       // Notify the patient in their own users/{uid}/notifications subcollection
       // (what the patient app reads) when the triage level changed. Friendly

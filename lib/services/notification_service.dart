@@ -61,7 +61,12 @@ class AppNotification {
 }
 
 class NotificationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
+
+  /// [firestore] is injectable for tests; production callers use the default
+  /// live instance.
+  NotificationService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   CollectionReference _notifRef(String userId) => _firestore
       .collection('users')
@@ -193,14 +198,18 @@ class NotificationService {
     required int estimatedWaitMinutes,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
+    // Front of the line: friendly "you're next" wording, no "0 min" line.
+    final isNext = position <= 1;
     await _notifRef(patientId).add({
       'type': NotificationType.queueUpdate.name,
-      'title': 'Queue Update',
-      'body':
-          'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.',
-      'titleAr': 'تحديث الطابور',
-      'bodyAr':
-          'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.',
+      'title': isNext ? "You're Next" : 'Queue Update',
+      'body': isNext
+          ? "You're next — please be ready to be seen."
+          : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.',
+      'titleAr': isNext ? 'أنت التالي' : 'تحديث الطابور',
+      'bodyAr': isNext
+          ? 'أنت التالي — يرجى الاستعداد لمقابلة الطاقم الطبي.'
+          : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.',
       'metadata': {
         'position': position,
         'estimatedWaitMinutes': estimatedWaitMinutes,

@@ -2,7 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../utils/wait_estimator.dart';
+import '../../utils/queue_position_fanout.dart';
 import '../../services/notification_service.dart';
+
+/// True once a queue doc has moved past `pre_arrival` — i.e. the patient has
+/// already checked in (or been triaged/seen). Used to guard against a second
+/// "I have arrived" tap re-flipping an already-active doc. Pure and public so
+/// the decision is unit-testable without Firebase.
+bool arrivalAlreadyCheckedIn(String? status) =>
+    status == 'waiting_nurse' ||
+    status == 'waiting_doctor' ||
+    status == 'completed';
 
 class ArrivalCheckInScreen extends StatefulWidget {
   final String? queueDocId;
@@ -79,6 +89,27 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
           .doc(_resolvedDocId);
       final existingDoc = await docRef.get();
       final existingData = existingDoc.data();
+
+      // Double check-in guard: if this doc is already past pre_arrival, the
+      // patient tapped "I have arrived" twice (or returned to this screen).
+      // Show their existing place and stop — never re-flip an active doc.
+      if (arrivalAlreadyCheckedIn(existingData?['status'] as String?)) {
+        if (mounted) {
+          setState(() {
+            _confirmed = true;
+            _isConfirming = false;
+            _queueNumber = existingData?['queueNumber'] as String? ?? '-';
+            _waitPosition = (existingData?['currentPosition'] as num?)?.toInt();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(isArabic
+                ? 'لقد تم تسجيل وصولك بالفعل. يرجى الجلوس.'
+                : 'You are already checked in. Please take a seat.'),
+          ));
+        }
+        return;
+      }
+
       final queueNumber = existingData?['queueNumber'] as String? ??
           'Q${_resolvedDocId!.substring(0, 6).toUpperCase()}';
 
@@ -91,6 +122,11 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
         'queueNumber': queueNumber,
         'arrivedAt': FieldValue.serverTimestamp(),
       });
+
+      // BEHAVIOUR: now that this patient is waiting_nurse, recompute every
+      // waiting patient's currentPosition so each can read their own place.
+      // Best-effort and fire-and-forget — never blocks or fails the check-in.
+      QueuePositionFanout.run(NotificationService()).ignore();
 
       // Mark confirmed immediately — position calc is best-effort
       int patientsAhead = 0;
