@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../services/notification_service.dart';
+import 'wait_estimator.dart';
 
 /// Staff-side fan-out of live queue positions.
 ///
@@ -19,8 +20,7 @@ class QueuePositionFanout {
   QueuePositionFanout._();
 
   /// Recompute and write `currentPosition` for every patient currently
-  /// `waiting_nurse`, and fire a one-shot "you're next" notification to anyone
-  /// who has just risen to the front of the line.
+  /// `waiting_nurse`, and notify anyone whose position actually changed.
   ///
   /// [firestore] is injectable purely for tests; production callers pass only
   /// the [notifService] and the live instance is used.
@@ -45,10 +45,10 @@ class QueuePositionFanout {
 
       final batch = db.batch();
 
-      // A patient may "become next" either from a worse rank (old > 1) or from
-      // never having had a position yet (old == null). We collect these here
-      // and fire AFTER the batch is built so a slow notify can't delay writes.
-      final becameNext = <_NextPatient>[];
+      // Patients whose position actually moved (including their first-ever
+      // assignment, old == null). Collected here and notified AFTER the batch
+      // is built so a slow notify can't delay the writes.
+      final moved = <_MovedPatient>[];
 
       for (var i = 0; i < snap.docs.length; i++) {
         final doc = snap.docs[i];
@@ -60,12 +60,11 @@ class QueuePositionFanout {
         // racing fan-out could corrupt the lane.
         batch.update(doc.reference, {'currentPosition': newPosition});
 
-        final justBecameNext =
-            newPosition == 1 && (oldPosition == null || oldPosition > 1);
-        if (justBecameNext) {
+        if (oldPosition != newPosition) {
           final patientId = (data['patientId'] as String?)?.trim();
           if (patientId != null && patientId.isNotEmpty) {
-            becameNext.add(_NextPatient(patientId));
+            final level = (data['triageLevel'] as String?) ?? 'LOW';
+            moved.add(_MovedPatient(patientId, newPosition, level));
           }
         }
       }
@@ -75,12 +74,14 @@ class QueuePositionFanout {
       // Notifications are fire-and-forget and individually ignored: a single
       // patient's blocked notify must not stop the others, and none of them
       // can surface an error to the staff action that triggered the fan-out.
-      for (final p in becameNext) {
+      for (final p in moved) {
         notifService
             .notifyQueueUpdate(
               patientId: p.patientId,
-              position: 1,
+              position: p.position,
               estimatedWaitMinutes: 0,
+              bodyOverride: _bodyEn(p.position, p.triageLevel),
+              bodyArOverride: _bodyAr(p.position, p.triageLevel),
             )
             .ignore();
       }
@@ -89,9 +90,22 @@ class QueuePositionFanout {
       // operation. Positions self-heal on the next arrival/finalize event.
     }
   }
+
+  // position 1 has no meaningful wait range — it's a "be ready" prompt.
+  static String _bodyEn(int position, String triageLevel) => position <= 1
+      ? 'Your queue position: #1 — Please be ready to be seen'
+      : 'Your queue position: #$position — Estimated wait: '
+            '${WaitEstimator.waitText(triageLevel, position - 1)}';
+
+  static String _bodyAr(int position, String triageLevel) => position <= 1
+      ? 'موقعك في الطابور: #1 — يرجى الاستعداد'
+      : 'موقعك في الطابور: #$position — الوقت المتوقع: '
+            '${WaitEstimator.waitText(triageLevel, position - 1)}';
 }
 
-class _NextPatient {
+class _MovedPatient {
   final String patientId;
-  const _NextPatient(this.patientId);
+  final int position;
+  final String triageLevel;
+  const _MovedPatient(this.patientId, this.position, this.triageLevel);
 }

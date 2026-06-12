@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/triage_levels.dart';
 
@@ -54,8 +53,7 @@ class AppNotification {
       bodyAr: data['bodyAr'] ?? '',
       metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
       isRead: data['isRead'] ?? false,
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
@@ -66,19 +64,19 @@ class NotificationService {
   /// [firestore] is injectable for tests; production callers use the default
   /// live instance.
   NotificationService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference _notifRef(String userId) => _firestore
-      .collection('users')
-      .doc(userId)
-      .collection('notifications');
+  CollectionReference _notifRef(String userId) =>
+      _firestore.collection('users').doc(userId).collection('notifications');
 
   Stream<List<AppNotification>> notificationsStream(String userId) {
     return _notifRef(userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => AppNotification.fromFirestore(d)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => AppNotification.fromFirestore(d)).toList(),
+        );
   }
 
   Stream<int> unreadCountStream(String userId) {
@@ -99,10 +97,9 @@ class NotificationService {
   }
 
   Future<void> setNotificationsEnabled(String userId, bool enabled) async {
-    await _firestore.collection('users').doc(userId).set(
-      {'notificationsEnabled': enabled},
-      SetOptions(merge: true),
-    );
+    await _firestore.collection('users').doc(userId).set({
+      'notificationsEnabled': enabled,
+    }, SetOptions(merge: true));
   }
 
   Future<void> notifyAppointmentCancelled({
@@ -116,11 +113,9 @@ class NotificationService {
     await _notifRef(patientId).add({
       'type': NotificationType.appointmentCancelled.name,
       'title': 'Appointment Cancelled',
-      'body':
-          '$doctorName has cancelled your appointment on $appointmentDate.',
+      'body': '$doctorName has cancelled your appointment on $appointmentDate.',
       'titleAr': 'تم إلغاء الموعد',
-      'bodyAr':
-          'قام $doctorName بإلغاء موعدك بتاريخ $appointmentDate.',
+      'bodyAr': 'قام $doctorName بإلغاء موعدك بتاريخ $appointmentDate.',
       'metadata': {
         'appointmentId': appointmentId,
         'doctorName': doctorName,
@@ -192,10 +187,15 @@ class NotificationService {
     });
   }
 
+  /// [bodyOverride]/[bodyArOverride] let a caller (e.g. the position fan-out)
+  /// supply a precomputed message — including a wait-time range — instead of the
+  /// default position/minutes wording. When omitted, the default body is used.
   Future<void> notifyQueueUpdate({
     required String patientId,
     required int position,
     required int estimatedWaitMinutes,
+    String? bodyOverride,
+    String? bodyArOverride,
   }) async {
     if (!await isNotificationsEnabled(patientId)) return;
     // Front of the line: friendly "you're next" wording, no "0 min" line.
@@ -203,13 +203,17 @@ class NotificationService {
     await _notifRef(patientId).add({
       'type': NotificationType.queueUpdate.name,
       'title': isNext ? "You're Next" : 'Queue Update',
-      'body': isNext
-          ? "You're next — please be ready to be seen."
-          : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.',
+      'body':
+          bodyOverride ??
+          (isNext
+              ? "You're next — please be ready to be seen."
+              : 'You are now #$position in the queue. Estimated wait: $estimatedWaitMinutes min.'),
       'titleAr': isNext ? 'أنت التالي' : 'تحديث الطابور',
-      'bodyAr': isNext
-          ? 'أنت التالي — يرجى الاستعداد لمقابلة الطاقم الطبي.'
-          : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.',
+      'bodyAr':
+          bodyArOverride ??
+          (isNext
+              ? 'أنت التالي — يرجى الاستعداد لمقابلة الطاقم الطبي.'
+              : 'أنت الآن في المرتبة #$position في الطابور. وقت الانتظار المتوقع: $estimatedWaitMinutes دقيقة.'),
       'metadata': {
         'position': position,
         'estimatedWaitMinutes': estimatedWaitMinutes,
@@ -246,9 +250,11 @@ class NotificationService {
       batch.set(ref, {
         'type': NotificationType.patientArrival.name,
         'title': 'New Patient Arrived',
-        'body': '$patientName (#$queueNumber) is waiting for triage. $symptomLine',
+        'body':
+            '$patientName (#$queueNumber) is waiting for triage. $symptomLine',
         'titleAr': 'وصل مريض جديد',
-        'bodyAr': '$patientName (#$queueNumber) في انتظار الفرز. $symptomLineAr',
+        'bodyAr':
+            '$patientName (#$queueNumber) في انتظار الفرز. $symptomLineAr',
         'metadata': {
           'patientName': patientName,
           'queueNumber': queueNumber,
@@ -316,8 +322,9 @@ class NotificationService {
   }
 
   Future<void> markAllAsRead(String userId) async {
-    final snap =
-        await _notifRef(userId).where('isRead', isEqualTo: false).get();
+    final snap = await _notifRef(
+      userId,
+    ).where('isRead', isEqualTo: false).get();
     final batch = _firestore.batch();
     for (final doc in snap.docs) {
       batch.update(doc.reference, {'isRead': true});
@@ -325,8 +332,7 @@ class NotificationService {
     await batch.commit();
   }
 
-  Future<void> deleteNotification(
-      String userId, String notificationId) async {
+  Future<void> deleteNotification(String userId, String notificationId) async {
     await _notifRef(userId).doc(notificationId).delete();
   }
 

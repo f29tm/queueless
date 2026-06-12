@@ -5,8 +5,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/notification_service.dart';
 import '../../services/triage_service.dart';
+import '../../utils/discharge_constants.dart';
+import '../../utils/nurse_queue_filter.dart';
+import '../../utils/nurse_selection_state.dart';
 import '../../utils/queue_position_fanout.dart';
 import '../../utils/triage_levels.dart';
+import '../../widgets/arrival_time_label.dart';
+import '../../widgets/nurse_multiselect_bar.dart';
+import '../../widgets/nurse_queue_control_bar.dart';
 import '../staff/staff_login_screen.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
@@ -21,10 +27,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = const [
-      NurseQueuePage(),
-      NurseProfilePage(),
-    ];
+    final pages = const [NurseQueuePage(), NurseProfilePage()];
 
     return Scaffold(
       body: pages[selectedIndex],
@@ -42,10 +45,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             icon: Icon(Icons.local_hospital),
             label: "Queue",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
@@ -71,6 +71,109 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
   String? _bannerText;
   Timer? _bannerTimer;
 
+  // Sort/filter control-bar state. _selectedFilter null = All.
+  String? _selectedFilter;
+  String _selectedSort = 'priority'; // 'priority' | 'arrival' | 'wait'
+
+  // The docs currently shown (post filter/sort) — read by multi-select actions.
+  List<QueryDocumentSnapshot<Object?>> _visibleDocs = const [];
+
+  // Multi-select state. Non-empty selection ⇒ multi-select mode is active.
+  NurseSelectionState _selection = NurseSelectionState.empty();
+  bool get _isMultiSelectMode => !_selection.isEmpty;
+
+  void _toggleSelect(String id) =>
+      setState(() => _selection = _selection.toggleSelection(id));
+
+  void _cancelMultiSelect() =>
+      setState(() => _selection = _selection.clearSelection());
+
+  void _selectAllVisible() => setState(
+    () => _selection = _selection.selectAll(_visibleDocs.map((d) => d.id)),
+  );
+
+  // Discharge selected patients as LWBS (Left Without Being Seen): confirm,
+  // then update each queue doc + write an audit record in one batch.
+  Future<void> _confirmDischarge() async {
+    final ids = _selection.selected.toList();
+    if (ids.isEmpty) return;
+    final count = ids.length;
+    final plural = count == 1 ? '' : 's';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discharge Patients'),
+        content: Text(
+          'Discharge $count patient$plural? This will mark them as left '
+          'without being seen and cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final dataById = {
+        for (final d in _visibleDocs)
+          d.id:
+              (d.data() as Map<String, dynamic>?) ?? const <String, dynamic>{},
+      };
+      final dischargedBy = FirebaseAuth.instance.currentUser?.uid;
+      final batch = _firestore.batch();
+
+      for (final id in ids) {
+        final data = dataById[id] ?? const <String, dynamic>{};
+
+        batch.update(_firestore.collection('queue').doc(id), {
+          'status': dischargeStatus(),
+          'queueType': 'discharged',
+          'dischargedAt': FieldValue.serverTimestamp(),
+          'dischargeReason': dischargeReason(),
+        });
+
+        // Audit trail — mirrors the medical_records write used at finalize.
+        batch.set(_firestore.collection('medical_records').doc(), {
+          'patientId': data['patientId'],
+          'queueDocId': id,
+          'action': 'discharge_lwbs',
+          'dischargedAt': FieldValue.serverTimestamp(),
+          'dischargedBy': dischargedBy,
+          'triageLevel': data['triageLevel'],
+          'note': dischargeReason(),
+        });
+      }
+
+      await batch.commit();
+
+      _cancelMultiSelect();
+      // Those patients left the lane — recompute everyone else's position.
+      QueuePositionFanout.run(NotificationService()).ignore();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$count patient$plural discharged')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Discharge failed: $e')));
+      }
+    }
+  }
+
   @override
   void dispose() {
     _bannerTimer?.cancel();
@@ -81,7 +184,9 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
   // Compares the latest queue snapshot's doc IDs against the previously seen
   // set. Fires the banner only for genuinely new patients — never on first load.
   void _handleSnapshotIds(
-      Set<String> currentIds, List<QueryDocumentSnapshot> docs) {
+    Set<String> currentIds,
+    List<QueryDocumentSnapshot> docs,
+  ) {
     if (!mounted) return;
     if (_firstLoad) {
       _knownIds = currentIds;
@@ -131,8 +236,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
         padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
         child: Row(
           children: [
-            const Icon(Icons.person_add_alt_1,
-                color: Colors.white, size: 20),
+            const Icon(Icons.person_add_alt_1, color: Colors.white, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -333,333 +437,482 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
-      body: Column(
+      body: Stack(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(
-                top: 60, left: 24, right: 24, bottom: 24),
-            color: const Color(0xFF2446B8),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Nurse Dashboard",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  "Validate patient triage and record vital signs",
-                  style: TextStyle(color: Colors.white70, fontSize: 15),
-                ),
-              ],
-            ),
-          ),
-          if (_bannerText != null) _buildNewPatientBanner(),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _nurseQueueStream(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+          Column(
+            children: [
+              _isMultiSelectMode ? _buildMultiSelectHeader() : _buildHeader(),
+              if (_bannerText != null && !_isMultiSelectMode)
+                _buildNewPatientBanner(),
+              NurseQueueControlBar(
+                selectedSort: _selectedSort,
+                selectedFilter: _selectedFilter,
+                onSortChanged: (v) => setState(() => _selectedSort = v),
+                onFilterChanged: (v) => setState(() => _selectedFilter = v),
+              ),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _nurseQueueStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text("Error: ${snapshot.error}"));
+                    }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                final patients = snapshot.data?.docs ?? [];
-                final currentIds = patients.map((d) => d.id).toSet();
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _handleSnapshotIds(currentIds, patients);
-                });
+                    final allPatients = snapshot.data?.docs ?? [];
+                    final currentIds = allPatients.map((d) => d.id).toSet();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _handleSnapshotIds(currentIds, allPatients);
+                    });
 
-                if (patients.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      "No patients in nurse queue",
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                  );
-                }
-
-                final high = patients.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return data["triageLevel"] == TriageLevels.emergency;
-                }).length;
-
-                return ListView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Row(
-                      children: [
-                        _statBox("${patients.length}", "Waiting",
-                            const Color(0xFF2446B8)),
-                        const SizedBox(width: 12),
-                        _statBox("$high", "High Priority", Colors.red),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    ...patients.asMap().entries.map((entry) {
-                      final position = entry.key + 1;
-                      final patient = entry.value;
-                      final data = patient.data() as Map<String, dynamic>;
-
-                      final isManual = data['noAITriage'] == true;
-                      final triageLevel =
-                          (data['triageLevel'] as String?) ?? 'LOW';
-                      final borderColor = isManual
-                          ? Colors.blueGrey
-                          : _triageColor(triageLevel);
-
-                      final patientName =
-                          (data['patientName'] as String?) ?? 'Unknown Patient';
-                      final deferred = data['deferred'] == true;
-                      final waitingText = _waitingText(data['arrivedAt']);
-
-                      final s1 =
-                          data['stage1Inputs'] as Map<String, dynamic>? ??
-                              const {};
-                      final age = (s1['age'] as num?)?.toInt();
-                      final sex = (s1['sex'] as num?)?.toInt();
-                      final ageSexText =
-                          "${age?.toString() ?? '—'}  ·  ${_sexLabel(sex)}";
-                      final arrivalMode = (s1['arrival_mode'] as num?)?.toInt();
-
-                      final description =
-                          (data['description'] as String?)?.trim();
-                      final chiefComplaint =
-                          (s1['chief_complaint'] as String?)?.trim();
-                      final String complaintText;
-                      if (description != null && description.isNotEmpty) {
-                        complaintText = description;
-                      } else if (chiefComplaint != null &&
-                          chiefComplaint.isNotEmpty) {
-                        complaintText = chiefComplaint;
-                      } else if (isManual) {
-                        complaintText =
-                            'Manual check-in — no prior symptom assessment';
-                      } else {
-                        complaintText = 'No description provided';
-                      }
-
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    if (allPatients.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "No patients in nurse queue",
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: borderColor, width: 4),
+                      );
+                    }
+
+                    // Stats reflect the whole waiting queue; the list below reflects
+                    // the nurse's current sort/filter selection.
+                    final high = allPatients.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return data["triageLevel"] == TriageLevels.emergency;
+                    }).length;
+
+                    final filtered = NurseQueueFilter.filterByLevel(
+                      allPatients,
+                      _selectedFilter,
+                    );
+                    final patients = _selectedSort == 'priority'
+                        ? NurseQueueFilter.sortByPriority(filtered)
+                        : NurseQueueFilter.sortByArrival(filtered);
+                    // Track the currently visible docs for multi-select actions.
+                    _visibleDocs = patients;
+
+                    return ListView(
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        20,
+                        20,
+                        _isMultiSelectMode ? 96 : 20,
+                      ),
+                      children: [
+                        Row(
+                          children: [
+                            _statBox(
+                              "${allPatients.length}",
+                              "Waiting",
+                              const Color(0xFF2446B8),
+                            ),
+                            const SizedBox(width: 12),
+                            _statBox("$high", "High Priority", Colors.red),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        if (patients.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 40),
+                            child: Center(
+                              child: Text(
+                                "No patients match this filter",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
                             ),
                           ),
-                          child: InkWell(
-                            onTap: () => _openVitalsDialog(patient),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // ── Row 1 — header strip ──
-                                Container(
-                                  width: double.infinity,
-                                  color: borderColor.withValues(alpha: 0.15),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  child: Row(
-                                    children: [
-                                      Semantics(
-                                        label: isManual
-                                            ? 'Triage level: Manual check-in'
-                                            : 'Triage level: ${triageLevel[0]}${triageLevel.substring(1).toLowerCase()}',
-                                        excludeSemantics: true,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: borderColor,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            isManual ? 'MANUAL' : triageLevel,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        "#$position",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      if (deferred) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amber.shade50,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                                color: Colors.amber.shade400),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                  Icons.warning_amber_rounded,
-                                                  size: 13,
-                                                  color:
-                                                      Colors.amber.shade800),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                "REVIEW",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color:
-                                                      Colors.amber.shade800,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (waitingText != null)
-                                          const SizedBox(width: 8),
-                                      ],
-                                      if (waitingText != null)
-                                        Text(
-                                          waitingText,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                    ],
+                        ...patients.asMap().entries.map((entry) {
+                          final position = entry.key + 1;
+                          final patient = entry.value;
+                          final data = patient.data() as Map<String, dynamic>;
+
+                          final isManual = data['noAITriage'] == true;
+                          final triageLevel =
+                              (data['triageLevel'] as String?) ?? 'LOW';
+                          final borderColor = isManual
+                              ? Colors.blueGrey
+                              : _triageColor(triageLevel);
+
+                          final patientName =
+                              (data['patientName'] as String?) ??
+                              'Unknown Patient';
+                          final deferred = data['deferred'] == true;
+                          final waitingText = _waitingText(data['arrivedAt']);
+
+                          final s1 =
+                              data['stage1Inputs'] as Map<String, dynamic>? ??
+                              const {};
+                          final age = (s1['age'] as num?)?.toInt();
+                          final sex = (s1['sex'] as num?)?.toInt();
+                          final ageSexText =
+                              "${age?.toString() ?? '—'}  ·  ${_sexLabel(sex)}";
+                          final arrivalMode = (s1['arrival_mode'] as num?)
+                              ?.toInt();
+
+                          final description = (data['description'] as String?)
+                              ?.trim();
+                          final chiefComplaint =
+                              (s1['chief_complaint'] as String?)?.trim();
+                          final String complaintText;
+                          if (description != null && description.isNotEmpty) {
+                            complaintText = description;
+                          } else if (chiefComplaint != null &&
+                              chiefComplaint.isNotEmpty) {
+                            complaintText = chiefComplaint;
+                          } else if (isManual) {
+                            complaintText =
+                                'Manual check-in — no prior symptom assessment';
+                          } else {
+                            complaintText = 'No description provided';
+                          }
+
+                          return Card(
+                            elevation: 2,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: borderColor,
+                                    width: 4,
                                   ),
                                 ),
+                              ),
+                              child: InkWell(
+                                onTap: () => _isMultiSelectMode
+                                    ? _toggleSelect(patient.id)
+                                    : _openVitalsDialog(patient),
+                                onLongPress: () => _toggleSelect(patient.id),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // ── Row 1 — header strip ──
+                                    Container(
+                                      width: double.infinity,
+                                      color: borderColor.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          if (_isMultiSelectMode) ...[
+                                            SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: Checkbox(
+                                                value: _selection.contains(
+                                                  patient.id,
+                                                ),
+                                                onChanged: (_) =>
+                                                    _toggleSelect(patient.id),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                          ],
+                                          Semantics(
+                                            label: isManual
+                                                ? 'Triage level: Manual check-in'
+                                                : 'Triage level: ${triageLevel[0]}${triageLevel.substring(1).toLowerCase()}',
+                                            excludeSemantics: true,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: borderColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                isManual
+                                                    ? 'MANUAL'
+                                                    : triageLevel,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            "#$position",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          if (deferred) ...[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: Colors.amber.shade400,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.warning_amber_rounded,
+                                                    size: 13,
+                                                    color:
+                                                        Colors.amber.shade800,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    "REVIEW",
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          Colors.amber.shade800,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if (waitingText != null)
+                                              const SizedBox(width: 8),
+                                          ],
+                                          if (waitingText != null)
+                                            Text(
+                                              waitingText,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          if (data['arrivedAt']
+                                              is Timestamp) ...[
+                                            const SizedBox(width: 8),
+                                            ArrivalTimeLabel(
+                                              arrivedAt:
+                                                  data['arrivedAt']
+                                                      as Timestamp?,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
 
-                                // ── Body ──
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Row 2 — patient identity
-                                      Row(
+                                    // ── Body ──
+                                    Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  patientName,
-                                                  style: const TextStyle(
-                                                    fontSize: 17,
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                  ),
+                                          // Row 2 — patient identity
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      patientName,
+                                                      style: const TextStyle(
+                                                        fontSize: 17,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      ageSexText,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: Colors
+                                                            .grey
+                                                            .shade600,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  ageSexText,
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors
-                                                        .grey.shade600,
-                                                  ),
-                                                ),
-                                              ],
+                                              ),
+                                              const SizedBox(width: 8),
+                                              _arrivalInfo(arrivalMode),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+
+                                          // Row 3 — chief complaint
+                                          Text(
+                                            complaintText,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.grey.shade800,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          _arrivalInfo(arrivalMode),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
+                                          const SizedBox(height: 8),
 
-                                      // Row 3 — chief complaint
-                                      Text(
-                                        complaintText,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontStyle: FontStyle.italic,
-                                          color: Colors.grey.shade800,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-
-                                      // Row 4 — key clinical signals
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          _painChip((s1['nrs_pain'] as num?)
-                                              ?.toInt()),
-                                          _mentalChip((s1['mental'] as num?)
-                                              ?.toInt()),
-                                          _aiChip(
-                                              data['confidence'] as num?),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-
-                                      // Row 5 — action
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () =>
-                                              _openVitalsDialog(patient),
-                                          icon: const Icon(Icons.play_arrow,
-                                              size: 18),
-                                          label: const Text("Start Vitals"),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFF2446B8),
-                                            foregroundColor: Colors.white,
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 18,
-                                                    vertical: 10),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
+                                          // Row 4 — key clinical signals
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            children: [
+                                              _painChip(
+                                                (s1['nrs_pain'] as num?)
+                                                    ?.toInt(),
+                                              ),
+                                              _mentalChip(
+                                                (s1['mental'] as num?)?.toInt(),
+                                              ),
+                                              _aiChip(
+                                                data['confidence'] as num?,
+                                              ),
+                                            ],
                                           ),
-                                        ),
+                                          const SizedBox(height: 8),
+
+                                          // Row 5 — action (hidden in multi-select)
+                                          if (!_isMultiSelectMode)
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _openVitalsDialog(patient),
+                                                icon: const Icon(
+                                                  Icons.play_arrow,
+                                                  size: 18,
+                                                ),
+                                                label: const Text(
+                                                  "Start Vitals",
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(
+                                                    0xFF2446B8,
+                                                  ),
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 18,
+                                                        vertical: 10,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                );
-              },
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          NurseMultiSelectBar(
+            active: _isMultiSelectMode,
+            count: _selection.count,
+            onDischarge: _confirmDischarge,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Standard blue dashboard header.
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 24),
+      color: const Color(0xFF2446B8),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Nurse Dashboard",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            "Validate patient triage and record vital signs",
+            style: TextStyle(color: Colors.white70, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Header shown while in multi-select mode: Cancel · count · Select All.
+  Widget _buildMultiSelectHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 56, left: 8, right: 8, bottom: 14),
+      color: const Color(0xFF2446B8),
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: _cancelMultiSelect,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text("Cancel", style: TextStyle(fontSize: 16)),
+          ),
+          Expanded(
+            child: Text(
+              "${_selection.count} selected",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _selectAllVisible,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text("Select All", style: TextStyle(fontSize: 16)),
           ),
         ],
       ),
@@ -690,7 +943,6 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
       ),
     );
   }
-
 }
 
 // ===================== VITALS SHEET =====================
@@ -731,8 +983,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     super.dispose();
   }
 
-  Map<String, dynamic> get _data =>
-      widget.doc.data() as Map<String, dynamic>;
+  Map<String, dynamic> get _data => widget.doc.data() as Map<String, dynamic>;
 
   Stage1Request _buildStage1() {
     final data = _data;
@@ -751,8 +1002,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     }
     final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
     return Stage1Request(
-      chiefComplaint:
-          (s1['chief_complaint'] ?? 'general complaint') as String,
+      chiefComplaint: (s1['chief_complaint'] ?? 'general complaint') as String,
       age: (s1['age'] as num?)?.toInt() ?? 50,
       sex: (s1['sex'] as num?)?.toInt() ?? 1,
       pain: (s1['pain'] as num?)?.toInt() ?? 2,
@@ -812,8 +1062,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     try {
       final data = _data;
       final patientId = data['patientId'] as String?;
-      final patientName =
-          data['patientName'] as String? ?? 'Unknown Patient';
+      final patientName = data['patientName'] as String? ?? 'Unknown Patient';
       final oldTriageLevel = data['triageLevel'] as String? ?? 'LOW';
       final stage1Prediction = data['aiPrediction'] as String? ?? '';
 
@@ -822,8 +1071,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       final nurseOverride = _finalPrediction != aiPrediction;
       final firestoreFields = _predictionToFirestore(_finalPrediction!);
       final finalTriageLevel = firestoreFields['triageLevel'] as String;
-      final finalPriorityNumber =
-          firestoreFields['priorityNumber'] as int;
+      final finalPriorityNumber = firestoreFields['priorityNumber'] as int;
 
       final sbp = double.parse(_sbpController.text.trim());
       final dbp = double.parse(_dbpController.text.trim());
@@ -893,8 +1141,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       // words only — never internal codes like MODERATE.
       if (oldTriageLevel != finalTriageLevel && patientId != null) {
         try {
-          final rawNurseName =
-              FirebaseAuth.instance.currentUser?.displayName?.trim();
+          final rawNurseName = FirebaseAuth.instance.currentUser?.displayName
+              ?.trim();
           await NotificationService().notifyTriageOverride(
             patientId: patientId,
             oldLevel: _friendlyLevel(oldTriageLevel),
@@ -912,17 +1160,16 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text("Triage finalized. Patient moved to doctor queue."),
+          content: Text("Triage finalized. Patient moved to doctor queue."),
         ),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _finalizing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error finalizing triage: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error finalizing triage: $e")));
     }
   }
 
@@ -1030,8 +1277,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                 Expanded(
                   child: Text(
                     "Manual check-in — no patient self-report",
-                    style:
-                        TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                   ),
                 ),
               ],
@@ -1051,14 +1297,15 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     final rawSymptoms = data['symptoms'];
     final symptoms = rawSymptoms is List
         ? rawSymptoms
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
         : <String>[];
 
     final description = (data['description'] as String?)?.trim();
-    final descText =
-        (description == null || description.isEmpty) ? "—" : description;
+    final descText = (description == null || description.isEmpty)
+        ? "—"
+        : description;
 
     final s1 = data['stage1Inputs'] as Map<String, dynamic>? ?? {};
     if (s1.isEmpty) {
@@ -1066,8 +1313,9 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     }
     final pain = s1['nrs_pain'] as num?;
     final painText = pain == null ? "—" : "${pain.toInt()} / 10";
-    final arrivalText =
-        _arrivalModeLabel((s1['arrival_mode'] as num?)?.toInt());
+    final arrivalText = _arrivalModeLabel(
+      (s1['arrival_mode'] as num?)?.toInt(),
+    );
     final injuryText = _injuryLabel((s1['injury'] as num?)?.toInt());
     final avpuText = _avpuLabel((s1['mental'] as num?)?.toInt());
     final age = (s1['age'] as num?)?.toInt();
@@ -1108,8 +1356,10 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               const Spacer(),
               if (deferred)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.amber.shade50,
                     borderRadius: BorderRadius.circular(20),
@@ -1118,8 +1368,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.flag,
-                          size: 12, color: Colors.amber.shade800),
+                      Icon(Icons.flag, size: 12, color: Colors.amber.shade800),
                       const SizedBox(width: 4),
                       Text(
                         "Flagged for review",
@@ -1135,12 +1384,16 @@ class _VitalsSheetState extends State<_VitalsSheet> {
             ],
           ),
           const SizedBox(height: 14),
-          const Text("Symptoms",
-              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const Text(
+            "Symptoms",
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           const SizedBox(height: 6),
           if (symptoms.isEmpty)
-            Text("None selected",
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600))
+            Text(
+              "None selected",
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            )
           else
             Wrap(
               spacing: 6,
@@ -1148,8 +1401,10 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               children: symptoms.map(_reportChip).toList(),
             ),
           const SizedBox(height: 12),
-          const Text("Description",
-              style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const Text(
+            "Description",
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           const SizedBox(height: 4),
           Text(descText, style: const TextStyle(fontSize: 13)),
           const Divider(height: 22),
@@ -1181,16 +1436,17 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   Widget _buildFallbackSelfReport(Map<String, dynamic> data) {
     const accent = Color(0xFF2446B8);
 
-    final chiefComplaint = ((data['chiefComplaint'] as String?) ??
-            (data['chief_complaint'] as String?))
-        ?.trim();
+    final chiefComplaint =
+        ((data['chiefComplaint'] as String?) ??
+                (data['chief_complaint'] as String?))
+            ?.trim();
 
     final rawSymptoms = data['symptoms'];
     final symptoms = rawSymptoms is List
         ? rawSymptoms
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
         : <String>[];
 
     final description = (data['description'] as String?)?.trim();
@@ -1243,8 +1499,10 @@ class _VitalsSheetState extends State<_VitalsSheet> {
             )
           else ...[
             if (symptoms.isNotEmpty) ...[
-              const Text("Symptoms",
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                "Symptoms",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -1254,15 +1512,19 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               const SizedBox(height: 12),
             ],
             if (hasComplaint) ...[
-              const Text("Chief complaint",
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                "Chief complaint",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 4),
               Text(chiefComplaint, style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 12),
             ],
             if (hasDescription) ...[
-              const Text("Description",
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                "Description",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 4),
               Text(description, style: const TextStyle(fontSize: 13)),
             ],
@@ -1289,11 +1551,14 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       decoration: BoxDecoration(
         color: const Color(0xFF2446B8).withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: const Color(0xFF2446B8).withValues(alpha: 0.2)),
+        border: Border.all(
+          color: const Color(0xFF2446B8).withValues(alpha: 0.2),
+        ),
       ),
-      child: Text(text,
-          style: const TextStyle(fontSize: 12, color: Colors.black87)),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, color: Colors.black87),
+      ),
     );
   }
 
@@ -1305,15 +1570,16 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         children: [
           SizedBox(
             width: 110,
-            child: Text(label,
-                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -1352,10 +1618,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
             // Patient header
             Text(
               patientName,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             if (stage1Prediction.isNotEmpty) ...[
               const SizedBox(height: 2),
@@ -1372,8 +1635,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
             const SizedBox(height: 20),
             const Text(
               "Enter Vitals",
-              style:
-                  TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -1387,12 +1649,18 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                     children: [
                       Expanded(
                         child: _vitalField(
-                            _sbpController, "SBP (mmHg)", "e.g. 120"),
+                          _sbpController,
+                          "SBP (mmHg)",
+                          "e.g. 120",
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _vitalField(
-                            _dbpController, "DBP (mmHg)", "e.g. 80"),
+                          _dbpController,
+                          "DBP (mmHg)",
+                          "e.g. 80",
+                        ),
                       ),
                     ],
                   ),
@@ -1400,13 +1668,19 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                   Row(
                     children: [
                       Expanded(
-                        child: _vitalField(_hrController,
-                            "Heart Rate (bpm)", "e.g. 72"),
+                        child: _vitalField(
+                          _hrController,
+                          "Heart Rate (bpm)",
+                          "e.g. 72",
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _vitalField(_rrController,
-                            "Resp. Rate (/min)", "e.g. 16"),
+                        child: _vitalField(
+                          _rrController,
+                          "Resp. Rate (/min)",
+                          "e.g. 16",
+                        ),
                       ),
                     ],
                   ),
@@ -1437,8 +1711,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                   // KTAS chips
                   const Text(
                     "Clinical Impression (KTAS)",
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -1450,14 +1723,11 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                       return ChoiceChip(
                         label: Text(_ktasLabel(level)),
                         selected: selected,
-                        onSelected: (_) =>
-                            setState(() => _ktasRn = level),
+                        onSelected: (_) => setState(() => _ktasRn = level),
                         selectedColor: const Color(0xFF2446B8),
                         backgroundColor: Colors.grey.shade100,
                         labelStyle: TextStyle(
-                          color: selected
-                              ? Colors.white
-                              : Colors.black87,
+                          color: selected ? Colors.white : Colors.black87,
                           fontWeight: FontWeight.w500,
                           fontSize: 12,
                         ),
@@ -1489,19 +1759,20 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.auto_awesome,
-                                color: Colors.white),
+                            : const Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                              ),
                         label: Text(
-                          _isRunning
-                              ? "Running AI…"
-                              : "Run AI Assessment",
+                          _isRunning ? "Running AI…" : "Run AI Assessment",
                           style: const TextStyle(
-                              fontSize: 16, color: Colors.white),
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2446B8),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
@@ -1527,17 +1798,20 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
                 items: const [
                   DropdownMenuItem(
-                      value: 'Emergency',
-                      child: Text("Emergency")),
+                    value: 'Emergency',
+                    child: Text("Emergency"),
+                  ),
+                  DropdownMenuItem(value: 'Urgent', child: Text("Urgent")),
                   DropdownMenuItem(
-                      value: 'Urgent', child: Text("Urgent")),
-                  DropdownMenuItem(
-                      value: 'Non-Urgent',
-                      child: Text("Non-Urgent")),
+                    value: 'Non-Urgent',
+                    child: Text("Non-Urgent"),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -1561,19 +1835,16 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.check_circle,
-                          color: Colors.white),
+                      : const Icon(Icons.check_circle, color: Colors.white),
                   label: Text(
                     _finalizing
                         ? "Finalizing…"
                         : "Finalize Triage → Doctor Queue",
-                    style: const TextStyle(
-                        fontSize: 16, color: Colors.white),
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -1590,8 +1861,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   Widget _buildResultCard(String stage1Prediction) {
     final result = _stage2Result!;
     final color = _predictionColor(result.prediction);
-    final changed = stage1Prediction.isNotEmpty &&
-        stage1Prediction != result.prediction;
+    final changed =
+        stage1Prediction.isNotEmpty && stage1Prediction != result.prediction;
 
     return Container(
       width: double.infinity,
@@ -1613,15 +1884,16 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         children: [
           const Text(
             "Stage 2 AI Result",
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 7),
+                  horizontal: 14,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(20),
@@ -1638,8 +1910,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               const SizedBox(width: 12),
               Text(
                 "${(result.confidence * 100).toStringAsFixed(1)}% confidence",
-                style:
-                    const TextStyle(fontSize: 14, color: Colors.grey),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
@@ -1656,8 +1927,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
           if (changed) ...[
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
@@ -1665,8 +1935,11 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.swap_horiz,
-                      color: Colors.amber.shade700, size: 16),
+                  Icon(
+                    Icons.swap_horiz,
+                    color: Colors.amber.shade700,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     "Prediction changed: $stage1Prediction → ${result.prediction}",
@@ -1683,8 +1956,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
           if (result.deferred) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
                 borderRadius: BorderRadius.circular(8),
@@ -1692,8 +1964,11 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_rounded,
-                      color: Colors.red.shade700, size: 16),
+                  Icon(
+                    Icons.warning_rounded,
+                    color: Colors.red.shade700,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -1722,15 +1997,15 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   }) {
     return TextFormField(
       controller: controller,
-      keyboardType:
-          TextInputType.numberWithOptions(decimal: isDecimal),
+      keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 12),
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       validator: (v) {
         if (v == null || v.trim().isEmpty) return 'Required';
@@ -1763,9 +2038,7 @@ class NurseProfilePage extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid == null) {
-      return const Scaffold(
-        body: Center(child: Text("No nurse logged in")),
-      );
+      return const Scaffold(body: Center(child: Text("No nurse logged in")));
     }
 
     return Scaffold(
@@ -1792,10 +2065,9 @@ class NurseProfilePage extends StatelessWidget {
           final status = data["status"] ?? "active";
           final staffId = data["staffId"] ?? "Not available";
 
-          final statusText =
-              status.toString().toLowerCase() == "active"
-                  ? "Available"
-                  : status.toString();
+          final statusText = status.toString().toLowerCase() == "active"
+              ? "Available"
+              : status.toString();
 
           return ListView(
             children: [
@@ -1807,8 +2079,11 @@ class NurseProfilePage extends StatelessWidget {
                     const CircleAvatar(
                       radius: 55,
                       backgroundColor: Color(0xFF5B73D6),
-                      child: Icon(Icons.local_hospital,
-                          size: 58, color: Colors.white),
+                      child: Icon(
+                        Icons.local_hospital,
+                        size: 58,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -1822,14 +2097,12 @@ class NurseProfilePage extends StatelessWidget {
                     ),
                     const Text(
                       "Triage Nurse",
-                      style:
-                          TextStyle(color: Colors.white, fontSize: 18),
+                      style: TextStyle(color: Colors.white, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       "● $statusText",
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 15),
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
                     ),
                   ],
                 ),
@@ -1876,7 +2149,9 @@ class NurseProfilePage extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -1887,8 +2162,7 @@ class NurseProfilePage extends StatelessWidget {
                       style: TextStyle(color: Colors.red),
                     ),
                     style: OutlinedButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Colors.red),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -1905,10 +2179,7 @@ class NurseProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _sectionCard({
-    required String title,
-    required List<Widget> children,
-  }) {
+  Widget _sectionCard({required String title, required List<Widget> children}) {
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(20),
@@ -1919,9 +2190,10 @@ class NurseProfilePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 18),
           ...children,
         ],
@@ -1938,9 +2210,10 @@ class NurseProfilePage extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: const Color(0xFF2446B8)),
       title: Text(label, style: const TextStyle(color: Colors.grey)),
-      subtitle: Text(value,
-          style:
-              const TextStyle(fontSize: 17, color: Colors.black)),
+      subtitle: Text(
+        value,
+        style: const TextStyle(fontSize: 17, color: Colors.black),
+      ),
     );
   }
 }
