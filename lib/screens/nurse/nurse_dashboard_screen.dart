@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/notification_service.dart';
 import '../../services/triage_service.dart';
+import '../../utils/triage_levels.dart';
 import '../staff/staff_login_screen.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
@@ -386,7 +387,7 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
 
                 final high = patients.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  return data["triageLevel"] == "EMERGENCY";
+                  return data["triageLevel"] == TriageLevels.emergency;
                 }).length;
 
                 return ListView(
@@ -794,16 +795,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     });
   }
 
-  Map<String, dynamic> _predictionToFirestore(String prediction) {
-    switch (prediction) {
-      case 'Emergency':
-        return {'triageLevel': 'EMERGENCY', 'priorityNumber': 1};
-      case 'Urgent':
-        return {'triageLevel': 'MODERATE', 'priorityNumber': 2};
-      default:
-        return {'triageLevel': 'LOW', 'priorityNumber': 3};
-    }
-  }
+  Map<String, dynamic> _predictionToFirestore(String prediction) =>
+      TriageLevels.predictionToFirestore(prediction);
 
   Future<void> _finalize() async {
     if (_stage2Result == null || _finalPrediction == null) return;
@@ -948,18 +941,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   }
 
   // Maps internal triage codes to patient-friendly words for notifications.
-  String _friendlyLevel(String level) {
-    switch (level) {
-      case 'EMERGENCY':
-        return 'Emergency';
-      case 'MODERATE':
-        return 'Urgent';
-      case 'LOW':
-        return 'Non-Urgent';
-      default:
-        return level;
-    }
-  }
+  String _friendlyLevel(String level) =>
+      TriageLevels.labelEn(level, fallback: level);
 
   String _arrivalModeLabel(int? v) {
     switch (v) {

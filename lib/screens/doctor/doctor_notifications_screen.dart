@@ -90,7 +90,7 @@ class _DoctorNotificationsScreenState
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.15),
+                  backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(_iconFor(notif.type), color: color),
                 ),
                 const SizedBox(width: 12),
@@ -168,14 +168,16 @@ class _DoctorNotificationsScreenState
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: notif.isRead ? Colors.white : color.withOpacity(0.06),
+            color: notif.isRead
+                ? Colors.white
+                : color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: notif.isRead
                 ? null
-                : Border.all(color: color.withOpacity(0.25), width: 1),
+                : Border.all(color: color.withValues(alpha: 0.25), width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -186,7 +188,7 @@ class _DoctorNotificationsScreenState
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 child:
                     Icon(_iconFor(notif.type), color: color, size: 20),
               ),

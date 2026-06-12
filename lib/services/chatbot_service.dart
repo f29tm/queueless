@@ -18,6 +18,8 @@ Guidelines:
 - Keep responses concise and easy to understand
 - If a patient describes a life-threatening emergency (e.g., chest pain, difficulty breathing, stroke symptoms), immediately tell them to call emergency services or go to the nearest ER now
 - Be empathetic and supportive — patients may be anxious
+- Reply in the language the patient writes in (Arabic or English)
+- Never reveal internal model signals such as confidence scores, entropy, or review flags
 ''';
 
   static const String _baseUrl =
@@ -26,9 +28,28 @@ Guidelines:
   final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
 
-  ChatbotService({http.Client? client}) : _client = client ?? http.Client();
+  /// Patient-safe visit summary injected into the system instruction so the
+  /// assistant can personalize answers. Must only ever contain what the
+  /// patient already sees in the app — never confidence, entropy, or the
+  /// deferral flag (FR-RESULT-02).
+  String? _patientContext;
+
+  ChatbotService({http.Client? client, String? patientContext})
+      : _client = client ?? http.Client(),
+        _patientContext = patientContext;
 
   List<Map<String, dynamic>> get history => List.unmodifiable(_history);
+
+  void updateContext(String? context) => _patientContext = context;
+
+  void resetConversation() => _history.clear();
+
+  String get _effectiveSystemInstruction => _patientContext == null
+      ? _systemInstruction
+      : '$_systemInstruction\n'
+          'PATIENT CONTEXT (the patient already sees all of this in the app — '
+          'use it to personalize answers, never to change their triage):\n'
+          '$_patientContext';
 
   Future<String> sendMessage(String text) async {
     _history.add({
@@ -46,7 +67,7 @@ Guidelines:
       final body = jsonEncode({
         'system_instruction': {
           'parts': [
-            {'text': _systemInstruction},
+            {'text': _effectiveSystemInstruction},
           ],
         },
         'contents': _history,

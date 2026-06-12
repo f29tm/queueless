@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/triage_service.dart';
+import '../../utils/triage_levels.dart';
 import '../login_screen.dart';
 
 class StaffDashboardScreen extends StatelessWidget {
@@ -55,7 +56,7 @@ class StaffDashboardScreen extends StatelessWidget {
             final docs = snapshot.data!.docs;
             final emergencies = docs.where((d) {
               final data = d.data() as Map<String, dynamic>;
-              return data['triageLevel'] == 'EMERGENCY';
+              return data['triageLevel'] == TriageLevels.emergency;
             }).length;
 
             return Column(
@@ -105,26 +106,20 @@ class _PatientCard extends StatelessWidget {
 
   const _PatientCard({required this.doc});
 
+  // Staff cards deliberately use all-caps labels and a PENDING state for
+  // manual check-ins; the shared codes come from TriageLevels.
   Color _levelColor(String level) {
-    switch (level) {
-      case 'EMERGENCY':
-        return Colors.red;
-      case 'MODERATE':
-        return Colors.orange;
-      case 'PENDING':
-        return Colors.grey.shade400;
-      default:
-        return Colors.green;
-    }
+    if (level == 'PENDING') return Colors.grey.shade400;
+    return TriageLevels.color(level);
   }
 
   String _levelLabel(String level) {
     switch (level) {
-      case 'EMERGENCY':
+      case TriageLevels.emergency:
         return 'EMERGENCY';
-      case 'MODERATE':
+      case TriageLevels.moderate:
         return 'URGENT';
-      case 'LOW':
+      case TriageLevels.low:
         return 'NON-URGENT';
       case 'PENDING':
         return 'Manual Assessment';
@@ -406,14 +401,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
   }
 
   Map<String, dynamic> _predictionToTriage(String prediction) {
-    switch (prediction) {
-      case 'Emergency':
-        return {'level': 'EMERGENCY', 'priority': 1};
-      case 'Urgent':
-        return {'level': 'MODERATE', 'priority': 2};
-      default:
-        return {'level': 'LOW', 'priority': 3};
-    }
+    final level = TriageLevels.fromPrediction(prediction);
+    return {'level': level, 'priority': TriageLevels.priorityOf(level)};
   }
 
   Color _predictionColor(String prediction) {
@@ -504,7 +493,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                   const SizedBox(height: 12),
 
                   DropdownButtonFormField<int>(
-                    value: _ktasRn,
+                    initialValue: _ktasRn,
                     decoration: InputDecoration(
                       labelText: "Nurse Clinical Impression (KTAS)",
                       border: OutlineInputBorder(
@@ -589,7 +578,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                value: _finalPriority,
+                initialValue: _finalPriority,
                 decoration: InputDecoration(
                   labelText: "Final Priority (override if needed)",
                   border: OutlineInputBorder(
@@ -664,7 +653,7 @@ class _VitalsSheetState extends State<_VitalsSheet> {
         boxShadow: [
           BoxShadow(
             blurRadius: 6,
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             offset: const Offset(0, 2),
           ),
         ],
@@ -733,9 +722,9 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       padding:
           const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [

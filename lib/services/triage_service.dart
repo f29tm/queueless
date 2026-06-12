@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../utils/triage_levels.dart';
 
 const String _baseUrl = 'https://f29tm-queueless-triage-api.hf.space';
 
@@ -41,28 +42,10 @@ class TriageResult {
       );
 
   /// Maps API prediction label to Firestore triageLevel value.
-  String get triageLevel {
-    switch (prediction) {
-      case 'Emergency':
-        return 'EMERGENCY';
-      case 'Urgent':
-        return 'MODERATE';
-      default:
-        return 'LOW';
-    }
-  }
+  String get triageLevel => TriageLevels.fromPrediction(prediction);
 
   /// Maps prediction to queue priority number (1 = highest urgency).
-  int get priorityNumber {
-    switch (prediction) {
-      case 'Emergency':
-        return 1;
-      case 'Urgent':
-        return 2;
-      default:
-        return 3;
-    }
-  }
+  int get priorityNumber => TriageLevels.priorityOf(triageLevel);
 
   /// Returns the ML-result fields to merge into a Firestore queue document.
   Map<String, dynamic> toFirestore() => {

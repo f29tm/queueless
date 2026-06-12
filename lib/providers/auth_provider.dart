@@ -55,7 +55,7 @@ class AuthProvider with ChangeNotifier {
         "phone": phone,
         "role": "patient",
         "emailVerified": false,
-        "createdAt": Timestamp.now(),
+        "createdAt": FieldValue.serverTimestamp(),
       };
 
       userData.addAll(extraData);

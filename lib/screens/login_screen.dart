@@ -446,6 +446,7 @@ const SizedBox(height: 12),
                 await Provider.of<AuthProvider>(context, listen: false)
                     .sendPasswordResetEmail(email);
 
+                if (!context.mounted) return;
                 Navigator.pop(context);
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -454,6 +455,7 @@ const SizedBox(height: 12),
                   ),
                 );
               } catch (e) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(e.toString())),
                 );

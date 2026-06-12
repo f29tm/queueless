@@ -56,9 +56,7 @@ class MedicationTrackerScreen extends StatelessWidget {
       );
     }
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: StreamBuilder<List<Prescription>>(
           stream: PrescriptionService().streamForPatient(uid),
@@ -145,7 +143,6 @@ class MedicationTrackerScreen extends StatelessWidget {
             );
           },
         ),
-      ),
     );
   }
 

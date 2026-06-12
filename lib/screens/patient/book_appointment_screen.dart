@@ -500,9 +500,7 @@ await showDialog(
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: SafeArea(
           child: Column(
@@ -519,7 +517,6 @@ await showDialog(
             ],
           ),
         ),
-      ),
     );
   }
 

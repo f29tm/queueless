@@ -11,9 +11,7 @@ class ManualCheckinConfirmationScreen extends StatelessWidget {
         ModalRoute.of(context)!.settings.arguments as Map<dynamic, dynamic>;
     final queueNumber = args['queueNumber'] as String? ?? '—';
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
           backgroundColor: Colors.teal,
@@ -148,7 +146,6 @@ class ManualCheckinConfirmationScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

@@ -76,15 +76,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validatePhone(String v) {
     if (v.trim().isEmpty) return "Phone number is required.";
-    if (!RegExp(r"^05\d{8}$").hasMatch(v.trim()))
+    if (!RegExp(r"^05\d{8}$").hasMatch(v.trim())) {
       return "Format: 05XXXXXXXX (UAE number)";
+    }
     return null;
   }
 
   String? _validateEmail(String v) {
     if (v.trim().isEmpty) return "Email is required.";
     if (!RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-        .hasMatch(v.trim())) return "Enter a valid email address.";
+        .hasMatch(v.trim())) {
+      return "Enter a valid email address.";
+    }
     return null;
   }
 
@@ -94,8 +97,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!RegExp(r"[A-Z]").hasMatch(v)) return "Add at least one uppercase letter.";
     if (!RegExp(r"[a-z]").hasMatch(v)) return "Add at least one lowercase letter.";
     if (!RegExp(r"[0-9]").hasMatch(v)) return "Add at least one number.";
-    if (!RegExp(r'[!@#\$%\^&\*\(\)\.\?\:"\{\}\|<>]').hasMatch(v))
+    if (!RegExp(r'[!@#\$%\^&\*\(\)\.\?\:"\{\}\|<>]').hasMatch(v)) {
       return "Add at least one special character.";
+    }
     return null;
   }
 
@@ -291,7 +295,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
     );
 
-    if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (error != null) {
       ScaffoldMessenger.of(context)
@@ -494,7 +499,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF009688),
                         disabledBackgroundColor:
-                            const Color(0xFF009688).withOpacity(0.4),
+                            const Color(0xFF009688).withValues(alpha: 0.4),
                         padding:
                             const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -888,7 +893,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 : null,
           ),
           child: DropdownButtonFormField<String>(
-            value: selectedGender,
+            initialValue: selectedGender,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.person_outline,
                   color: Color(0xFF009688)),

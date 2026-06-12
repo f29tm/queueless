@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>QueueLess uses the microphone so you can describe your symptoms by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>QueueLess transcribes your spoken symptoms to help fill in the form.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

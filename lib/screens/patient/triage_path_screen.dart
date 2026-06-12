@@ -77,9 +77,7 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
   Widget build(BuildContext context) {
     final isArabic = _isArabic;
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
           backgroundColor: Colors.teal,
@@ -166,7 +164,6 @@ class _TriagePathScreenState extends State<TriagePathScreen> {
                   ),
                 ),
               ),
-      ),
     );
   }
 }

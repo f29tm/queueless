@@ -1,5 +1,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/triage_levels.dart';
 
 enum NotificationType {
   appointmentCancelled,
@@ -337,18 +338,5 @@ class NotificationService {
     return 'الإلكترونية';
   }
 
-  static String _triageLevelAr(String level) {
-    switch (level.toUpperCase()) {
-      case 'EMERGENCY':
-        return 'طارئ';
-      case 'MODERATE':
-      case 'URGENT':
-        return 'عاجل';
-      case 'LOW':
-      case 'NON-URGENT':
-        return 'غير عاجل';
-      default:
-        return level;
-    }
-  }
+  static String _triageLevelAr(String level) => TriageLevels.labelAr(level);
 }

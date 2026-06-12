@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/prescription_service.dart';
+import '../../utils/triage_levels.dart';
 
 class DoctorPatientDetailScreen extends StatefulWidget {
   final String queueDocId;
@@ -27,21 +28,9 @@ class _DoctorPatientDetailScreenState
     extends State<DoctorPatientDetailScreen> {
   bool _discharging = false;
 
-  Color get _levelColor {
-    switch (widget.triageLevel) {
-      case 'EMERGENCY': return Colors.red;
-      case 'MODERATE':  return Colors.orange;
-      default:          return Colors.green;
-    }
-  }
+  Color get _levelColor => TriageLevels.color(widget.triageLevel);
 
-  String get _levelLabel {
-    switch (widget.triageLevel) {
-      case 'EMERGENCY': return 'Emergency';
-      case 'MODERATE':  return 'Urgent';
-      default:          return 'Non-Urgent';
-    }
-  }
+  String get _levelLabel => TriageLevels.labelEn(widget.triageLevel);
 
   Future<void> _dischargePatient() async {
     final confirmed = await showDialog<bool>(

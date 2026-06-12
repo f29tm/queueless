@@ -214,9 +214,7 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
           backgroundColor: const Color(0xFFF5F7FA),
@@ -232,7 +230,6 @@ class _ArrivalCheckInScreenState extends State<ArrivalCheckInScreen> {
               ? _buildSuccessState(isArabic)
               : _buildPreConfirmState(isArabic),
         ),
-      ),
     );
   }
 

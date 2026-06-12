@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../login_screen.dart';
 import '../../services/notification_service.dart';
+import '../../utils/triage_levels.dart';
 import 'doctor_notifications_screen.dart';
 import 'doctor_patient_detail_screen.dart';
 
@@ -322,21 +323,9 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
       (data['triageLevel'] as String?) ??
       'LOW';
 
-  Color _levelColor(String level) {
-    switch (level) {
-      case 'EMERGENCY': return Colors.red;
-      case 'MODERATE':  return Colors.orange;
-      default:          return Colors.green;
-    }
-  }
+  Color _levelColor(String level) => TriageLevels.color(level);
 
-  String _levelLabel(String level) {
-    switch (level) {
-      case 'EMERGENCY': return 'Emergency';
-      case 'MODERATE':  return 'Urgent';
-      default:          return 'Non-Urgent';
-    }
-  }
+  String _levelLabel(String level) => TriageLevels.labelEn(level);
 
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
@@ -401,8 +390,8 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
           for (final doc in docs) {
             final level =
                 _effectiveLevel(doc.data() as Map<String, dynamic>);
-            if (level == 'EMERGENCY') emergencyCount++;
-            if (level == 'MODERATE') urgentCount++;
+            if (level == TriageLevels.emergency) emergencyCount++;
+            if (level == TriageLevels.moderate) urgentCount++;
           }
 
           return Column(
@@ -871,7 +860,9 @@ class AppointmentCard extends StatelessWidget {
                           final ok =
                               await _showDoctorCompleteConfirmation(
                                   context, 'appointment');
-                          if (ok) await _updateStatus(context, "completed");
+                          if (ok && context.mounted) {
+                            await _updateStatus(context, "completed");
+                          }
                         },
                         icon: const Icon(Icons.check_circle,
                             color: Colors.green),
@@ -889,9 +880,10 @@ class AppointmentCard extends StatelessWidget {
                           final r =
                               await _showDoctorCancelConfirmation(
                                   context, 'appointment');
-                          if (r != null)
+                          if (r != null && context.mounted) {
                             await _updateStatus(context, "cancelled",
                                 cancelReason: r);
+                          }
                         },
                         icon: const Icon(Icons.cancel, color: Colors.red),
                         label: const Text("Cancel",
@@ -1046,7 +1038,9 @@ class ConsultationCard extends StatelessWidget {
                           final ok =
                               await _showDoctorCompleteConfirmation(
                                   context, 'consultation');
-                          if (ok) await _updateStatus(context, "completed");
+                          if (ok && context.mounted) {
+                            await _updateStatus(context, "completed");
+                          }
                         },
                         icon: const Icon(Icons.check_circle,
                             color: Colors.green),
@@ -1064,9 +1058,10 @@ class ConsultationCard extends StatelessWidget {
                           final r =
                               await _showDoctorCancelConfirmation(
                                   context, 'consultation');
-                          if (r != null)
+                          if (r != null && context.mounted) {
                             await _updateStatus(context, "cancelled",
                                 cancelReason: r);
+                          }
                         },
                         icon: const Icon(Icons.cancel, color: Colors.red),
                         label: const Text("Cancel",

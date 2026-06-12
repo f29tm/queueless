@@ -114,9 +114,7 @@ class SymptomResultScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
           backgroundColor: const Color(0xFFF5F6FA),
@@ -346,7 +344,6 @@ class SymptomResultScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 
