@@ -1,9 +1,10 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/encryption_service.dart';
 import '../../utils/app_localizer.dart';
+import '../../utils/appointment_conflicts.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -29,6 +30,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   Set<String> bookedSlots = {};
   bool loadingSlots = false;
 
+  // The patient's OWN scheduled appointments, keyed "date_time" — with any
+  // doctor. Used to grey out slots where they're already booked elsewhere.
+  Set<String> myBookedTimes = {};
+
   final Map<String, List<String>> hospitals = {
     "NMC Speciality Hospital": [
       "Emergency Medicine",
@@ -49,9 +54,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
   late final List<String> availableDates = List.generate(
     5,
-    (index) => DateFormat('EEE, MMM d').format(
-      DateTime.now().add(Duration(days: index)),
-    ),
+    (index) => DateFormat(
+      'EEE, MMM d',
+    ).format(DateTime.now().add(Duration(days: index))),
   );
 
   final List<String> availableTimes = [
@@ -62,13 +67,49 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     "06:00 PM",
   ];
 
-  bool get isArabic =>
-      Localizations.localeOf(context).languageCode == 'ar';
+  bool get isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyBookings();
+  }
 
   @override
   void dispose() {
     reasonController.dispose();
     super.dispose();
+  }
+
+  /// Loads every slot the patient already holds (any doctor) so the time grid
+  /// can grey them out. Best-effort: _confirmBooking re-checks authoritatively.
+  Future<void> _loadMyBookings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('patientId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'scheduled')
+          .get();
+
+      if (!mounted) return;
+      setState(() {
+        myBookedTimes = {
+          for (final doc in snap.docs)
+            if (doc.data()['date'] != null && doc.data()['time'] != null)
+              '${doc.data()['date']}_${doc.data()['time']}',
+        };
+      });
+    } catch (_) {
+      // UI hint only — the confirm step still blocks the clash.
+    }
+  }
+
+  bool _isMyOwnBooking(String time) {
+    if (selectedDate == null) return false;
+    return myBookedTimes.contains('${selectedDate}_$time');
   }
 
   String tr(String en, String ar) => isArabic ? ar : en;
@@ -86,113 +127,113 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     }
   }
 
-String translateDoctorName(String name) {
-  if (!isArabic) return name;
+  String translateDoctorName(String name) {
+    if (!isArabic) return name;
 
-  String result = name;
+    String result = name;
 
-  result = result.replaceAll('Dr.', 'د.');
-  result = result.replaceAll('Dr ', 'د. ');
+    result = result.replaceAll('Dr.', 'د.');
+    result = result.replaceAll('Dr ', 'د. ');
 
-  return result;
-}
-
-String translateDepartment(String department) {
-  if (!isArabic) return department;
-
-  switch (department.toLowerCase()) {
-    case 'emergency medicine':
-      return 'طب الطوارئ';
-
-    case 'cardiology':
-      return 'أمراض القلب';
-
-    case 'dermatology':
-      return 'الأمراض الجلدية';
-
-    case 'ent':
-      return 'الأنف والأذن والحنجرة';
-
-    case 'internal medicine':
-      return 'الطب الباطني';
-
-    case 'ophthalmology':
-      return 'طب العيون';
-
-    case 'gastroenterology':
-      return 'أمراض الجهاز الهضمي';
-
-    case 'neuroscience':
-      return 'علوم الأعصاب';
-
-    case 'paediatrics':
-    case 'pediatrics':
-      return 'طب الأطفال';
-
-    case 'pulmonology':
-      return 'أمراض الرئة';
-
-    case 'dentistry':
-      return 'طب الأسنان';
-
-    case 'family medicine':
-      return 'طب الأسرة';
-
-    case 'orthopaedics':
-    case 'orthopedics':
-      return 'العظام';
-
-    case 'consultant emergency medicine':
-      return 'استشاري طب الطوارئ';
-
-    case 'chair of emergency medicine':
-      return 'رئيس قسم طب الطوارئ';
-
-    case 'general medicine':
-      return 'الطب العام';
-
-    default:
-      return department;
+    return result;
   }
-}
 
-String translateDoctorSpecialty(String specialty) {
-  if (!isArabic) return specialty;
+  String translateDepartment(String department) {
+    if (!isArabic) return department;
 
-  switch (specialty.toLowerCase()) {
-    case 'consultant emergency medicine':
-      return 'استشاري طب الطوارئ';
+    switch (department.toLowerCase()) {
+      case 'emergency medicine':
+        return 'طب الطوارئ';
 
-    case 'chair of emergency medicine':
-      return 'رئيس قسم طب الطوارئ';
+      case 'cardiology':
+        return 'أمراض القلب';
 
-    case 'emergency medicine':
-      return 'طب الطوارئ';
+      case 'dermatology':
+        return 'الأمراض الجلدية';
 
-    case 'cardiology':
-      return 'أمراض القلب';
+      case 'ent':
+        return 'الأنف والأذن والحنجرة';
 
-    case 'gastroenterology':
-      return 'أمراض الجهاز الهضمي';
+      case 'internal medicine':
+        return 'الطب الباطني';
 
-    case 'internal medicine':
-      return 'الطب الباطني';
+      case 'ophthalmology':
+        return 'طب العيون';
 
-    case 'general medicine':
-      return 'الطب العام';
+      case 'gastroenterology':
+        return 'أمراض الجهاز الهضمي';
 
-    case 'orthopedics':
-    case 'orthopaedics':
-      return 'العظام';
+      case 'neuroscience':
+        return 'علوم الأعصاب';
 
-    case 'pediatrics':
-    case 'paediatrics':
-      return 'طب الأطفال';
+      case 'paediatrics':
+      case 'pediatrics':
+        return 'طب الأطفال';
 
-    default:
-      return specialty;
+      case 'pulmonology':
+        return 'أمراض الرئة';
+
+      case 'dentistry':
+        return 'طب الأسنان';
+
+      case 'family medicine':
+        return 'طب الأسرة';
+
+      case 'orthopaedics':
+      case 'orthopedics':
+        return 'العظام';
+
+      case 'consultant emergency medicine':
+        return 'استشاري طب الطوارئ';
+
+      case 'chair of emergency medicine':
+        return 'رئيس قسم طب الطوارئ';
+
+      case 'general medicine':
+        return 'الطب العام';
+
+      default:
+        return department;
+    }
   }
-}
+
+  String translateDoctorSpecialty(String specialty) {
+    if (!isArabic) return specialty;
+
+    switch (specialty.toLowerCase()) {
+      case 'consultant emergency medicine':
+        return 'استشاري طب الطوارئ';
+
+      case 'chair of emergency medicine':
+        return 'رئيس قسم طب الطوارئ';
+
+      case 'emergency medicine':
+        return 'طب الطوارئ';
+
+      case 'cardiology':
+        return 'أمراض القلب';
+
+      case 'gastroenterology':
+        return 'أمراض الجهاز الهضمي';
+
+      case 'internal medicine':
+        return 'الطب الباطني';
+
+      case 'general medicine':
+        return 'الطب العام';
+
+      case 'orthopedics':
+      case 'orthopaedics':
+        return 'العظام';
+
+      case 'pediatrics':
+      case 'paediatrics':
+        return 'طب الأطفال';
+
+      default:
+        return specialty;
+    }
+  }
 
   String translateTime(String value) {
     if (!isArabic) return value;
@@ -224,9 +265,7 @@ String translateDoctorSpecialty(String specialty) {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   DateTime _parseDateTime(String dateLabel, String timeLabel) {
@@ -235,7 +274,8 @@ String translateDoctorSpecialty(String specialty) {
     final time = DateFormat('hh:mm a').parse(timeLabel);
     final now = DateTime.now();
 
-    final year = (date.month < now.month ||
+    final year =
+        (date.month < now.month ||
             (date.month == now.month && date.day < now.day))
         ? now.year + 1
         : now.year;
@@ -245,7 +285,10 @@ String translateDoctorSpecialty(String specialty) {
 
   bool _isSelectedAppointmentInPast() {
     if (selectedDate == null || selectedTime == null) return false;
-    return _parseDateTime(selectedDate!, selectedTime!).isBefore(DateTime.now());
+    return _parseDateTime(
+      selectedDate!,
+      selectedTime!,
+    ).isBefore(DateTime.now());
   }
 
   Future<void> _loadBookedSlots(String doctorUid) async {
@@ -297,18 +340,22 @@ String translateDoctorSpecialty(String specialty) {
         selectedDoctorUid == null ||
         selectedDate == null ||
         selectedTime == null) {
-      _showSnack(tr(
-        "Please complete all booking steps.",
-        "يرجى إكمال جميع خطوات الحجز.",
-      ));
+      _showSnack(
+        tr(
+          "Please complete all booking steps.",
+          "يرجى إكمال جميع خطوات الحجز.",
+        ),
+      );
       return;
     }
 
     if (_isSelectedAppointmentInPast()) {
-      _showSnack(tr(
-        "Selected appointment time has already passed.",
-        "وقت الموعد المحدد قد مضى بالفعل.",
-      ));
+      _showSnack(
+        tr(
+          "Selected appointment time has already passed.",
+          "وقت الموعد المحدد قد مضى بالفعل.",
+        ),
+      );
       return;
     }
 
@@ -318,90 +365,107 @@ String translateDoctorSpecialty(String specialty) {
       final db = FirebaseFirestore.instance;
       final appointmentRef = db.collection('appointments').doc();
 
-      await db.runTransaction((transaction) async {
-        final existingSnap = await db
-            .collection('appointments')
-            .where('doctorUid', isEqualTo: selectedDoctorUid)
-            .where('date', isEqualTo: selectedDate)
-            .where('time', isEqualTo: selectedTime)
-            .where('status', isEqualTo: 'scheduled')
-            .get();
+      // A patient can't be in two places at once: block a second booking at
+      // the same date+time even with a different doctor. Checked before the
+      // doctor-slot check so the patient gets the accurate message.
+      final clash = await AppointmentConflicts.findPatientClash(
+        db,
+        patientId: user.uid,
+        date: selectedDate!,
+        time: selectedTime!,
+      );
 
-        if (existingSnap.docs.isNotEmpty) {
-          throw Exception('SLOT_TAKEN');
+      if (clash != null) {
+        await _loadMyBookings();
+        if (mounted) {
+          _showOwnClashDialog((clash.data()['doctorName'] as String?) ?? '');
         }
+        return;
+      }
 
-        final appointmentData = <String, dynamic>{
-          'appointmentId': appointmentRef.id,
-          'patientId': user.uid,
-          'hospital': selectedHospital,
-          'department': selectedDepartment,
-          'doctorName': selectedDoctor,
-          'doctorUid': selectedDoctorUid,
-          'doctorSpecialty': selectedDoctorSpecialty,
-          'date': selectedDate,
-          'time': selectedTime,
-          'status': 'scheduled',
-          'createdAt': FieldValue.serverTimestamp(),
-        };
+      // Check for a conflicting booking before writing. Collection queries
+      // cannot run inside runTransaction on mobile (only transaction.get(docRef)
+      // is supported), so we do this as a plain read first.
+      final existingSnap = await db
+          .collection('appointments')
+          .where('doctorUid', isEqualTo: selectedDoctorUid)
+          .where('date', isEqualTo: selectedDate)
+          .where('time', isEqualTo: selectedTime)
+          .where('status', isEqualTo: 'scheduled')
+          .get();
 
-        transaction.set(appointmentRef, appointmentData);
-      });
+      if (existingSnap.docs.isNotEmpty) {
+        throw Exception('SLOT_TAKEN');
+      }
 
-      // Encrypt and write sensitive reason field after the transaction
+      final appointmentData = <String, dynamic>{
+        'appointmentId': appointmentRef.id,
+        'patientId': user.uid,
+        'hospital': selectedHospital,
+        'department': selectedDepartment,
+        'doctorName': selectedDoctor,
+        'doctorUid': selectedDoctorUid,
+        'doctorSpecialty': selectedDoctorSpecialty,
+        'date': selectedDate,
+        'time': selectedTime,
+        'status': 'scheduled',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await appointmentRef.set(appointmentData);
+
+      // The visit reason is sensitive — written encrypted via the cloud
+      // function, never as a plaintext field on the appointment doc.
       final reason = reasonController.text.trim();
       if (reason.isNotEmpty) {
         await EncryptionService.saveAppointmentData(
           docId: appointmentRef.id,
-          data: {
-            'patientId': user.uid,
-            'reason': reason,
-          },
+          data: {'patientId': user.uid, 'reason': reason},
         );
       }
 
-if (!mounted) return;
+      if (!mounted) return;
 
-await showDialog(
-  context: context,
-  barrierDismissible: false,
-  builder: (_) => AlertDialog(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(28),
-    ),
-    title: Text(
-      tr("Appointment Booked", "تم حجز الموعد"),
-      style: const TextStyle(fontWeight: FontWeight.bold),
-    ),
-    content: Text(
-      isArabic
-          ? "تم تأكيد موعدك مع ${translateDoctorName(selectedDoctor ?? '')} في ${translateHospital(selectedHospital ?? '')} - ${translateDepartment(selectedDepartment ?? '')} بتاريخ ${translateDate(selectedDate ?? '')} الساعة ${translateTime(selectedTime ?? '')}."
-          : "Your appointment with $selectedDoctor at $selectedHospital - $selectedDepartment on $selectedDate at $selectedTime has been confirmed.",
-      style: const TextStyle(fontSize: 16, height: 1.4),
-    ),
-    actions: [
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            Navigator.pop(context);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F8B8D),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          title: Text(
+            tr("Appointment Booked", "تم حجز الموعد"),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            isArabic
+                ? "تم تأكيد موعدك مع ${translateDoctorName(selectedDoctor ?? '')} في ${translateHospital(selectedHospital ?? '')} - ${translateDepartment(selectedDepartment ?? '')} بتاريخ ${translateDate(selectedDate ?? '')} الساعة ${translateTime(selectedTime ?? '')}."
+                : "Your appointment with $selectedDoctor at $selectedHospital - $selectedDepartment on $selectedDate at $selectedTime has been confirmed.",
+            style: const TextStyle(fontSize: 16, height: 1.4),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F8B8D),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: Text(
+                  tr("OK", "حسناً"),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
             ),
-          ),
-          child: Text(
-            tr("OK", "حسناً"),
-            style: const TextStyle(color: Colors.white),
-          ),
+          ],
         ),
-      ),
-    ],
-  ),
-);
+      );
     } on Exception catch (e) {
       if (e.toString().contains('SLOT_TAKEN')) {
         if (selectedDoctorUid != null) {
@@ -457,6 +521,51 @@ await showDialog(
     }
   }
 
+  void _showOwnClashDialog(String existingDoctor) {
+    setState(() => currentStep = 2);
+
+    final doctorPart = existingDoctor.isEmpty
+        ? ''
+        : isArabic
+        ? ' مع ${translateDoctorName(existingDoctor)}'
+        : ' with $existingDoctor';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          tr("You Already Have a Booking", "لديك حجز بالفعل"),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          isArabic
+              ? "لديك موعد بالفعل يوم ${translateDate(selectedDate ?? '')} الساعة ${translateTime(selectedTime ?? '')}$doctorPart. يرجى اختيار وقت مختلف أو إلغاء موعدك الحالي أولاً."
+              : "You already have an appointment on $selectedDate at $selectedTime$doctorPart. Please choose a different time or cancel your existing appointment first.",
+          style: const TextStyle(fontSize: 15, height: 1.4),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F8B8D),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: Text(
+                tr("Choose Another Time", "اختيار وقت آخر"),
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void nextStep() {
     if (currentStep == 0 && selectedDepartment == null) {
       _showSnack(tr("Please select a department.", "يرجى اختيار القسم."));
@@ -469,26 +578,39 @@ await showDialog(
     }
 
     if (currentStep == 2 && (selectedDate == null || selectedTime == null)) {
-      _showSnack(tr(
-        "Please select date and time.",
-        "يرجى اختيار التاريخ والوقت.",
-      ));
+      _showSnack(
+        tr("Please select date and time.", "يرجى اختيار التاريخ والوقت."),
+      );
       return;
     }
 
     if (currentStep == 2 && _isSelectedAppointmentInPast()) {
-      _showSnack(tr(
-        "Selected appointment time has already passed.",
-        "وقت الموعد المحدد قد مضى بالفعل.",
-      ));
+      _showSnack(
+        tr(
+          "Selected appointment time has already passed.",
+          "وقت الموعد المحدد قد مضى بالفعل.",
+        ),
+      );
       return;
     }
 
     if (currentStep == 2 && _isSlotBooked(selectedTime!)) {
-      _showSnack(tr(
-        "This slot is already booked. Please choose another.",
-        "هذا الموعد محجوز بالفعل. يرجى اختيار موعد آخر.",
-      ));
+      _showSnack(
+        tr(
+          "This slot is already booked. Please choose another.",
+          "هذا الموعد محجوز بالفعل. يرجى اختيار موعد آخر.",
+        ),
+      );
+      return;
+    }
+
+    if (currentStep == 2 && _isMyOwnBooking(selectedTime!)) {
+      _showSnack(
+        tr(
+          "You already have an appointment at this time.",
+          "لديك موعد بالفعل في هذا الوقت.",
+        ),
+      );
       return;
     }
 
@@ -508,22 +630,22 @@ await showDialog(
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildProgress(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                  child: _buildStepContent(),
-                ),
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildProgress(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: _buildStepContent(),
               ),
-              _buildBottomButtons(),
-            ],
-          ),
+            ),
+            _buildBottomButtons(),
+          ],
         ),
+      ),
     );
   }
 
@@ -543,9 +665,12 @@ await showDialog(
             children: [
               Text(
                 translateHospital(
-                    selectedHospital ?? tr("Book Appointment", "حجز موعد")),
+                  selectedHospital ?? tr("Book Appointment", "حجز موعد"),
+                ),
                 style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w700),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -613,8 +738,7 @@ await showDialog(
     final departments = hospitals[selectedHospital] ?? [];
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Department", "اختر القسم"),
@@ -690,14 +814,12 @@ await showDialog(
         final Map<String, QueryDocumentSnapshot> byName = {};
         for (final doc in uniqueDoctors.values) {
           final data = doc.data() as Map<String, dynamic>;
-          final name =
-              (data['name'] ?? '').toString().toLowerCase().trim();
+          final name = (data['name'] ?? '').toString().toLowerCase().trim();
           if (name.isEmpty) continue;
           if (!byName.containsKey(name)) {
             byName[name] = doc;
           } else {
-            final existing =
-                byName[name]!.data() as Map<String, dynamic>;
+            final existing = byName[name]!.data() as Map<String, dynamic>;
             if (data['nameAr'] != null && existing['nameAr'] == null) {
               byName[name] = doc;
             }
@@ -705,88 +827,83 @@ await showDialog(
         }
         final doctors = byName.values.toList();
 
-if (doctors.isEmpty) {
-  return Center(
-    child: Text(
-      isArabic
-          ? "لا يوجد أطباء في قسم ${translateDepartment(selectedDepartment ?? '')}."
-          : "No doctors found for $selectedDepartment.",
-      style: const TextStyle(fontSize: 16),
-    ),
-  );
-}
+        if (doctors.isEmpty) {
+          return Center(
+            child: Text(
+              isArabic
+                  ? "لا يوجد أطباء في قسم ${translateDepartment(selectedDepartment ?? '')}."
+                  : "No doctors found for $selectedDepartment.",
+              style: const TextStyle(fontSize: 16),
+            ),
+          );
+        }
 
-return Column(
-  crossAxisAlignment:
-      CrossAxisAlignment.start,
-  children: [
-    Text(
-      tr("Select Doctor", "اختر الطبيب"),
-      style: const TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w800,
-        color: Color(0xFF111827),
-      ),
-    ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr("Select Doctor", "اختر الطبيب"),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
 
-    const SizedBox(height: 6),
+            const SizedBox(height: 6),
 
-    Text(
-      isArabic
-          ? "الأطباء المتاحون في ${translateDepartment(selectedDepartment ?? '')}"
-          : "Available doctors in ${selectedDepartment ?? ''}",
-      style: const TextStyle(
-        fontSize: 16,
-        color: Color(0xFF6B7280),
-      ),
-    ),
+            Text(
+              isArabic
+                  ? "الأطباء المتاحون في ${translateDepartment(selectedDepartment ?? '')}"
+                  : "Available doctors in ${selectedDepartment ?? ''}",
+              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+            ),
 
-    const SizedBox(height: 22),
+            const SizedBox(height: 22),
 
-   ...doctors.map((doc) {
-  final data = doc.data() as Map<String, dynamic>;
+            ...doctors.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
 
-  final uid = (data['uid'] ?? doc.id).toString();
+              final uid = (data['uid'] ?? doc.id).toString();
 
-  final doctorName = isArabic
-      ? (data['nameAr'] ?? data['name'] ?? 'طبيب').toString()
-      : (data['name'] ?? 'Doctor').toString();
+              final doctorName = isArabic
+                  ? (data['nameAr'] ?? data['name'] ?? 'طبيب').toString()
+                  : (data['name'] ?? 'Doctor').toString();
 
-  final specialty = isArabic
-      ? (data['specialtyAr'] ?? data['specialty'] ?? '').toString()
-      : (data['specialty'] ?? '').toString();
+              final specialty = isArabic
+                  ? (data['specialtyAr'] ?? data['specialty'] ?? '').toString()
+                  : (data['specialty'] ?? '').toString();
 
-  final originalDoctorName = (data['name'] ?? 'Doctor').toString();
-  final originalSpecialty = (data['specialty'] ?? '').toString();
+              final originalDoctorName = (data['name'] ?? 'Doctor').toString();
+              final originalSpecialty = (data['specialty'] ?? '').toString();
 
-  return _selectCard(
-    title: doctorName,
-    subtitle: specialty,
-    selected: selectedDoctorUid == uid,
-    icon: Icons.person_outline,
-    onTap: () async {
-      setState(() {
-        selectedDoctor = originalDoctorName;
-        selectedDoctorUid = uid;
-        selectedDoctorSpecialty = originalSpecialty;
-        selectedDate = null;
-        selectedTime = null;
-      });
+              return _selectCard(
+                title: doctorName,
+                subtitle: specialty,
+                selected: selectedDoctorUid == uid,
+                icon: Icons.person_outline,
+                onTap: () async {
+                  setState(() {
+                    selectedDoctor = originalDoctorName;
+                    selectedDoctorUid = uid;
+                    selectedDoctorSpecialty = originalSpecialty;
+                    selectedDate = null;
+                    selectedTime = null;
+                  });
 
-      await _loadBookedSlots(uid);
-    },
-  );
-}),
-  ],
-);
+                  await _loadBookedSlots(uid);
+                },
+              );
+            }),
+          ],
+        );
       },
     );
   }
 
   Widget _buildDateTimeStep() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Select Date & Time", "اختر التاريخ والوقت"),
@@ -836,8 +953,7 @@ return Column(
         ),
         const SizedBox(height: 24),
         Row(
-          mainAxisAlignment:
-              MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Text(
               tr("Available Times", "الأوقات المتاحة"),
@@ -864,31 +980,42 @@ return Column(
           children: availableTimes.map((time) {
             final selected = selectedTime == time;
 
-            final isPast = selectedDate != null &&
+            final isPast =
+                selectedDate != null &&
                 _parseDateTime(selectedDate!, time).isBefore(DateTime.now());
 
             final isBooked = _isSlotBooked(time);
-            final disabled = isPast || isBooked;
+            final isMine = _isMyOwnBooking(time);
+            final disabled = isPast || isBooked || isMine;
 
             return GestureDetector(
-              onTap: disabled ? null : () => setState(() => selectedTime = time),
+              onTap: disabled
+                  ? null
+                  : () => setState(() => selectedTime = time),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: isBooked
+                  color: isMine
+                      ? Colors.amber.shade50
+                      : isBooked
                       ? Colors.red.shade50
                       : selected
-                          ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
-                          : isPast
-                              ? const Color(0xFFF3F4F6)
-                              : Colors.white,
+                      ? const Color(0xFF0F8B8D).withValues(alpha: 0.18)
+                      : isPast
+                      ? const Color(0xFFF3F4F6)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isBooked
+                    color: isMine
+                        ? Colors.amber.shade300
+                        : isBooked
                         ? Colors.red.shade200
                         : selected
-                            ? const Color(0xFF0F8B8D)
-                            : const Color(0xFFE5E7EB),
+                        ? const Color(0xFF0F8B8D)
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
                 child: Column(
@@ -897,19 +1024,30 @@ return Column(
                     Text(
                       translateTime(time),
                       style: TextStyle(
-                        color: isBooked
+                        color: isMine
+                            ? Colors.amber.shade800
+                            : isBooked
                             ? Colors.red.shade300
                             : isPast
-                                ? const Color(0xFF9CA3AF)
-                                : selected
-                                    ? const Color(0xFF0F8B8D)
-                                    : const Color(0xFF111827),
+                            ? const Color(0xFF9CA3AF)
+                            : selected
+                            ? const Color(0xFF0F8B8D)
+                            : const Color(0xFF111827),
                         fontWeight: FontWeight.w600,
-                        decoration:
-                            isBooked || isPast ? TextDecoration.lineThrough : null,
+                        decoration: isBooked || isPast
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
-                    if (isBooked)
+                    if (isMine)
+                      Text(
+                        tr("Your booking", "موعدك"),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    if (isBooked && !isMine)
                       Text(
                         tr("Booked", "محجوز"),
                         style: TextStyle(
@@ -917,7 +1055,7 @@ return Column(
                           color: Colors.red.shade300,
                         ),
                       ),
-                    if (isPast && !isBooked)
+                    if (isPast && !isBooked && !isMine)
                       Text(
                         tr("Passed", "منتهي"),
                         style: TextStyle(
@@ -936,9 +1074,19 @@ return Column(
           spacing: 16,
           alignment: WrapAlignment.start,
           children: [
-            _legendItem(Colors.red.shade200, tr("Already booked", "محجوز مسبقاً")),
+            _legendItem(
+              Colors.red.shade200,
+              tr("Already booked", "محجوز مسبقاً"),
+            ),
+            _legendItem(
+              Colors.amber.shade300,
+              tr("Your existing booking", "موعدك الحالي"),
+            ),
             _legendItem(Colors.grey.shade300, tr("Time passed", "انتهى الوقت")),
-            _legendItem(const Color(0xFF0F8B8D), tr("Your selection", "اختيارك")),
+            _legendItem(
+              const Color(0xFF0F8B8D),
+              tr("Your selection", "اختيارك"),
+            ),
           ],
         ),
       ],
@@ -969,8 +1117,7 @@ return Column(
 
   Widget _buildReasonSummaryStep() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           tr("Reason for Visit", "سبب الزيارة"),
@@ -1016,8 +1163,7 @@ return Column(
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 tr("Appointment Summary", "ملخص الموعد"),
@@ -1028,17 +1174,32 @@ return Column(
                 ),
               ),
               const SizedBox(height: 14),
-              _summaryItem(Icons.local_hospital, translateHospital(selectedHospital ?? "")),
-              _summaryItem(Icons.medical_services_outlined, translateDepartment(selectedDepartment ?? "")),
+              _summaryItem(
+                Icons.local_hospital,
+                translateHospital(selectedHospital ?? ""),
+              ),
+              _summaryItem(
+                Icons.medical_services_outlined,
+                translateDepartment(selectedDepartment ?? ""),
+              ),
               _summaryItem(
                 Icons.person_outline,
                 isArabic
                     ? (selectedDoctor ?? "").replaceFirst('Dr.', 'د.')
                     : selectedDoctor ?? "",
               ),
-              _summaryItem(Icons.badge_outlined, translateDepartment(selectedDoctorSpecialty ?? "")),
-              _summaryItem(Icons.calendar_today_outlined, translateDate(selectedDate ?? "")),
-              _summaryItem(Icons.access_time_outlined, translateTime(selectedTime ?? "")),
+              _summaryItem(
+                Icons.badge_outlined,
+                translateDepartment(selectedDoctorSpecialty ?? ""),
+              ),
+              _summaryItem(
+                Icons.calendar_today_outlined,
+                translateDate(selectedDate ?? ""),
+              ),
+              _summaryItem(
+                Icons.access_time_outlined,
+                translateTime(selectedTime ?? ""),
+              ),
             ],
           ),
         ),
@@ -1086,14 +1247,15 @@ return Column(
               ),
               child: Icon(
                 icon,
-                color: selected ? const Color(0xFF0F8B8D) : const Color(0xFF6B7280),
+                color: selected
+                    ? const Color(0xFF0F8B8D)
+                    : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
@@ -1164,15 +1326,16 @@ return Column(
                 padding: const EdgeInsets.all(16),
                 side: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Color(0xFF374151),
-              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFF374151)),
             ),
           ),
           Expanded(
             child: ElevatedButton(
-              onPressed: isSaving ? null : isLastStep ? _confirmBooking : nextStep,
+              onPressed: isSaving
+                  ? null
+                  : isLastStep
+                  ? _confirmBooking
+                  : nextStep,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F8B8D),
                 disabledBackgroundColor: const Color(0xFF0F8B8D),
