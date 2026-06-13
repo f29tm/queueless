@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../utils/triage_levels.dart';
@@ -5,10 +8,21 @@ import '../../utils/wait_estimator.dart';
 
 /// Patient-facing live status card shown at the top of the hub.
 ///
-/// Driven entirely by the patient's own `queue` document. Stateless and
-/// Firebase-free so each status branch is unit-testable; the hub wraps it in
-/// a StreamBuilder and supplies [onCheckIn].
-class QueueStatusCard extends StatelessWidget {
+/// Driven by the patient's own `queue` document. It deliberately never sits
+/// "frozen": each lifecycle state either shows actionable information or the
+/// card collapses to nothing.
+///
+/// - `pre_arrival`  → pending-triage prompt with a Check-In button.
+/// - `waiting_nurse`→ queue number + live position/wait. While the position is
+///   still being fanned out it shows a brief spinner, then (after a few
+///   seconds with no result) a calm "you're checked in" message so it can
+///   never spin forever if no staff session is online to compute positions.
+/// - `waiting_doctor`→ a short "assessment complete" confirmation that shows
+///   the completion time and an ✕ to dismiss, and auto-collapses a few minutes
+///   after the nurse finalized (patient-facing tracking ends at the handoff).
+/// - anything else (terminal/empty) → renders nothing; the hub falls back to
+///   its normal layout and a one-time banner announces discharge/completion.
+class QueueStatusCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final bool isArabic;
 
@@ -23,6 +37,106 @@ class QueueStatusCard extends StatelessWidget {
   });
 
   @override
+  State<QueueStatusCard> createState() => _QueueStatusCardState();
+}
+
+class _QueueStatusCardState extends State<QueueStatusCard> {
+  // ── Tunables (confirmed in design grilling) ─────────────────────────────────
+  /// How long the "Calculating your position…" spinner shows before it gives
+  /// up and switches to the calm checked-in fallback.
+  static const _positionFallbackDelay = Duration(seconds: 3);
+
+  /// How long after the nurse finalized the "assessment complete" confirmation
+  /// stays before the card auto-collapses.
+  static const _handoffWindow = Duration(minutes: 3);
+
+  Timer? _positionTimer;
+  Timer? _handoffTimer;
+
+  /// True once the position has failed to land within [_positionFallbackDelay].
+  bool _positionTimedOut = false;
+
+  /// True once the patient taps ✕ on the handoff confirmation. Reset per doc
+  /// because the hub keys this widget by the queue doc id.
+  bool _handoffDismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTimers();
+  }
+
+  @override
+  void didUpdateWidget(covariant QueueStatusCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncTimers();
+  }
+
+  @override
+  void dispose() {
+    _positionTimer?.cancel();
+    _handoffTimer?.cancel();
+    super.dispose();
+  }
+
+  /// (Re)arm or cancel the per-state timers whenever the doc data changes.
+  void _syncTimers() {
+    final status = widget.data['status'] as String?;
+
+    // ── Position fallback: only while waiting_nurse with no computed position.
+    final hasPosition = (widget.data['currentPosition'] as num?) != null;
+    if (status == 'waiting_nurse' && !hasPosition) {
+      _positionTimer ??= Timer(_positionFallbackDelay, () {
+        if (mounted) setState(() => _positionTimedOut = true);
+      });
+    } else {
+      _positionTimer?.cancel();
+      _positionTimer = null;
+      // Position arrived (or we left the lane) — drop the fallback so a later
+      // re-entry starts clean.
+      _positionTimedOut = false;
+    }
+
+    // ── Handoff auto-collapse: time out the confirmation [_handoffWindow] after
+    // the nurse finalized.
+    if (status == 'waiting_doctor') {
+      final completed = _completedAt();
+      if (completed != null) {
+        final remaining = _handoffWindow - DateTime.now().difference(completed);
+        if (remaining.isNegative) {
+          _handoffTimer?.cancel();
+          _handoffTimer = null;
+        } else {
+          _handoffTimer ??= Timer(remaining, () {
+            if (mounted) setState(() {});
+          });
+        }
+      }
+    } else {
+      _handoffTimer?.cancel();
+      _handoffTimer = null;
+    }
+  }
+
+  DateTime? _completedAt() {
+    final ts = widget.data['triageCompletedAt'];
+    return ts is Timestamp ? ts.toDate() : null;
+  }
+
+  /// The handoff confirmation is visible while it's fresh and not dismissed.
+  /// A missing timestamp is treated as "show" (defensive — a finalized doc
+  /// always carries triageCompletedAt; we never hide one we can't date).
+  bool _handoffVisible() {
+    if (_handoffDismissed) return false;
+    final completed = _completedAt();
+    if (completed == null) return true;
+    return DateTime.now().difference(completed) < _handoffWindow;
+  }
+
+  bool get isArabic => widget.isArabic;
+  Map<String, dynamic> get data => widget.data;
+
+  @override
   Widget build(BuildContext context) {
     final status = data['status'] as String?;
     switch (status) {
@@ -35,6 +149,9 @@ class QueueStatusCard extends StatelessWidget {
           child: _waitingNurse(level),
         );
       case 'waiting_doctor':
+        // Collapses once the confirmation window passes or the patient
+        // dismisses it — the patient does not track the doctor queue.
+        if (!_handoffVisible()) return const SizedBox.shrink();
         return _shell(accent: Colors.green, child: _waitingDoctor());
       default:
         return const SizedBox.shrink();
@@ -74,7 +191,7 @@ class QueueStatusCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: onCheckIn,
+                  onPressed: widget.onCheckIn,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     foregroundColor: Colors.white,
@@ -197,8 +314,9 @@ class QueueStatusCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _waitRow(waitRange, level),
-        ] else ...[
-          // Position not yet computed by fan-out.
+        ] else if (!_positionTimedOut) ...[
+          // Position not yet computed by the fan-out — show briefly, then the
+          // calm fallback below takes over so this never spins forever.
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -216,6 +334,21 @@ class QueueStatusCard extends StatelessWidget {
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
+          ),
+        ] else ...[
+          // No staff session computed a position in time — reassure instead of
+          // spinning. The real #position fills in the moment it lands.
+          _statusChip(
+            icon: Icons.how_to_reg,
+            color: TriageLevels.color(level),
+            label: isArabic ? 'تم تسجيل وصولك' : "You're checked in",
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isArabic
+                ? 'ستستدعيك الممرضة قريباً'
+                : 'The nurse will call you shortly',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
         ],
       ],
@@ -268,7 +401,9 @@ class QueueStatusCard extends StatelessWidget {
   }
 
   Widget _waitingDoctor() {
+    final completed = _completedAt();
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
           Icons.check_circle_outline,
@@ -294,11 +429,50 @@ class QueueStatusCard extends StatelessWidget {
                     : 'You will be seen by a doctor shortly',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
+              if (completed != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: 13, color: Colors.green.shade700),
+                    const SizedBox(width: 4),
+                    Text(
+                      (isArabic ? 'اكتمل التقييم: ' : 'Completed at ') +
+                          _formatTime(completed),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
+          ),
+        ),
+        // ✕ — collapse the confirmation immediately.
+        GestureDetector(
+          key: const Key('handoffDismiss'),
+          onTap: () => setState(() => _handoffDismissed = true),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 8),
+            child: Icon(Icons.close, color: Colors.grey.shade400, size: 18),
           ),
         ),
       ],
     );
+  }
+
+  /// 12-hour clock with a localized AM/PM marker, no intl locale init needed.
+  String _formatTime(DateTime dt) {
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final isAm = dt.hour < 12;
+    final marker = isArabic
+        ? (isAm ? 'صباحاً' : 'مساءً')
+        : (isAm ? 'AM' : 'PM');
+    return '$hour12:$minute $marker';
   }
 
   // ── Shared shell ────────────────────────────────────────────────────────────
