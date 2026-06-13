@@ -12,7 +12,7 @@ class RecordsScreen extends StatefulWidget {
 }
 
 class _RecordsScreenState extends State<RecordsScreen> {
-  bool showAppointments = true;
+  int _tabIndex = 0; // 0=appointments 1=consultations 2=ed visits
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +62,11 @@ class _RecordsScreenState extends State<RecordsScreen> {
                 const SizedBox(height: 22),
 
                 Expanded(
-                  child: showAppointments
+                  child: _tabIndex == 0
                       ? _buildAppointmentsTab(user.uid)
-                      : _buildConsultationsTab(user.uid),
+                      : _tabIndex == 1
+                          ? _buildConsultationsTab(user.uid)
+                          : _buildEdVisitsTab(user.uid),
                 ),
               ],
             ),
@@ -83,6 +85,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         final appointmentCount = counts[0];
         final consultationCount = counts[1];
 
+        final edCount = counts.length > 2 ? counts[2] : 0;
         return Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
@@ -93,20 +96,29 @@ class _RecordsScreenState extends State<RecordsScreen> {
             children: [
               Expanded(
                 child: _tabButton(
-                  selected: showAppointments,
+                  selected: _tabIndex == 0,
                   icon: Icons.calendar_today_outlined,
-                  title: isArabic ? "المواعيد" : "Appointments",
+                  title: isArabic ? "المواعيد" : "Appts",
                   badgeCount: appointmentCount,
-                  onTap: () => setState(() => showAppointments = true),
+                  onTap: () => setState(() => _tabIndex = 0),
                 ),
               ),
               Expanded(
                 child: _tabButton(
-                  selected: !showAppointments,
+                  selected: _tabIndex == 1,
                   icon: Icons.medical_information_outlined,
-                  title: isArabic ? "الاستشارات" : "Consultations",
+                  title: isArabic ? "الاستشارات" : "Consults",
                   badgeCount: consultationCount,
-                  onTap: () => setState(() => showAppointments = false),
+                  onTap: () => setState(() => _tabIndex = 1),
+                ),
+              ),
+              Expanded(
+                child: _tabButton(
+                  selected: _tabIndex == 2,
+                  icon: Icons.local_hospital_outlined,
+                  title: isArabic ? "زيارات الطوارئ" : "ED Visits",
+                  badgeCount: edCount,
+                  onTap: () => setState(() => _tabIndex = 2),
                 ),
               ),
             ],
@@ -126,10 +138,19 @@ class _RecordsScreenState extends State<RecordsScreen> {
           .collection('consultations')
           .where('patientId', isEqualTo: uid)
           .get();
+      final edVisitsSnapshot = await FirebaseFirestore.instance
+          .collection('medical_records')
+          .where('patientId', isEqualTo: uid)
+          .get();
+      final edCount = edVisitsSnapshot.docs.where((d) {
+        final action = d.data()['action'] as String?;
+        return action == 'discharge_lwbs' || action == 'visit_completed';
+      }).length;
 
       yield [
         appointmentsSnapshot.docs.length,
         consultationsSnapshot.docs.length,
+        edCount,
       ];
     }
   }
@@ -296,6 +317,86 @@ class _RecordsScreenState extends State<RecordsScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildEdVisitsTab(String uid) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('medical_records')
+          .where('patientId', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0F8B8D)),
+          );
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+
+        final all = snapshot.data?.docs ?? [];
+        final visits = all.where((d) {
+          final dData = d.data() as Map<String, dynamic>?;
+          final action = dData?['action'] as String?;
+          return action == 'discharge_lwbs' || action == 'visit_completed';
+        }).toList()
+          ..sort((a, b) {
+            final da = a.data() as Map<String, dynamic>?;
+            final db = b.data() as Map<String, dynamic>?;
+            final ta = (da?['createdAt'] as Timestamp?)
+                    ?.millisecondsSinceEpoch ??
+                0;
+            final tb = (db?['createdAt'] as Timestamp?)
+                    ?.millisecondsSinceEpoch ??
+                0;
+            return tb.compareTo(ta);
+          });
+
+        if (visits.isEmpty) return _buildEmptyEdVisits();
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 24),
+          itemCount: visits.length,
+          separatorBuilder: (_, i) => const SizedBox(height: 16),
+          itemBuilder: (context, index) => _EdVisitCard(
+            data: visits[index].data() as Map<String, dynamic>? ?? {},
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyEdVisits() {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 90),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_hospital_outlined,
+                size: 62, color: Colors.grey.shade300),
+            const SizedBox(height: 18),
+            Text(
+              isArabic ? "لا توجد زيارات طوارئ" : "No ED visits yet",
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isArabic
+                  ? "ستظهر زيارات الطوارئ هنا"
+                  : "Your emergency visits will appear here",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -473,6 +574,157 @@ Future<void> _confirmCancelRecord({
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(snackMsg)));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ED VISIT CARD
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _EdVisitCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _EdVisitCard({required this.data});
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  Color _triageColor(String level) {
+    switch (level) {
+      case 'EMERGENCY': return const Color(0xFFC62828);
+      case 'MODERATE':  return const Color(0xFFE65100);
+      default:          return const Color(0xFF2E7D32);
+    }
+  }
+
+  String _triageLabel(String level) {
+    switch (level) {
+      case 'EMERGENCY': return 'Emergency';
+      case 'MODERATE':  return 'Urgent';
+      default:          return 'Non-Urgent';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final action       = data['action'] as String? ?? 'discharge_lwbs';
+    final isCompleted  = action == 'visit_completed';
+    final triageLevel  = data['triageLevel'] as String? ?? 'LOW';
+    final chiefComplaint = data['chiefComplaint'] as String? ?? '';
+    final ts = ((data['dischargedAt'] ?? data['createdAt']) as Timestamp?)?.toDate();
+    final stage1 = data['stage1Prediction'] as String?;
+    final stage2 = data['stage2Prediction'] as String?;
+
+    final levelColor  = _triageColor(triageLevel);
+    final levelLabel  = _triageLabel(triageLevel);
+    final outcomeColor = isCompleted ? const Color(0xFF2E7D32) : const Color(0xFFE65100);
+    final outcomeLabel = isCompleted
+        ? (isArabic ? 'اكتملت الزيارة' : 'Visit completed')
+        : (isArabic ? 'غادر قبل العلاج' : 'Left before treatment');
+    final outcomeIcon = isCompleted
+        ? Icons.check_circle_outline
+        : Icons.exit_to_app;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border(left: BorderSide(color: levelColor, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: levelColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  levelLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (ts != null)
+                Text(
+                  _formatDate(ts),
+                  style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                  ),
+                ),
+            ],
+          ),
+          if (chiefComplaint.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.medical_information_outlined,
+                    size: 16, color: Color(0xFF6B7280)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    chiefComplaint,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (stage1 != null || stage2 != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (stage1 != null)
+                  isArabic ? 'المرحلة 1: $stage1' : 'Stage 1: $stage1',
+                if (stage2 != null)
+                  isArabic ? 'المرحلة 2: $stage2' : 'Stage 2: $stage2',
+              ].join('  ·  '),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(outcomeIcon, size: 16, color: outcomeColor),
+              const SizedBox(width: 6),
+              Text(
+                outcomeLabel,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: outcomeColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

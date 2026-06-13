@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/prescription_service.dart';
 import '../../utils/triage_levels.dart';
 
@@ -63,13 +64,43 @@ class _DoctorPatientDetailScreenState extends State<DoctorPatientDetailScreen> {
 
     setState(() => _discharging = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('queue')
-          .doc(widget.queueDocId)
-          .update({
-            'status': 'discharged',
-            'dischargedAt': FieldValue.serverTimestamp(),
-          });
+      final db = FirebaseFirestore.instance;
+      final queueRef = db.collection('queue').doc(widget.queueDocId);
+      final queueSnap = await queueRef.get();
+      final queueData = queueSnap.data() ?? const <String, dynamic>{};
+
+      final s1 =
+          queueData['stage1Inputs'] as Map<String, dynamic>? ?? const {};
+      final chiefComplaint =
+          (s1['chief_complaint'] as String?)?.trim() ?? '';
+      final stage2Result =
+          queueData['stage2AIResult'] as Map<String, dynamic>?;
+      final dischargedBy = FirebaseAuth.instance.currentUser?.uid;
+
+      final batch = db.batch();
+      batch.update(queueRef, {
+        'status': 'discharged',
+        'dischargedAt': FieldValue.serverTimestamp(),
+      });
+      batch.set(db.collection('medical_records').doc(), {
+        'patientId': widget.patientId,
+        'patientName': widget.patientName,
+        'queueDocId': widget.queueDocId,
+        'action': 'visit_completed',
+        'outcome': 'completed',
+        'stage': 2,
+        'dischargedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'dischargedBy': dischargedBy,
+        'triageLevel': widget.triageLevel,
+        'chiefComplaint': chiefComplaint,
+        if (queueData['aiPrediction'] != null)
+          'stage1Prediction': queueData['aiPrediction'],
+        if (stage2Result?['prediction'] != null)
+          'stage2Prediction': stage2Result!['prediction'],
+      });
+
+      await batch.commit();
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() => _discharging = false);
@@ -185,6 +216,16 @@ class _DoctorPatientDetailScreenState extends State<DoctorPatientDetailScreen> {
                       )
                     else
                       ...list.map((p) => _PrescriptionCard(p)),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Previous Visits',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _VisitHistorySection(patientId: widget.patientId),
                     const SizedBox(height: 100),
                   ],
                 );
@@ -563,6 +604,160 @@ class _LabeledDropdown<T> extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Previous ED visits for a patient (shown in doctor detail view) ────────────
+
+class _VisitHistorySection extends StatelessWidget {
+  final String patientId;
+  const _VisitHistorySection({required this.patientId});
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('medical_records')
+          .where('patientId', isEqualTo: patientId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(color: Color(0xFF2446B8)),
+            ),
+          );
+        }
+
+        final all = snapshot.data?.docs ?? [];
+        final visits = all.where((d) {
+          final action = (d.data() as Map<String, dynamic>)['action'] as String?;
+          return action == 'discharge_lwbs' || action == 'visit_completed';
+        }).toList()
+          ..sort((a, b) {
+            final ta = ((a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?)
+                ?.millisecondsSinceEpoch ?? 0;
+            final tb = ((b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?)
+                ?.millisecondsSinceEpoch ?? 0;
+            return tb.compareTo(ta);
+          });
+
+        if (visits.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Text(
+                'No previous ED visits on record.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: visits.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final action = data['action'] as String? ?? 'discharge_lwbs';
+            final isCompleted = action == 'visit_completed';
+            final triageLevel = data['triageLevel'] as String? ?? 'LOW';
+            final chiefComplaint = data['chiefComplaint'] as String? ?? '';
+            final ts = (data['createdAt'] as Timestamp?)?.toDate();
+            final stage1 = data['stage1Prediction'] as String?;
+            final stage2 = data['stage2Prediction'] as String?;
+
+            final levelColor = TriageLevels.color(triageLevel);
+            final levelLabel = TriageLevels.labelEn(triageLevel);
+            final outcomeColor = isCompleted ? const Color(0xFF2E7D32) : Colors.orange.shade700;
+            final outcomeLabel = isCompleted ? 'Visit completed' : 'Left before treatment';
+            final outcomeIcon = isCompleted ? Icons.check_circle_outline : Icons.exit_to_app;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border(left: BorderSide(color: levelColor, width: 4)),
+                boxShadow: [
+                  BoxShadow(
+                    blurRadius: 4,
+                    color: Colors.grey.withValues(alpha: 0.08),
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: levelColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(levelLabel,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      const Spacer(),
+                      if (ts != null)
+                        Text(_formatDate(ts),
+                            style: TextStyle(
+                                color: Colors.grey.shade500, fontSize: 13)),
+                    ],
+                  ),
+                  if (chiefComplaint.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(chiefComplaint,
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.grey.shade800)),
+                  ],
+                  if (stage1 != null || stage2 != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      [
+                        if (stage1 != null) 'Stage 1: $stage1',
+                        if (stage2 != null) 'Stage 2: $stage2',
+                      ].join('  ·  '),
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(outcomeIcon, size: 15, color: outcomeColor),
+                      const SizedBox(width: 5),
+                      Text(outcomeLabel,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: outcomeColor,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
