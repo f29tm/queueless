@@ -143,14 +143,23 @@ class _NurseQueuePageState extends State<NurseQueuePage> {
           'dischargeReason': dischargeReason(),
         });
 
-        // Audit trail — mirrors the medical_records write used at finalize.
+        final s1 =
+            data['stage1Inputs'] as Map<String, dynamic>? ?? const {};
+        final chiefComplaint =
+            (s1['chief_complaint'] as String?)?.trim() ?? '';
+
         batch.set(_firestore.collection('medical_records').doc(), {
           'patientId': data['patientId'],
+          'patientName': data['patientName'] ?? 'Unknown Patient',
           'queueDocId': id,
           'action': 'discharge_lwbs',
+          'outcome': 'left_without_being_seen',
+          'stage': 1,
           'dischargedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
           'dischargedBy': dischargedBy,
-          'triageLevel': data['triageLevel'],
+          'triageLevel': data['triageLevel'] ?? 'LOW',
+          'chiefComplaint': chiefComplaint,
           'note': dischargeReason(),
         });
       }
