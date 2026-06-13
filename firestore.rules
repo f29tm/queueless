@@ -183,6 +183,16 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // ── AUDIT LOGS ───────────────────────────────────────────────────────────
+    // Anyone (including unauthenticated) can create — needed for failed-login
+    // events where request.auth is null. Entries are immutable once written.
+    // Only staff can read the audit trail.
+    match /audit_logs/{docId} {
+      allow create: if true;
+      allow read:   if isStaff();
+      allow update, delete: if false;
+    }
+
     // ── LEGACY COLLECTIONS (locked to staff) ─────────────────────────────────
     match /triageResults/{docId} {
       allow read, write: if isStaff();
