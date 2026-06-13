@@ -6,7 +6,13 @@ import 'package:intl/intl.dart';
 import '../login_screen.dart';
 import '../../services/encryption_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/discharge_constants.dart';
+import '../../utils/nurse_queue_filter.dart';
+import '../../utils/nurse_selection_state.dart';
+import '../../utils/queue_position_fanout.dart';
 import '../../utils/triage_levels.dart';
+import '../../widgets/nurse_multiselect_bar.dart';
+import '../../widgets/nurse_queue_control_bar.dart';
 import 'doctor_notifications_screen.dart';
 import 'doctor_patient_detail_screen.dart';
 
@@ -168,6 +174,28 @@ Future<bool> _showDoctorCompleteConfirmation(
   return confirmed == true;
 }
 
+DateTime _parseDateString(String date) {
+  if (date.isEmpty) return DateTime(2000);
+  try {
+    // ISO format "YYYY-MM-DD"
+    final iso = DateTime.tryParse(date);
+    if (iso != null) return iso;
+    // "EEE, MMM d" format e.g. "Sat, Jun 13" (how appointments are stored)
+    final parsed = DateFormat('EEE, MMM d').parse(date);
+    final now = DateTime.now();
+    return DateTime(now.year, parsed.month, parsed.day);
+  } catch (_) {}
+  try {
+    // "DD/MM/YYYY"
+    final parts = date.split('/');
+    if (parts.length == 3) {
+      return DateTime(
+          int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+    }
+  } catch (_) {}
+  return DateTime(2000);
+}
+
 int _countTodayItems(QuerySnapshot? snapshot) {
   if (snapshot == null) return 0;
   final today = _todayLabel();
@@ -224,9 +252,37 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
 
 // ===================== APPOINTMENTS PAGE =====================
 
-class DoctorAppointmentsPage extends StatelessWidget {
+class DoctorAppointmentsPage extends StatefulWidget {
   final VoidCallback onProfileTap;
   const DoctorAppointmentsPage({super.key, required this.onProfileTap});
+
+  @override
+  State<DoctorAppointmentsPage> createState() =>
+      _DoctorAppointmentsPageState();
+}
+
+class _DoctorAppointmentsPageState extends State<DoctorAppointmentsPage> {
+  String? _statusFilter; // null = All
+  bool _newestFirst = true;
+
+  List<QueryDocumentSnapshot> _applyFilterSort(
+      List<QueryDocumentSnapshot> docs) {
+    var result = docs.where((d) {
+      final data = d.data() as Map<String, dynamic>;
+      final status = (data['status'] ?? 'scheduled') as String;
+      if (_statusFilter != null && status != _statusFilter) return false;
+      return true;
+    }).toList();
+
+    result.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+      final aDate = _parseDateString(aData['date'] ?? '');
+      final bDate = _parseDateString(bData['date'] ?? '');
+      return _newestFirst ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
+    });
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -236,15 +292,17 @@ class DoctorAppointmentsPage extends StatelessWidget {
           body: Center(child: Text("No doctor logged in")));
     }
 
+    final stream = FirebaseFirestore.instance
+        .collection("appointments")
+        .where("doctorUid", isEqualTo: doctorUid)
+        .snapshots();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
       body: Column(
         children: [
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection("appointments")
-                .where("doctorUid", isEqualTo: doctorUid)
-                .snapshots(),
+            stream: stream,
             builder: (context, snapshot) {
               final count = _countTodayItems(snapshot.data);
               return _blueHeader(
@@ -252,16 +310,19 @@ class DoctorAppointmentsPage extends StatelessWidget {
                 "Appointments",
                 doctorUid: doctorUid,
                 rightText: "$count today",
-                onProfileTap: onProfileTap,
+                onProfileTap: widget.onProfileTap,
               );
             },
           ),
+          _AppointmentFilterBar(
+            statusFilter: _statusFilter,
+            newestFirst: _newestFirst,
+            onStatusChanged: (v) => setState(() => _statusFilter = v),
+            onSortChanged: (v) => setState(() => _newestFirst = v),
+          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("appointments")
-                  .where("doctorUid", isEqualTo: doctorUid)
-                  .snapshots(),
+              stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
@@ -269,7 +330,8 @@ class DoctorAppointmentsPage extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final docs = snapshot.data!.docs;
+                final docs =
+                    _applyFilterSort(snapshot.data!.docs);
                 if (docs.isEmpty) {
                   return const Center(
                       child: Text("No appointments found",
@@ -303,6 +365,110 @@ class DoctorAppointmentsPage extends StatelessWidget {
   }
 }
 
+// ── Filter bar shared by appointments & consults ──────────────────────────────
+class _AppointmentFilterBar extends StatelessWidget {
+  final String? statusFilter;
+  final bool newestFirst;
+  final ValueChanged<String?> onStatusChanged;
+  final ValueChanged<bool> onSortChanged;
+
+  const _AppointmentFilterBar({
+    required this.statusFilter,
+    required this.newestFirst,
+    required this.onStatusChanged,
+    required this.onSortChanged,
+  });
+
+  static const Color _primary = Color(0xFF2446B8);
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        labelStyle: TextStyle(
+          color: selected ? Colors.white : Colors.grey.shade700,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        backgroundColor: Colors.white,
+        selectedColor: color,
+        side: BorderSide(color: selected ? color : Colors.grey.shade300),
+        onSelected: (_) => onTap(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            _chip(
+              label: 'Newest',
+              selected: newestFirst,
+              color: _primary,
+              onTap: () => onSortChanged(true),
+            ),
+            _chip(
+              label: 'Oldest',
+              selected: !newestFirst,
+              color: _primary,
+              onTap: () => onSortChanged(false),
+            ),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              color: Colors.grey.shade300,
+            ),
+            _chip(
+              label: 'All',
+              selected: statusFilter == null,
+              color: _primary,
+              onTap: () => onStatusChanged(null),
+            ),
+            _chip(
+              label: 'Scheduled',
+              selected: statusFilter == 'scheduled',
+              color: const Color(0xFF2446B8),
+              onTap: () => onStatusChanged('scheduled'),
+            ),
+            _chip(
+              label: 'Completed',
+              selected: statusFilter == 'completed',
+              color: const Color(0xFF2E7D32),
+              onTap: () => onStatusChanged('completed'),
+            ),
+            _chip(
+              label: 'Cancelled',
+              selected: statusFilter == 'cancelled',
+              color: const Color(0xFFC62828),
+              onTap: () => onStatusChanged('cancelled'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ===================== PATIENTS PAGE =====================
 
 class DoctorPatientsPage extends StatefulWidget {
@@ -314,6 +480,115 @@ class DoctorPatientsPage extends StatefulWidget {
 }
 
 class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
+  String _selectedSort = 'priority';
+  String? _selectedFilter;
+
+  NurseSelectionState _selection = NurseSelectionState.empty();
+  bool get _isMultiSelectMode => !_selection.isEmpty;
+  List<QueryDocumentSnapshot<Object?>> _visibleDocs = const [];
+
+  void _toggleSelect(String id) =>
+      setState(() => _selection = _selection.toggleSelection(id));
+
+  void _cancelMultiSelect() =>
+      setState(() => _selection = _selection.clearSelection());
+
+  void _selectAllVisible() =>
+      setState(() => _selection = _selection.selectAll(_visibleDocs.map((d) => d.id)));
+
+  Future<void> _confirmDischarge() async {
+    final ids = _selection.selected.toList();
+    if (ids.isEmpty) return;
+    final count = ids.length;
+    final plural = count == 1 ? '' : 's';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discharge Patients'),
+        content: Text(
+          'Discharge $count patient$plural? This will mark them as left '
+          'without being seen and cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final dataById = {
+        for (final d in _visibleDocs)
+          d.id: (d.data() as Map<String, dynamic>?) ?? const <String, dynamic>{},
+      };
+      final dischargedBy = FirebaseAuth.instance.currentUser?.uid;
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+
+      for (final id in ids) {
+        final data = dataById[id] ?? const <String, dynamic>{};
+
+        batch.update(firestore.collection('queue').doc(id), {
+          'status': dischargeStatus(),
+          'queueType': 'discharged',
+          'dischargedAt': FieldValue.serverTimestamp(),
+          'dischargeReason': dischargeReason(),
+        });
+
+        final s1 =
+            data['stage1Inputs'] as Map<String, dynamic>? ?? const {};
+        final chiefComplaint =
+            (s1['chief_complaint'] as String?)?.trim() ?? '';
+        final stage2Result =
+            data['stage2AIResult'] as Map<String, dynamic>?;
+
+        batch.set(firestore.collection('medical_records').doc(), {
+          'patientId': data['patientId'],
+          'patientName': data['patientName'] ?? 'Unknown Patient',
+          'queueDocId': id,
+          'action': 'discharge_lwbs',
+          'outcome': 'left_without_being_seen',
+          'stage': 2,
+          'dischargedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'dischargedBy': dischargedBy,
+          'triageLevel':
+              data['finalTriageLevel'] ?? data['triageLevel'] ?? 'LOW',
+          'chiefComplaint': chiefComplaint,
+          if (data['aiPrediction'] != null)
+            'stage1Prediction': data['aiPrediction'],
+          if (stage2Result?['prediction'] != null)
+            'stage2Prediction': stage2Result!['prediction'],
+          'note': dischargeReason(),
+        });
+      }
+
+      await batch.commit();
+      _cancelMultiSelect();
+      QueuePositionFanout.run(NotificationService()).ignore();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$count patient$plural discharged')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Discharge failed: $e')));
+      }
+    }
+  }
+
   Stream<QuerySnapshot> get _stream => FirebaseFirestore.instance
       .collection('queue')
       .where('status', isEqualTo: 'waiting_doctor')
@@ -325,16 +600,71 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
       'LOW';
 
   Color _levelColor(String level) => TriageLevels.color(level);
-
   String _levelLabel(String level) => TriageLevels.labelEn(level);
 
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final diff = DateTime.now().difference(ts.toDate());
-    if (diff.inMinutes < 1)  return 'just now';
+    if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24)   return '${diff.inHours}h ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
+  }
+
+  List<QueryDocumentSnapshot<Object?>> _applySort(
+      List<QueryDocumentSnapshot<Object?>> docs) {
+    if (_selectedSort == 'priority') return NurseQueueFilter.sortByPriority(docs);
+    if (_selectedSort == 'wait') {
+      // Sort by how long the patient has been waiting for a doctor,
+      // measured from when the nurse finished (triageCompletedAt).
+      // Longest wait first.
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final list = List.of(docs);
+      list.sort((a, b) {
+        final aData = (a.data() as Map<String, dynamic>?) ?? const {};
+        final bData = (b.data() as Map<String, dynamic>?) ?? const {};
+        final ta = aData['triageCompletedAt'];
+        final tb = bData['triageCompletedAt'];
+        final aWait = ta is Timestamp ? now - ta.millisecondsSinceEpoch : 0;
+        final bWait = tb is Timestamp ? now - tb.millisecondsSinceEpoch : 0;
+        return bWait.compareTo(aWait); // longest wait first
+      });
+      return list;
+    }
+    return NurseQueueFilter.sortByArrival(docs);
+  }
+
+  Widget _buildMultiSelectHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 56, left: 8, right: 8, bottom: 14),
+      color: const Color(0xFF2446B8),
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: _cancelMultiSelect,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text("Cancel", style: TextStyle(fontSize: 16)),
+          ),
+          Expanded(
+            child: Text(
+              "${_selection.count} selected",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _selectAllVisible,
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            child: const Text("Select All", style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -343,203 +673,255 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _stream,
-        builder: (context, snapshot) {
-          final header = _blueHeader(
-            context,
-            "Patient Queue",
-            doctorUid: doctorUid,
-            subtitle: "Sorted by severity",
-            onProfileTap: widget.onProfileTap,
-          );
-
-          if (snapshot.hasError) {
-            return Column(children: [
-              header,
-              const Expanded(
-                  child: Center(
-                      child: Text("Error loading queue",
-                          style: TextStyle(
-                              color: Colors.grey, fontSize: 16)))),
-            ]);
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Column(children: [
-              header,
-              const Expanded(
-                  child: Center(
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF2446B8)))),
-            ]);
-          }
-
-          final docs = snapshot.data!.docs.toList()
-            ..sort((a, b) {
-              final da = a.data() as Map<String, dynamic>;
-              final db = b.data() as Map<String, dynamic>;
-              final pa = (da['finalPriorityNumber'] as num?)?.toInt() ?? 3;
-              final pb = (db['finalPriorityNumber'] as num?)?.toInt() ?? 3;
-              if (pa != pb) return pa.compareTo(pb);
-              final ta = (da['triageCompletedAt'] as Timestamp?)?.toDate() ??
-                  DateTime.now();
-              final tb = (db['triageCompletedAt'] as Timestamp?)?.toDate() ??
-                  DateTime.now();
-              return ta.compareTo(tb);
-            });
-          int emergencyCount = 0, urgentCount = 0;
-          for (final doc in docs) {
-            final level =
-                _effectiveLevel(doc.data() as Map<String, dynamic>);
-            if (level == TriageLevels.emergency) emergencyCount++;
-            if (level == TriageLevels.moderate) urgentCount++;
-          }
-
-          return Column(
+      body: Stack(
+        children: [
+          Column(
             children: [
-              header,
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    StatBox(
-                        number: '$emergencyCount',
-                        label: "Emergency",
-                        color: Colors.red),
-                    const SizedBox(width: 12),
-                    StatBox(
-                        number: '$urgentCount',
-                        label: "Urgent",
-                        color: Colors.orange),
-                    const SizedBox(width: 12),
-                    StatBox(
-                        number: '${docs.length}',
-                        label: "Active",
-                        color: const Color(0xFF2446B8)),
-                  ],
-                ),
+              _isMultiSelectMode
+                  ? _buildMultiSelectHeader()
+                  : _blueHeader(
+                      context,
+                      "Patient Queue",
+                      doctorUid: doctorUid,
+                      subtitle: "Sorted by severity",
+                      onProfileTap: widget.onProfileTap,
+                    ),
+              NurseQueueControlBar(
+                selectedSort: _selectedSort,
+                selectedFilter: _selectedFilter,
+                onSortChanged: (v) => setState(() => _selectedSort = v),
+                onFilterChanged: (v) => setState(() => _selectedFilter = v),
               ),
-              if (docs.isEmpty)
-                const Expanded(
-                    child: Center(
-                        child: Text("No patients waiting for doctor",
-                            style: TextStyle(
-                                color: Colors.grey, fontSize: 16))))
-              else
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final data =
-                          docs[index].data() as Map<String, dynamic>;
-                      final level = _effectiveLevel(data);
-                      final borderColor = _levelColor(level);
-                      final patientName =
-                          data['patientName'] as String? ?? 'Unknown';
-                      final patientId =
-                          data['patientId'] as String? ?? '';
-                      final queueDocId = docs[index].id;
-                      final completedAt =
-                          data['triageCompletedAt'] as Timestamp?;
-                      final rawSymptoms = data['symptoms'];
-                      final symptomList = rawSymptoms is List
-                          ? rawSymptoms.map((s) => s.toString()).toList()
-                          : <String>[];
-                      final symptoms = symptomList.join(', ');
-                      final nurseOverride =
-                          data['nurseOverride'] as bool? ?? false;
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _stream,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(
+                          child: Text("Error loading queue",
+                              style: TextStyle(color: Colors.grey, fontSize: 16)));
+                    }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF2446B8)));
+                    }
 
-                      return GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DoctorPatientDetailScreen(
-                              queueDocId: queueDocId,
-                              patientId: patientId,
-                              patientName: patientName,
-                              triageLevel: level,
-                              symptoms: symptomList,
-                            ),
+                    final allDocs = snapshot.data!.docs;
+                    final filtered = NurseQueueFilter.filterByLevel(
+                        allDocs, _selectedFilter);
+                    final docs = _applySort(filtered);
+                    _visibleDocs = docs;
+
+                    int emergencyCount = 0, urgentCount = 0;
+                    for (final doc in allDocs) {
+                      final level =
+                          _effectiveLevel(doc.data() as Map<String, dynamic>);
+                      if (level == TriageLevels.emergency) emergencyCount++;
+                      if (level == TriageLevels.moderate) urgentCount++;
+                    }
+
+                    if (allDocs.isEmpty) {
+                      return const Center(
+                          child: Text("No patients waiting for doctor",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 16)));
+                    }
+
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              StatBox(
+                                  number: '$emergencyCount',
+                                  label: "Emergency",
+                                  color: Colors.red),
+                              const SizedBox(width: 12),
+                              StatBox(
+                                  number: '$urgentCount',
+                                  label: "Urgent",
+                                  color: Colors.orange),
+                              const SizedBox(width: 12),
+                              StatBox(
+                                  number: '${allDocs.length}',
+                                  label: "Active",
+                                  color: const Color(0xFF2446B8)),
+                            ],
                           ),
                         ),
-                        child: Container(
-                        margin: const EdgeInsets.only(bottom: 14),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border(
-                              left: BorderSide(
-                                  color: borderColor, width: 5)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: borderColor,
-                                    borderRadius:
-                                        BorderRadius.circular(12),
-                                  ),
-                                  child: Text(_levelLabel(level),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold)),
-                                ),
-                                if (nurseOverride) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
-                                      borderRadius:
-                                          BorderRadius.circular(10),
-                                      border: Border.all(
-                                          color: Colors.amber.shade300),
-                                    ),
-                                    child: Text("Nurse overridden",
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.amber.shade900,
-                                            fontWeight: FontWeight.w500)),
-                                  ),
-                                ],
-                                const Spacer(),
-                                Text(_timeAgo(completedAt),
-                                    style: const TextStyle(
-                                        color: Colors.grey, fontSize: 13)),
-                              ],
+                        if (docs.isEmpty)
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                "No patients match this filter",
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.grey.shade600),
+                              ),
                             ),
-                            const SizedBox(height: 10),
-                            Text(patientName,
-                                style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold)),
-                            if (symptoms.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text(symptoms,
-                                  style: const TextStyle(
-                                      color: Colors.grey, fontSize: 14),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ],
-                        ),
-                      ),
+                          )
+                        else
+                          Expanded(
+                            child: ListView.builder(
+                              padding: EdgeInsets.fromLTRB(
+                                  20, 0, 20, _isMultiSelectMode ? 96 : 20),
+                              itemCount: docs.length,
+                              itemBuilder: (context, index) {
+                                final doc = docs[index];
+                                final data =
+                                    doc.data() as Map<String, dynamic>;
+                                final level = _effectiveLevel(data);
+                                final borderColor = _levelColor(level);
+                                final patientName =
+                                    data['patientName'] as String? ?? 'Unknown';
+                                final patientId =
+                                    data['patientId'] as String? ?? '';
+                                final queueDocId = doc.id;
+                                final completedAt =
+                                    data['triageCompletedAt'] as Timestamp?;
+                                final rawSymptoms = data['symptoms'];
+                                final symptomList = rawSymptoms is List
+                                    ? rawSymptoms
+                                        .map((s) => s.toString())
+                                        .toList()
+                                    : <String>[];
+                                final symptoms = symptomList.join(', ');
+                                final nurseOverride =
+                                    data['nurseOverride'] as bool? ?? false;
+                                final isSelected =
+                                    _selection.contains(queueDocId);
+
+                                return GestureDetector(
+                                  onTap: () => _isMultiSelectMode
+                                      ? _toggleSelect(queueDocId)
+                                      : Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                DoctorPatientDetailScreen(
+                                              queueDocId: queueDocId,
+                                              patientId: patientId,
+                                              patientName: patientName,
+                                              triageLevel: level,
+                                              symptoms: symptomList,
+                                            ),
+                                          ),
+                                        ),
+                                  onLongPress: () =>
+                                      _toggleSelect(queueDocId),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 14),
+                                    padding: const EdgeInsets.all(18),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border(
+                                          left: BorderSide(
+                                              color: borderColor, width: 5)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            if (_isMultiSelectMode) ...[
+                                              SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: Checkbox(
+                                                  value: isSelected,
+                                                  onChanged: (_) =>
+                                                      _toggleSelect(queueDocId),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: borderColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Text(_levelLabel(level),
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                            ),
+                                            if (nurseOverride) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade100,
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                      color:
+                                                          Colors.amber.shade300),
+                                                ),
+                                                child: Text("Nurse overridden",
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors
+                                                            .amber.shade900,
+                                                        fontWeight:
+                                                            FontWeight.w500)),
+                                              ),
+                                            ],
+                                            const Spacer(),
+                                            Text(_timeAgo(completedAt),
+                                                style: const TextStyle(
+                                                    color: Colors.grey,
+                                                    fontSize: 13)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(patientName,
+                                            style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold)),
+                                        if (symptoms.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(symptoms,
+                                              style: const TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 14),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
                     );
-                    },
-                  ),
+                  },
                 ),
+              ),
             ],
-          );
-        },
+          ),
+          NurseMultiSelectBar(
+            active: _isMultiSelectMode,
+            count: _selection.count,
+            onDischarge: _confirmDischarge,
+          ),
+        ],
       ),
     );
   }
@@ -547,9 +929,36 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
 
 // ===================== CONSULTS PAGE =====================
 
-class DoctorConsultsPage extends StatelessWidget {
+class DoctorConsultsPage extends StatefulWidget {
   final VoidCallback onProfileTap;
   const DoctorConsultsPage({super.key, required this.onProfileTap});
+
+  @override
+  State<DoctorConsultsPage> createState() => _DoctorConsultsPageState();
+}
+
+class _DoctorConsultsPageState extends State<DoctorConsultsPage> {
+  String? _statusFilter;
+  bool _newestFirst = true;
+
+  List<QueryDocumentSnapshot> _applyFilterSort(
+      List<QueryDocumentSnapshot> docs) {
+    var result = docs.where((d) {
+      final data = d.data() as Map<String, dynamic>;
+      final status = (data['status'] ?? 'scheduled') as String;
+      if (_statusFilter != null && status != _statusFilter) return false;
+      return true;
+    }).toList();
+
+    result.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+      final aDate = _parseDateString(aData['date'] ?? '');
+      final bDate = _parseDateString(bData['date'] ?? '');
+      return _newestFirst ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
+    });
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -559,15 +968,17 @@ class DoctorConsultsPage extends StatelessWidget {
           body: Center(child: Text("No doctor logged in")));
     }
 
+    final stream = FirebaseFirestore.instance
+        .collection("consultations")
+        .where("doctorUid", isEqualTo: doctorUid)
+        .snapshots();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F4FC),
       body: Column(
         children: [
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection("consultations")
-                .where("doctorUid", isEqualTo: doctorUid)
-                .snapshots(),
+            stream: stream,
             builder: (context, snapshot) {
               final count = _countTodayItems(snapshot.data);
               return _blueHeader(
@@ -575,16 +986,19 @@ class DoctorConsultsPage extends StatelessWidget {
                 "Consults",
                 doctorUid: doctorUid,
                 rightText: "$count today",
-                onProfileTap: onProfileTap,
+                onProfileTap: widget.onProfileTap,
               );
             },
           ),
+          _AppointmentFilterBar(
+            statusFilter: _statusFilter,
+            newestFirst: _newestFirst,
+            onStatusChanged: (v) => setState(() => _statusFilter = v),
+            onSortChanged: (v) => setState(() => _newestFirst = v),
+          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("consultations")
-                  .where("doctorUid", isEqualTo: doctorUid)
-                  .snapshots(),
+              stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
@@ -592,7 +1006,7 @@ class DoctorConsultsPage extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final docs = snapshot.data!.docs;
+                final docs = _applyFilterSort(snapshot.data!.docs);
                 if (docs.isEmpty) {
                   return const Center(
                       child: Text("No active consults",
@@ -851,6 +1265,49 @@ class AppointmentCard extends StatelessWidget {
                   _statusBadge(status),
                 ],
               ),
+              if (reason.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "REASON",
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<String>(
+                        future: (':'.allMatches(reason).length == 2)
+                            ? EncryptionService.getDecryptedData(
+                                collection: 'appointments',
+                                docId: docId,
+                                fields: ['reason'],
+                              ).then((d) =>
+                                  (d['reason'] as String?) ?? reason)
+                            : Future.value(reason),
+                        builder: (_, snap) => Text(
+                          snap.data ?? reason,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -1185,11 +1642,6 @@ Widget _blueHeader(
               ],
             );
           },
-        ),
-        IconButton(
-          onPressed: onProfileTap,
-          icon: const Icon(Icons.person_outline,
-              color: Colors.white, size: 30),
         ),
       ],
     ),

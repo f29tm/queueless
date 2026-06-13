@@ -337,9 +337,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Widget build(BuildContext context) {
     final isArabic = _isArabic;
 
-    return Directionality(
-      textDirection: AppLocalizer.direction(context),
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: _buildAppBar(isArabic),
         body: Column(
@@ -366,7 +364,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             _buildInputBar(isArabic),
           ],
         ),
-      ),
     );
   }
 
@@ -800,7 +797,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
+              Semantics(
+                label: _isListening ? 'Stop voice input' : 'Start voice input',
+                button: true,
+                child: GestureDetector(
                 onTap: _isLoading ? null : _toggleListening,
                 child: Container(
                   padding: const EdgeInsets.all(11),
@@ -819,9 +819,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     size: 20,
                   ),
                 ),
+                ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
+              Semantics(
+                label: 'Send message',
+                button: true,
+                child: GestureDetector(
                 onTap: () => _send(_controller.text),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -842,6 +846,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           ),
                         )
                       : const Icon(Icons.send, color: Colors.white, size: 20),
+                ),
                 ),
               ),
             ],

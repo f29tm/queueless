@@ -429,9 +429,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         Provider.of<AuthProvider>(context, listen: false).userId ?? '';
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-    return Directionality(
-      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
         appBar: AppBar(
           title: Text(
@@ -493,7 +491,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             );
           },
         ),
-      ),
     );
   }
 }
