@@ -40,6 +40,16 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
   int? _prevPosition;
   String? _prevStatus;
 
+  /// Discharge/completion sends no notification, so the closure banner is the
+  /// patient's only in-app signal. We show it once per doc — either live or on
+  /// app-open if it happened recently — and remember which docs we've announced
+  /// so a lingering terminal doc doesn't re-fire on every snapshot.
+  final Set<String> _announcedClosureDocIds = {};
+
+  /// A terminal discharge is still "fresh" enough to announce on app-open for
+  /// this long after it happened.
+  static const Duration _closureRecentWindow = Duration(minutes: 10);
+
   String? _bannerMessage;
   bool _bannerVisible = false;
   Timer? _bannerTimer;
@@ -49,13 +59,27 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     _queueSub = FirebaseFirestore.instance
         .collection('queue')
         .where('patientId', isEqualTo: uid)
-        .where('status', whereIn: ['waiting_nurse', 'waiting_doctor'])
+        // All lifecycle statuses, not just the active ones, so we also catch
+        // the transition into a terminal state (discharge / visit complete).
+        // whereIn + orderBy(createdAt) reuses the existing composite index.
+        .where(
+          'status',
+          whereIn: [
+            'pre_arrival',
+            'waiting_nurse',
+            'waiting_doctor',
+            'left_without_being_seen',
+            'discharged',
+          ],
+        )
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots()
         .listen((snap) {
           if (!mounted || snap.docs.isEmpty) return;
-          final data = snap.docs.first.data();
+          final doc = snap.docs.first;
+          final data = doc.data();
+          final docId = doc.id;
           final newPos = (data['currentPosition'] as num?)?.toInt();
           final newStatus = data['status'] as String?;
           final level = (data['triageLevel'] as String?) ?? TriageLevels.low;
@@ -70,8 +94,24 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
 
           String? msg;
 
+          // Terminal closure — visit complete (positive) or removed from the
+          // queue (LWBS). Fire once per doc, either on the live transition or
+          // on app-open if it happened recently.
+          if (newStatus == 'discharged' ||
+              newStatus == 'left_without_being_seen') {
+            final closure = _closureMessage(
+              docId: docId,
+              status: newStatus!,
+              data: data,
+              wasLiveTransition:
+                  _prevStatus != null && _prevStatus != newStatus,
+              isArabic: isArabic,
+            );
+            if (closure != null) msg = closure;
+          }
           // Patient moved to doctor queue (nurse finalized them).
-          if (_prevStatus == 'waiting_nurse' && newStatus == 'waiting_doctor') {
+          else if (_prevStatus == 'waiting_nurse' &&
+              newStatus == 'waiting_doctor') {
             msg = isArabic
                 ? 'اكتمل تقييم الممرضة — سيراك طبيب قريباً!'
                 : 'Nurse assessment complete — a doctor will see you shortly!';
@@ -113,6 +153,42 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
 
           if (msg != null) _showBanner(msg);
         });
+  }
+
+  /// One-time closure banner text for a terminal queue doc, or null if it
+  /// shouldn't fire (already announced, or an old discharge merely surfacing as
+  /// the most-recent doc on app-open). Records the doc id once it announces.
+  String? _closureMessage({
+    required String docId,
+    required String status,
+    required Map<String, dynamic> data,
+    required bool wasLiveTransition,
+    required bool isArabic,
+  }) {
+    if (_announcedClosureDocIds.contains(docId)) return null;
+
+    final dts = data['dischargedAt'];
+    final dischargedAt = dts is Timestamp ? dts.toDate() : null;
+    final isRecent =
+        dischargedAt != null &&
+        DateTime.now().difference(dischargedAt) < _closureRecentWindow;
+
+    // Announce on the live transition we watched, or on app-open if it happened
+    // recently. An old terminal doc resurfacing is ignored.
+    if (!wasLiveTransition && !isRecent) return null;
+
+    _announcedClosureDocIds.add(docId);
+
+    if (status == 'discharged') {
+      // Doctor completed the visit — positive close.
+      return isArabic
+          ? 'اكتملت زيارتك — اعتنِ بنفسك!'
+          : 'Your visit is complete — take care!';
+    }
+    // left_without_being_seen — removed before being seen (LWBS).
+    return isArabic
+        ? 'تمت إزالتك من قائمة الانتظار.'
+        : 'You have been removed from the queue.';
   }
 
   void _showBanner(String message) {
@@ -325,43 +401,43 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
-        backgroundColor: const Color(0xFFF6F8FB),
-        body: SafeArea(
-          child: IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _buildHome(context, authProvider, isArabic),
-              const ChatbotScreen(),
-              const RecordsScreen(),
-              ProfileScreen(onLanguageChanged: widget.onLanguageChanged),
-            ],
-          ),
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) => setState(() => _selectedIndex = index),
-          selectedItemColor: Colors.teal,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.home),
-              label: isArabic ? "الرئيسية" : "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.chat_bubble),
-              label: isArabic ? "المحادثة" : "Chatbot",
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.folder),
-              label: isArabic ? "السجلات" : "Records",
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person),
-              label: isArabic ? "الملف" : "Profile",
-            ),
+      backgroundColor: const Color(0xFFF6F8FB),
+      body: SafeArea(
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            _buildHome(context, authProvider, isArabic),
+            const ChatbotScreen(),
+            const RecordsScreen(),
+            ProfileScreen(onLanguageChanged: widget.onLanguageChanged),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        selectedItemColor: Colors.teal,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: isArabic ? "الرئيسية" : "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.chat_bubble),
+            label: isArabic ? "المحادثة" : "Chatbot",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.folder),
+            label: isArabic ? "السجلات" : "Records",
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
+            label: isArabic ? "الملف" : "Profile",
+          ),
+        ],
+      ),
     );
   }
 
@@ -379,301 +455,293 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
     }
 
     return Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  textDirection: isArabic
-                      ? TextDirection.rtl
-                      : TextDirection.ltr,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// LOGO
-                    Image.asset(
-                      'assets/images/logo.png',
-                      width: 80,
-                      height: 80,
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// LOGO
+                  Image.asset('assets/images/logo.png', width: 80, height: 80),
+
+                  const SizedBox(width: 16),
+
+                  /// NAME + GREETING
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isArabic ? "مرحباً بعودتك،" : "Welcome back,",
+                          textAlign: TextAlign.start,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          authProvider.userName ?? "User",
+                          textAlign: TextAlign.start,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
 
-                    const SizedBox(width: 16),
+                  const SizedBox(width: 12),
 
-                    /// NAME + GREETING
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  /// NOTIFICATION BUTTON
+                  StreamBuilder<int>(
+                    stream: NotificationService().unreadCountStream(
+                      authProvider.userId ?? '',
+                    ),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+
+                      return Stack(
                         children: [
-                          Text(
-                            isArabic ? "مرحباً بعودتك،" : "Welcome back,",
-                            textAlign: TextAlign.start,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_none),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const NotificationsScreen(),
+                                ),
+                              );
+                            },
                           ),
 
-                          const SizedBox(height: 4),
-
-                          Text(
-                            authProvider.userName ?? "User",
-                            textAlign: TextAlign.start,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    /// NOTIFICATION BUTTON
-                    StreamBuilder<int>(
-                      stream: NotificationService().unreadCountStream(
-                        authProvider.userId ?? '',
-                      ),
-                      builder: (context, snapshot) {
-                        final count = snapshot.data ?? 0;
-
-                        return Stack(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.notifications_none),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const NotificationsScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            if (count > 0)
-                              PositionedDirectional(
-                                top: 5,
-                                end: 5,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '$count',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                    ),
+                          if (count > 0)
+                            PositionedDirectional(
+                              top: 5,
+                              end: 5,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
                                   ),
                                 ),
                               ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    /// LANGUAGE TOGGLE
-                    IconButton(
-                      icon: const Icon(Icons.language),
-                      tooltip: isArabic ? 'تغيير اللغة' : 'Change language',
-                      onPressed: () => _showLanguageSheet(context, isArabic),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // Live queue status — driven by the patient's own queue doc (the only one
-                // Firestore rules let them read). currentPosition is fanned out by staff.
-                _buildQueueStatusCard(context, authProvider, isArabic),
-
-                const SizedBox(height: 8),
-
-                Align(
-                  alignment: isArabic
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Text(
-                    isArabic ? "الإجراءات السريعة" : "Quick Actions",
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                _actionRow(
-                  _quickActionCard(
-                    icon: Icons.medical_services_outlined,
-                    iconColor: Colors.teal,
-                    title: isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
-                    subtitle: isArabic
-                        ? "افحص حالتك من المنزل"
-                        : "Check from home",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const TriagePathScreen(),
-                        ),
+                            ),
+                        ],
                       );
                     },
                   ),
 
-                  _quickActionCard(
-                    icon: Icons.location_on_outlined,
-                    iconColor: Colors.blue,
-                    title: isArabic ? "لقد وصلت" : "I Have Arrived",
-                    subtitle: isArabic ? "تجنب الانتظار" : "Skip the queue",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ArrivalCheckInScreen(),
-                        ),
-                      );
-                    },
+                  /// LANGUAGE TOGGLE
+                  IconButton(
+                    icon: const Icon(Icons.language),
+                    tooltip: isArabic ? 'تغيير اللغة' : 'Change language',
+                    onPressed: () => _showLanguageSheet(context, isArabic),
                   ),
-                ),
+                ],
+              ),
 
-                const SizedBox(height: 14),
+              const SizedBox(height: 20),
 
-                _actionRow(
-                  _quickActionCard(
-                    icon: Icons.event_available,
-                    iconColor: Colors.orange,
-                    title: isArabic ? "حجز موعد" : "Book Appointment",
-                    subtitle: isArabic ? "حدد موعد زيارة" : "Schedule a visit",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const BookAppointmentScreen(),
-                        ),
-                      );
-                    },
-                  ),
+              // Live queue status — driven by the patient's own queue doc (the only one
+              // Firestore rules let them read). currentPosition is fanned out by staff.
+              _buildQueueStatusCard(context, authProvider, isArabic),
 
-                  _quickActionCard(
-                    icon: Icons.video_call_outlined,
-                    iconColor: Colors.indigo,
-                    title: isArabic ? "استشارة عن بعد" : "Consult Online",
-                    subtitle: isArabic ? "تحدث مع طبيب" : "Talk to a doctor",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const OnlineConsultationScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+              const SizedBox(height: 8),
 
-                const SizedBox(height: 14),
-
-                _actionRow(
-                  _quickActionCard(
-                    icon: Icons.medication_outlined,
-                    iconColor: Colors.purple,
-                    title: isArabic ? "متتبع الأدوية" : "Medication Tracker",
-                    subtitle: isArabic
-                        ? "عرض الوصفات الطبية"
-                        : "View prescriptions",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const MedicationTrackerScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _quickActionCard(
-                    icon: Icons.payment_outlined,
-                    iconColor: Colors.green,
-                    title: isArabic ? "بوابة الدفع" : "Payment Portal",
-                    subtitle: isArabic
-                        ? "عرض ودفع الفواتير"
-                        : "View & pay bills",
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isArabic
-                                ? "بوابة الدفع قريباً"
-                                : "Payment portal coming soon",
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                Text(
-                  isArabic ? "كيف يعمل التطبيق" : "How It Works",
+              Align(
+                alignment: isArabic
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Text(
+                  isArabic ? "الإجراءات السريعة" : "Quick Actions",
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
-                  textAlign: isArabic ? TextAlign.right : TextAlign.left,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              _actionRow(
+                _quickActionCard(
+                  icon: Icons.medical_services_outlined,
+                  iconColor: Colors.teal,
+                  title: isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
+                  subtitle: isArabic
+                      ? "افحص حالتك من المنزل"
+                      : "Check from home",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TriagePathScreen(),
+                      ),
+                    );
+                  },
                 ),
 
-                const SizedBox(height: 16),
+                _quickActionCard(
+                  icon: Icons.location_on_outlined,
+                  iconColor: Colors.blue,
+                  title: isArabic ? "لقد وصلت" : "I Have Arrived",
+                  subtitle: isArabic ? "تجنب الانتظار" : "Skip the queue",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ArrivalCheckInScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
 
-                _howItWorksItem(
-                  "1",
-                  isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
-                  isArabic ? "صف حالتك الصحية" : "Describe how you're feeling",
-                  Icons.edit,
+              const SizedBox(height: 14),
+
+              _actionRow(
+                _quickActionCard(
+                  icon: Icons.event_available,
+                  iconColor: Colors.orange,
+                  title: isArabic ? "حجز موعد" : "Book Appointment",
+                  subtitle: isArabic ? "حدد موعد زيارة" : "Schedule a visit",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BookAppointmentScreen(),
+                      ),
+                    );
+                  },
                 ),
-                _howItWorksItem(
-                  "2",
-                  isArabic ? "الحصول على التقييم" : "Get Assessed",
-                  isArabic ? "تقييم درجة الخطورة" : "Severity assessment",
-                  Icons.analytics,
+
+                _quickActionCard(
+                  icon: Icons.video_call_outlined,
+                  iconColor: Colors.indigo,
+                  title: isArabic ? "استشارة عن بعد" : "Consult Online",
+                  subtitle: isArabic ? "تحدث مع طبيب" : "Talk to a doctor",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OnlineConsultationScreen(),
+                      ),
+                    );
+                  },
                 ),
-                _howItWorksItem(
-                  "3",
-                  isArabic ? "الوصول وتسجيل الدخول" : "Arrive & Check In",
-                  isArabic ? "تجنب الانتظار في الطابور" : "Skip the queue",
-                  Icons.location_on,
+              ),
+
+              const SizedBox(height: 14),
+
+              _actionRow(
+                _quickActionCard(
+                  icon: Icons.medication_outlined,
+                  iconColor: Colors.purple,
+                  title: isArabic ? "متتبع الأدوية" : "Medication Tracker",
+                  subtitle: isArabic
+                      ? "عرض الوصفات الطبية"
+                      : "View prescriptions",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MedicationTrackerScreen(),
+                      ),
+                    );
+                  },
                 ),
-                _howItWorksItem(
-                  "4",
-                  isArabic ? "اتبع مسارك" : "Follow Your Path",
-                  isArabic ? "رعاية خطوة بخطوة" : "Step-by-step care",
-                  Icons.timeline,
+
+                _quickActionCard(
+                  icon: Icons.payment_outlined,
+                  iconColor: Colors.green,
+                  title: isArabic ? "بوابة الدفع" : "Payment Portal",
+                  subtitle: isArabic ? "عرض ودفع الفواتير" : "View & pay bills",
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isArabic
+                              ? "بوابة الدفع قريباً"
+                              : "Payment portal coming soon",
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 30),
+
+              Text(
+                isArabic ? "كيف يعمل التطبيق" : "How It Works",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: isArabic ? TextAlign.right : TextAlign.left,
+              ),
+
+              const SizedBox(height: 16),
+
+              _howItWorksItem(
+                "1",
+                isArabic ? "الإبلاغ عن الأعراض" : "Report Symptoms",
+                isArabic ? "صف حالتك الصحية" : "Describe how you're feeling",
+                Icons.edit,
+              ),
+              _howItWorksItem(
+                "2",
+                isArabic ? "الحصول على التقييم" : "Get Assessed",
+                isArabic ? "تقييم درجة الخطورة" : "Severity assessment",
+                Icons.analytics,
+              ),
+              _howItWorksItem(
+                "3",
+                isArabic ? "الوصول وتسجيل الدخول" : "Arrive & Check In",
+                isArabic ? "تجنب الانتظار في الطابور" : "Skip the queue",
+                Icons.location_on,
+              ),
+              _howItWorksItem(
+                "4",
+                isArabic ? "اتبع مسارك" : "Follow Your Path",
+                isArabic ? "رعاية خطوة بخطوة" : "Step-by-step care",
+                Icons.timeline,
+              ),
+            ],
           ),
+        ),
 
-          // ── Live queue banner ──────────────────────────────────────────────
-          // Slides in from the top when another patient's finalization pushes
-          // this patient's position up. Auto-dismisses after 6 seconds.
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-            top: _bannerVisible ? 0 : -100,
-            left: 0,
-            right: 0,
-            child: _QueueBanner(
-              message: _bannerMessage ?? '',
-              onDismiss: _dismissBanner,
-              isArabic: isArabic,
-            ),
+        // ── Live queue banner ──────────────────────────────────────────────
+        // Slides in from the top when another patient's finalization pushes
+        // this patient's position up. Auto-dismisses after 6 seconds.
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          top: _bannerVisible ? 0 : -100,
+          left: 0,
+          right: 0,
+          child: _QueueBanner(
+            message: _bannerMessage ?? '',
+            onDismiss: _dismissBanner,
+            isArabic: isArabic,
           ),
-        ],
+        ),
+      ],
     );
   }
 
@@ -703,8 +771,11 @@ class _PatientHubScreenState extends State<PatientHubScreen> {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const SizedBox.shrink();
         }
-        final data = snapshot.data!.docs.first.data();
+        final doc = snapshot.data!.docs.first;
+        final data = doc.data();
         return QueueStatusCard(
+          // Key by doc id so the handoff ✕-dismiss state resets per visit.
+          key: ValueKey(doc.id),
           data: data,
           isArabic: isArabic,
           onCheckIn: () {
@@ -868,44 +939,44 @@ class _QueueBanner extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.teal.shade700,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.notifications_active,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade700,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.notifications_active,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              GestureDetector(
-                onTap: onDismiss,
-                child: const Icon(Icons.close, color: Colors.white70, size: 18),
-              ),
-            ],
-          ),
+            ),
+            GestureDetector(
+              onTap: onDismiss,
+              child: const Icon(Icons.close, color: Colors.white70, size: 18),
+            ),
+          ],
         ),
+      ),
     );
   }
 }
