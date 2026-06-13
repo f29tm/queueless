@@ -73,9 +73,7 @@ class AuthProvider with ChangeNotifier {
       }
 
       await currentUser!.sendEmailVerification();
-
       await _auth.signOut();
-
       currentUser = null;
       userRole = null;
       userName = null;
@@ -133,9 +131,7 @@ class AuthProvider with ChangeNotifier {
       if (!lookupDoc.exists) {
         return "Staff ID not found.";
       }
-
       final email = lookupDoc.data()?["email"];
-
       UserCredential cred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -180,7 +176,9 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ✅ RESEND EMAIL
+
   Future<void> resendEmailVerification() async {
+
     if (currentUser != null && !currentUser!.emailVerified) {
       await currentUser!.sendEmailVerification();
     }

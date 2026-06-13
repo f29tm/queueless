@@ -473,7 +473,10 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
       setState(() => _isListening = false);
     }
 
-    final description = _descriptionController.text.trim();
+    final description = _descriptionController.text
+        .trim()
+        .replaceAll(RegExp(r'[<>{}\[\]\\]'), '')
+        .replaceAll(RegExp(r'\s{3,}'), '  ');
 
     if (_selectedSymptoms.isEmpty && description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1005,6 +1008,7 @@ class _SymptomAssessmentScreenState extends State<SymptomAssessmentScreen> {
         TextField(
           controller: _descriptionController,
           maxLines: 6,
+          maxLength: 500,
           textAlign: isArabic ? TextAlign.right : TextAlign.left,
           onChanged: (_) => setState(() {
             if (_voiceUsed && !_isListening) _transcriptEdited = true;

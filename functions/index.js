@@ -239,3 +239,6 @@ exports.getDecryptedData = onCall({ secrets: [ENCRYPTION_KEY] }, async (req) => 
 
   return result;
 });
+
+
+

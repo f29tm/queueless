@@ -1747,6 +1747,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           _sbpController,
                           "SBP (mmHg)",
                           "e.g. 120",
+                          min: 40,
+                          max: 300,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1755,6 +1757,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           _dbpController,
                           "DBP (mmHg)",
                           "e.g. 80",
+                          min: 20,
+                          max: 200,
                         ),
                       ),
                     ],
@@ -1767,6 +1771,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           _hrController,
                           "Heart Rate (bpm)",
                           "e.g. 72",
+                          min: 20,
+                          max: 300,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1775,6 +1781,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           _rrController,
                           "Resp. Rate (/min)",
                           "e.g. 16",
+                          min: 4,
+                          max: 60,
                         ),
                       ),
                     ],
@@ -1788,6 +1796,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           "Body Temp (°C)",
                           "e.g. 37.0",
                           isDecimal: true,
+                          min: 32,
+                          max: 43,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1797,6 +1807,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
                           "O2 Sat (%)",
                           "e.g. 98",
                           isDecimal: true,
+                          min: 50,
+                          max: 100,
                         ),
                       ),
                     ],
@@ -2089,6 +2101,8 @@ class _VitalsSheetState extends State<_VitalsSheet> {
     String label,
     String hint, {
     bool isDecimal = false,
+    required double min,
+    required double max,
   }) {
     return TextFormField(
       controller: controller,
@@ -2104,7 +2118,10 @@ class _VitalsSheetState extends State<_VitalsSheet> {
       ),
       validator: (v) {
         if (v == null || v.trim().isEmpty) return 'Required';
-        if (double.tryParse(v.trim()) == null) return 'Invalid';
+        final val = double.tryParse(v.trim());
+        if (val == null) return 'Must be a number';
+        String fmt(double n) => n == n.truncateToDouble() ? '${n.toInt()}' : '$n';
+        if (val < min || val > max) return 'Valid range: ${fmt(min)}–${fmt(max)}';
         return null;
       },
     );
