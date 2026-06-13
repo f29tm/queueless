@@ -47,8 +47,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
                 Text(
                   isArabic
-                      ? "مواعيدك واستشاراتك"
-                      : "Your appointments and consultations",
+                      ? "مواعيدك واستشاراتك وزيارات الطوارئ"
+                      : "Your appointments, consultations, and ED visits",
                   style: const TextStyle(
                     fontSize: 15,
                     color: Color(0xFF6B7280),
