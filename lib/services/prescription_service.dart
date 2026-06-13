@@ -211,6 +211,16 @@ class PrescriptionService {
         'dosageInstructions': dosageInstructions,
       },
     );
+
+    FirebaseFirestore.instance.collection('audit_logs').add({
+      'action': 'prescription_created',
+      'prescriptionId': ref.id,
+      'patientId': patientId,
+      'patientName': patientName,
+      'prescribedByUid': uid,
+      'prescribedByName': doctorName,
+      'timestamp': FieldValue.serverTimestamp(),
+    }).ignore();
   }
 
   Future<void> markDoseTaken(String prescriptionId) async {

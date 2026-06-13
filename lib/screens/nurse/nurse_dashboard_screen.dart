@@ -1184,6 +1184,20 @@ class _VitalsSheetState extends State<_VitalsSheet> {
 
       await batch.commit();
 
+      FirebaseFirestore.instance.collection('audit_logs').add({
+        'action': 'queue_status_changed',
+        'queueDocId': widget.doc.id,
+        'patientId': patientId,
+        'patientName': patientName,
+        'oldStatus': 'waiting_nurse',
+        'newStatus': 'waiting_doctor',
+        'oldTriageLevel': oldTriageLevel,
+        'finalTriageLevel': finalTriageLevel,
+        'nurseOverride': nurseOverride,
+        'changedByUid': FirebaseAuth.instance.currentUser?.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      }).ignore();
+
       // Encrypt and persist vital signs to the queue document.
       await EncryptionService.saveVitalsData(
         docId: widget.doc.id,

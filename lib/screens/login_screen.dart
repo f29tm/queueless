@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -172,6 +173,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                   if (error.contains('user-not-found') ||
                                       error.contains('invalid-credential') ||
                                       error.contains('wrong-password')) {
+                                    FirebaseFirestore.instance
+                                        .collection('audit_logs')
+                                        .add({
+                                      'action': 'failed_login',
+                                      'email': emailController.text.trim(),
+                                      'reason': error,
+                                      'timestamp':
+                                          FieldValue.serverTimestamp(),
+                                    }).ignore();
                                     setState(() {
                                       _emailFieldError = null;
                                       _passwordFieldError =

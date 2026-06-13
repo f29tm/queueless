@@ -15,6 +15,19 @@ class _RecordsScreenState extends State<RecordsScreen> {
   int _tabIndex = 0; // 0=appointments 1=consultations 2=ed visits
 
   @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance.collection('audit_logs').add({
+        'action': 'record_viewed',
+        'patientId': uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      }).ignore();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
