@@ -442,10 +442,10 @@ class _DoctorPatientsPageState extends State<DoctorPatientsPage> {
                       final queueDocId = docs[index].id;
                       final completedAt =
                           data['triageCompletedAt'] as Timestamp?;
-                      final symptomList = (data['symptoms'] as List?)
-                              ?.map((s) => s.toString())
-                              .toList() ??
-                          [];
+                      final rawSymptoms = data['symptoms'];
+                      final symptomList = rawSymptoms is List
+                          ? rawSymptoms.map((s) => s.toString()).toList()
+                          : <String>[];
                       final symptoms = symptomList.join(', ');
                       final nurseOverride =
                           data['nurseOverride'] as bool? ?? false;
